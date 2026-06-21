@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Карта героя (облако)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Runic&display=swap');
+:root{
+  --bg:#E2EAF1; --surf:#F5F8FB; --surf2:#E8F0F6; --inset:#DCE6EF;
+  --warm:#F3E9D6; --warm2:#ECE0C7; --warm-inset:#E7D9BB;
+  --line:#C7D5E1; --line-soft:#D7E1EA; --line-warm:#D9C49B;
+  --ink:#1B2733; --muted:#566779; --faint:#8B99A6;
+  --steel:#2F6090; --steel-soft:#5C84AC; --bronze:#9A6B22; --bronze-deep:#6E4A14; --ember:#BC7E2A; --red:#A8482F;
+  --disp:'Spectral',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace; --rune:'Noto Sans Runic','Segoe UI Historic',serif;
+}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.5; -webkit-font-smoothing:antialiased;}
+input,textarea{font-family:inherit; color:inherit;}
+button{font-family:inherit; cursor:pointer;}
+.stele{max-width:1120px; margin:0 auto; padding:28px 22px 60px;}
+.sec-title{font-family:var(--disp); font-weight:600; font-size:19px; display:flex; align-items:center; gap:10px; color:var(--ink);}
+.rune{font-family:var(--rune); line-height:1;}
+.card{background:var(--surf); border:1px solid var(--line); border-radius:11px; padding:18px;}
+.divider{height:1px; background:var(--line-soft); margin:13px 0;}
+.help{font-size:12px; color:var(--faint); margin:4px 0 2px; line-height:1.6;}
+.top{display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;}
+.wordmark{font-family:var(--disp); font-weight:700; font-size:15px; letter-spacing:.16em; text-transform:uppercase; display:flex; align-items:center; gap:10px;}
+.wordmark .rune{color:var(--bronze); font-size:18px;}
+.tools{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+.mode{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:5px 11px; background:var(--surf);}
+.mode.cloud{color:var(--steel); border-color:var(--steel-soft);}
+.mode.local{color:var(--bronze); border-color:var(--line-warm);}
+.saved{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--steel); display:flex; align-items:center; gap:5px; opacity:0; transition:opacity .3s;}
+.saved.on{opacity:1;}
+.iobtn{background:var(--surf); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:8px 13px; font-size:12px; letter-spacing:.04em; display:inline-flex; align-items:center; gap:7px;}
+.iobtn:hover{border-color:var(--bronze); color:var(--bronze);}
+.iobtn .rune{font-size:14px;}
+.idrow{display:flex; gap:18px; align-items:stretch; margin:20px 0; flex-wrap:wrap;}
+.avatar{width:128px; height:178px; flex:none; border:1px solid var(--line); border-radius:11px; background:var(--surf2); overflow:hidden; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+.avatar img{width:100%; height:100%; object-fit:cover;}
+.avatar .ph{display:flex; flex-direction:column; align-items:center; gap:6px; color:var(--faint); font-size:11px; letter-spacing:.1em; text-transform:uppercase;}
+.avatar .ph .rune{font-size:34px; color:var(--steel-soft);}
+.idfields{flex:1; min-width:260px; display:flex; flex-direction:column; gap:11px;}
+.field label{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); font-weight:600; display:block; margin-bottom:4px;}
+.t-input{background:var(--surf); border:1px solid var(--line); border-bottom:2px solid var(--steel-soft); border-radius:8px 8px 4px 4px; padding:10px 12px; font-size:15px; outline:none; width:100%;}
+.t-input:focus{border-bottom-color:var(--steel);}
+.t-input.big{font-family:var(--disp); font-size:24px;}
+.row2{display:flex; gap:12px; flex-wrap:wrap;}
+.ta{background:var(--surf); border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:14px; outline:none; width:100%; resize:vertical; min-height:54px; line-height:1.55;}
+.ta:focus{border-color:var(--steel-soft);}
+.arc{font-family:var(--disp); font-size:15px; color:var(--muted); display:flex; align-items:baseline; gap:14px;}
+.arc b{color:var(--ember); font-weight:600;}
+.arc .sh{font-family:var(--mono); font-size:12px; color:var(--muted);}
+.adv{display:flex; gap:20px; align-items:center; flex-wrap:wrap;}
+.adv .blk{display:flex; align-items:center; gap:9px;}
+.adv .k{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); font-weight:600;}
+.adv .rk{font-family:var(--disp); font-size:16px; color:var(--steel); font-weight:600;}
+.adv .rk-arch{font-family:var(--disp); font-size:15px; color:var(--bronze); font-weight:500;}
+.stepper{display:flex; align-items:center; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--surf);}
+.stepper button{background:var(--surf2); border:none; width:30px; height:30px; font-size:17px; color:var(--ink); line-height:1;}
+.stepper button:hover{background:var(--inset);}
+.stepper .num{min-width:36px; text-align:center; font-family:var(--mono); font-size:15px; font-weight:700;}
+.grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:18px;}
+.trait-row{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:9px 0;}
+.trait-row + .trait-row{border-top:1px solid var(--line-soft);}
+.trait-name{font-size:15px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-top:5px;}
+.attr-chip{font-family:var(--mono); font-size:10px; letter-spacing:.08em; border:1px solid; border-radius:5px; padding:1px 5px; font-weight:500;}
+.val-chip{font-family:var(--mono); font-size:11px; border:1px solid var(--line); border-radius:5px; padding:1px 6px; color:var(--steel-soft);}
+.val-chip.divine{color:var(--bronze); border-color:var(--line-warm); background:#FBF4E6;}
+.tip{border-bottom:1px dotted var(--faint); cursor:help; position:relative;}
+.tip:hover::after{content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 7px); max-width:230px; width:max-content; background:var(--ink); color:#F3F6FA; font-size:12px; line-height:1.4; padding:7px 10px; border-radius:7px; z-index:30; box-shadow:0 6px 18px -6px rgba(20,30,40,.5);}
+.tip:hover::before{content:''; position:absolute; left:12px; bottom:calc(100% + 2px); border:5px solid transparent; border-top-color:var(--ink); z-index:30;}
+.track-wrap{display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex:none;}
+.track{display:flex; gap:4px; align-items:center;}
+.pip{min-width:33px; text-align:center; padding:6px 4px; border:1px solid var(--line); background:var(--surf); color:var(--muted); border-radius:6px; font-family:var(--mono); font-size:13px; transition:.12s;}
+.pip:hover{border-color:var(--steel-soft); color:var(--ink);}
+.pip.on{background:var(--steel); border-color:var(--steel); color:#fff; font-weight:700;}
+.pip.divine{border:1px solid var(--line-warm); color:var(--bronze); background:var(--surf); min-width:30px;}
+.pip.divine:hover{border-color:var(--bronze);}
+.pip.divine.on{background:var(--bronze); border-color:var(--bronze-deep); color:#fff;}
+.pip.untr{font-size:15px;}
+.divine-track{display:flex; gap:4px; align-items:center; animation:reveal .18s ease;}
+.divine-track .dcap{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--bronze); font-weight:600; display:flex; align-items:center; gap:4px;}
+.divine-track .dcap .rune{font-size:13px;}
+@keyframes reveal{from{opacity:0; transform:translateY(-3px);} to{opacity:1; transform:none;}}
+.derived{display:grid; grid-template-columns:repeat(auto-fit,minmax(86px,1fr)); gap:10px; margin-top:14px;}
+.stat{background:var(--surf2); border:1px solid var(--line-soft); border-radius:9px; padding:11px 8px; text-align:center;}
+.stat .v{font-family:var(--mono); font-size:23px; font-weight:700; color:var(--steel);}
+.stat .k{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-top:3px;}
+.auto-note{font-size:11px; color:var(--faint); margin-top:9px;}
+.skgroup-label{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); font-weight:600; margin:14px 0 2px;}
+.skgroup-label:first-of-type{margin-top:2px;}
+.locked{display:flex; flex-wrap:wrap; gap:7px; margin-top:8px;}
+.lock-chip{display:flex; align-items:center; gap:6px; background:var(--surf2); border:1px dashed var(--line); border-radius:7px; padding:6px 9px; font-size:13px; color:var(--muted);}
+.lock-chip .rune{color:var(--red); font-size:13px;}
+.lock-chip .lh{font-size:11px; color:var(--faint);}
+.list{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
+.empty{color:var(--faint); font-size:13px;}
+.lrow{display:flex; align-items:center; gap:9px; background:var(--surf2); border:1px solid var(--line-soft); border-radius:7px; padding:8px 11px;}
+.lrow .lb{color:var(--bronze); font-size:14px;}
+.lrow .lt{flex:1; font-size:14px;}
+.lrow .lx{background:none; border:none; color:var(--faint); font-size:16px; line-height:1; padding:0;}
+.lrow .lx:hover{color:var(--red);}
+.addrow{display:flex; gap:8px; margin-top:9px;}
+.addrow .t-input{flex:1; padding:8px 11px; font-size:14px; border-bottom-width:1px;}
+.addbtn{background:var(--surf2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:8px 14px; font-size:15px;}
+.addbtn:hover{border-color:var(--steel-soft);}
+.divine{background:linear-gradient(180deg,var(--warm),var(--surf)); border:1px solid var(--line-warm); border-radius:12px; padding:22px; margin-top:18px;}
+.divine .sec-title .rune{color:var(--bronze);}
+.shard-cap{font-size:12px; color:var(--muted);}
+.shard-cap b{color:var(--ember); font-family:var(--mono);}
+.shards{display:flex; gap:11px; flex-wrap:wrap; margin:14px 0 6px;}
+.niche{width:56px; height:70px; border:1px solid var(--line-warm); border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:var(--warm-inset); color:#A99970; transition:.18s;}
+.niche .rune{font-size:25px;}
+.niche .n{font-family:var(--mono); font-size:10px;}
+.niche:hover{border-color:var(--bronze);}
+.niche.lit{background:radial-gradient(circle at 50% 36%, #F6CE85, #E3A848); border-color:var(--bronze-deep); color:#4A3208; box-shadow:0 2px 12px -4px rgba(188,126,42,.6);}
+.dz-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(258px,1fr)); gap:16px; margin-top:18px;}
+.dz-card{background:var(--warm2); border:1px solid var(--line-warm); border-radius:10px; padding:16px;}
+.dz-card h4{font-family:var(--disp); font-weight:600; font-size:15px; margin:0 0 10px;}
+.dz-card .t-input{background:#FBF6EC; border-color:var(--line-warm); border-bottom-color:var(--bronze);}
+.fork-opt{border:1px solid var(--line-warm); border-radius:8px; padding:11px 12px; margin-top:9px; background:#FBF6EC;}
+.fork-opt .boon{display:inline-block; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--bronze-deep); border:1px solid var(--line-warm); border-radius:999px; padding:3px 9px; margin-bottom:7px;}
+.fork-opt .eff{font-size:13px; color:var(--faint); font-style:italic;}
+.sealed{display:flex; align-items:center; gap:14px;}
+.seal{width:52px; height:52px; flex:none; border-radius:50%; border:2px solid var(--bronze-deep); display:flex; align-items:center; justify-content:center; color:var(--bronze-deep); font-family:var(--disp); font-size:26px; background:#FBF6EC;}
+.sealed .txt{font-size:13px; color:var(--muted);}
+.howto{background:var(--surf); border:1px solid var(--line); border-radius:11px; padding:18px; margin-top:18px;}
+.howto .cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:22px; margin-top:8px;}
+.howto h5{font-family:var(--disp); font-weight:600; font-size:15px; margin:0 0 8px; display:flex; align-items:center; gap:8px;}
+.howto .mortal h5{color:var(--steel);}
+.howto .div-h h5{color:var(--bronze);}
+.howto .lead{font-size:13px; color:var(--ink); margin:0 0 8px;}
+.howto ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px;}
+.howto li{font-size:13px; color:var(--muted); line-height:1.5; padding-left:16px; position:relative;}
+.howto li::before{content:'•'; position:absolute; left:3px; color:var(--bronze);}
+.howto .mortal li::before{color:var(--steel);}
+.howto li b{color:var(--ink); font-weight:600;}
+.howto .rune{font-size:15px;}
+.hints{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:18px;}
+.hint{background:var(--surf); border:1px solid var(--line); border-left:3px solid var(--steel-soft); border-radius:0 9px 9px 0; padding:12px 14px;}
+.hint .ht{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); font-weight:600; display:flex; align-items:center; gap:8px;}
+.hint .hb{font-size:13px; color:var(--muted); margin-top:5px;}
+.hint.joker{border-left-color:var(--bronze);}
+.hint.joker .ht{color:var(--bronze);}
+.hint .rune{font-size:14px;}
+.footnote{font-size:11px; color:var(--faint); margin-top:22px; line-height:1.7;}
+/* join gate */
+.gate-wrap{display:flex; min-height:80vh; align-items:center; justify-content:center; padding:20px;}
+.gate{width:100%; max-width:420px; background:var(--surf); border:1px solid var(--line); border-radius:14px; padding:30px;}
+.gate .wordmark{justify-content:center; margin-bottom:6px;}
+.gate h2{font-family:var(--disp); font-weight:600; font-size:22px; text-align:center; margin:6px 0 4px;}
+.gate .sub{text-align:center; color:var(--muted); font-size:13px; margin-bottom:22px;}
+.gate .field{margin-bottom:16px;}
+.gate .go{width:100%; background:var(--bronze); color:#fff; border:none; border-radius:9px; padding:13px; font-size:15px; font-weight:600; letter-spacing:.03em; margin-top:6px;}
+.gate .go:hover{background:var(--bronze-deep);}
+.gate .gerr{color:var(--red); font-size:13px; margin-top:12px; text-align:center;}
+.gate .gnote{color:var(--faint); font-size:12px; margin-top:16px; text-align:center; line-height:1.6;}
+@media print{ .no-print{display:none !important;} body{background:#fff;} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+/* ============================================================
+   ВСТАВЬ СЮДА свой конфиг из Firebase (Project settings → </>).
+   Пока тут заглушки — карта работает локально (без облака).
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCSb7M5IbOql61HIqOUxe3ct4VqdjkhLyE",
+  authDomain: "ragnarau-80866.firebaseapp.com",
+  projectId: "ragnarau-80866",
+  storageBucket: "ragnarau-80866.firebasestorage.app",
+  messagingSenderId: "727752765165",
+  appId: "1:727752765165:web:8c625b7675f022a1b026e4"
+};
+
+const HAS_FB = !!(window.firebase && firebaseConfig.apiKey && firebaseConfig.apiKey !== "ВСТАВЬ_СЮДА");
+let db = null, auth = null;
+if (HAS_FB) {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore(); auth = firebase.auth();
+  } catch (e) { console.error("Firebase init:", e); }
+}
+
+const KEY = "ragnarok-sheet-v1";
+const DICE = [4, 6, 8, 10, 12];
+const fmt = (die, plus) => (plus > 0 ? `d12+${plus}` : `d${die}`);
+const halfDie = (d) => Math.floor(d / 2);
+const ATTRS = [
+  { key: "agility", label: "Ловкость" }, { key: "smarts", label: "Смекалка" }, { key: "spirit", label: "Дух" },
+  { key: "strength", label: "Сила" }, { key: "vigor", label: "Выносливость" },
+];
+const ATTR_TINT = { "ЛОВ": "#2F6090", "СМЕ": "#3E7E63", "ДУХ": "#9A6B22" };
+const ARCH = { agility: "Охотник", smarts: "Рунознатец", spirit: "Скальд", strength: "Воин", vigor: "Исполин" };
+const CORE = [
+  { n: "Атлетика", a: "ЛОВ", w: "бег, прыжки, лазание, плавание, уворот" },
+  { n: "Общие знания", a: "СМЕ", w: "то, что знает любой; быт и мир вокруг" },
+  { n: "Внимание", a: "СМЕ", w: "заметить, услышать, учуять детали" },
+  { n: "Убеждение", a: "ДУХ", w: "уговорить, расположить к себе, торг" },
+  { n: "Скрытность", a: "ЛОВ", w: "прятаться и красться тихо" },
+];
+const OPEN = [
+  { n: "Вождение", a: "ЛОВ", w: "машина, мото, снегоход" },
+  { n: "Электроника", a: "СМЕ", w: "гаджеты, сети, камеры" },
+  { n: "Взлом", a: "СМЕ", w: "компьютеры, коды, цифровые замки" },
+  { n: "Исследование", a: "СМЕ", w: "копать инфу: архивы, поиск, базы" },
+  { n: "Лечение", a: "СМЕ", w: "первая помощь, раны, стабилизация" },
+  { n: "Ремонт", a: "СМЕ", w: "чинить технику и механизмы" },
+  { n: "Запугивание", a: "ДУХ", w: "давить страхом, угрозой, напором" },
+  { n: "Подначка", a: "СМЕ", w: "подколоть, вывести из себя" },
+  { n: "Выступление", a: "ДУХ", w: "петь, играть, держать сцену" },
+  { n: "Выживание", a: "СМЕ", w: "лес, лыжи, холод, найти путь" },
+  { n: "Лодки", a: "ЛОВ", w: "управлять лодкой, катером" },
+  { n: "Верховая езда", a: "ЛОВ", w: "верхом; править упряжкой" },
+  { n: "Стрельба", a: "ЛОВ", w: "огнестрел, охотничье ружьё" },
+  { n: "Рукопашный", a: "ЛОВ", w: "ближний бой, самозащита" },
+  { n: "Наука", a: "СМЕ", w: "физика, химия, биология" },
+  { n: "Языки", a: "СМЕ", w: "иностранные языки" },
+  { n: "Азарт", a: "СМЕ", w: "карты, кости, ставки, блеф" },
+  { n: "Ловкость рук", a: "ЛОВ", w: "карманы, замки, фокусы" },
+  { n: "Оккультизм", a: "СМЕ", w: "мифы, фольклор, старые знаки" },
+];
+const LOCKED = [
+  { name: "Сейд", hint: "чары судьбы" }, { name: "Гальдр", hint: "руны-заклятья" },
+  { name: "Провидение", hint: "нити судьбы" }, { name: "Боевое мастерство", hint: "воинская выучка" },
+  { name: "Лучное искусство", hint: "мифострелок" }, { name: "Оборот", hint: "звериный облик" },
+  { name: "Власть стихий", hint: "гром/огонь/лёд/море" }, { name: "Зов мёртвых", hint: "власть над мёртвыми" },
+  { name: "Жизнедар", hint: "исцеление, обновление" }, { name: "Всечувствие", hint: "дозор богов" },
+  { name: "Ярость", hint: "берсерк, слом оков" }, { name: "Тропы меж мирами", hint: "хождение по древу" },
+];
+const SHARD_RUNES = ["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ", "ᚺ"];
+const tierOf = (n) => (n >= 16 ? "Бог" : n >= 10 ? "Полубог" : n >= 4 ? "Герой" : "Смертный");
+function dominantArch(attrs) {
+  let best = null, bestv = -1, tie = false;
+  for (const k of Object.keys(ARCH)) {
+    const a = attrs[k], v = a.die + a.plus * 2;
+    if (v > bestv) { bestv = v; best = k; tie = false; } else if (v === bestv) tie = true;
+  }
+  return tie ? null : ARCH[best];
+}
+function makeDefaults() {
+  const skills = {};
+  CORE.forEach((k) => (skills[k.n] = 4));
+  OPEN.forEach((k) => (skills[k.n] = null));
+  return {
+    name: "", concept: "", bio: "", img: null, gear: "", advances: 0,
+    attrs: { agility: { die: 6, plus: 0 }, smarts: { die: 6, plus: 0 }, spirit: { die: 6, plus: 0 }, strength: { die: 6, plus: 0 }, vigor: { die: 6, plus: 0 } },
+    skills, shards: 0, edges: [], hindrances: [], geasa: [], prophecies: [], node: "",
+  };
+}
+function loadLocal() {
+  try { const r = localStorage.getItem(KEY); return r ? { ...makeDefaults(), ...JSON.parse(r) } : null; } catch (e) { return null; }
+}
+
+function App() {
+  const cloud = HAS_FB && !!db;
+  const [joined, setJoined] = useState(!cloud);           // в локальном режиме сразу показываем лист
+  const [campaign, setCampaign] = useState("");
+  const [charId, setCharId] = useState(null);
+  const [data, setData] = useState(() => loadLocal() || makeDefaults());
+  const [saved, setSaved] = useState(false);
+  const skipSave = useRef(true);
+
+  // автосохранение (облако + локальная копия), с дебаунсом
+  useEffect(() => {
+    if (!joined) return;
+    if (skipSave.current) { skipSave.current = false; return; }
+    const t = setTimeout(async () => {
+      try {
+        if (cloud && campaign && charId) {
+          await db.collection("campaigns").doc(campaign).collection("characters").doc(charId).set(data);
+        }
+        try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
+        setSaved(true); setTimeout(() => setSaved(false), 1300);
+      } catch (e) { console.error("Сохранение:", e); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [data, joined, campaign, charId, cloud]);
+
+  const set = (patch) => setData((d) => ({ ...d, ...patch }));
+  const setAttrDie = (k, die) => setData((d) => ({ ...d, attrs: { ...d.attrs, [k]: { die, plus: die === 12 ? d.attrs[k].plus : 0 } } }));
+  const setAttrPlus = (k, p) => setData((d) => ({ ...d, attrs: { ...d.attrs, [k]: { die: 12, plus: d.attrs[k].plus === p ? 0 : p } } }));
+  const setSkill = (k, v) => setData((d) => ({ ...d, skills: { ...d.skills, [k]: v } }));
+
+  async function joinCampaign(code, charName) {
+    try {
+      await auth.signInAnonymously();
+    } catch (e) {
+      throw new Error("Анонимный вход выключен. Ведущей: включи Anonymous в Firebase → Authentication.");
+    }
+    const idKey = "ragnarok-charid-" + code;
+    let id = null;
+    try { id = localStorage.getItem(idKey); } catch (e) {}
+    if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)); try { localStorage.setItem(idKey, id); } catch (e) {} }
+    const ref = db.collection("campaigns").doc(code).collection("characters").doc(id);
+    const snap = await ref.get();
+    let d;
+    if (snap.exists) { d = { ...makeDefaults(), ...snap.data() }; }
+    else { d = { ...makeDefaults(), name: charName || "" }; await ref.set(d); }
+    skipSave.current = true;
+    setCampaign(code); setCharId(id); setData(d); setJoined(true);
+  }
+
+  const { attrs, skills } = data;
+  const fighting = skills["Рукопашный"];
+  const parry = 2 + (fighting ? halfDie(fighting) : 0);
+  const vig = attrs.vigor, str = attrs.strength;
+  const tough = 2 + halfDie(vig.die) + vig.plus;
+  const load = 5 * (str.die + str.plus);
+  const derived = [{ k: "Скорость", v: "6\u2033" }, { k: "Парирование", v: parry }, { k: "Стойкость", v: tough }, { k: "Размер", v: 0 }, { k: "Нагрузка", v: load }];
+  const tier = tierOf(data.advances);
+  const arch = dominantArch(attrs);
+
+  const onImg = (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { const im = new Image(); im.onload = () => { const max = 360, sc = Math.min(1, max / im.width); const c = document.createElement("canvas"); c.width = Math.round(im.width * sc); c.height = Math.round(im.height * sc); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); set({ img: c.toDataURL("image/jpeg", 0.85) }); }; im.src = rd.result; };
+    rd.readAsDataURL(f);
+  };
+  const exportJSON = () => { const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = (data.name ? data.name.replace(/\s+/g, "_") : "герой") + "-карта.json"; a.click(); };
+  const importJSON = (e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { setData({ ...makeDefaults(), ...JSON.parse(rd.result) }); } catch (err) { alert("Не удалось прочитать файл карты."); } }; rd.readAsText(f); e.target.value = ""; };
+  const resetAll = () => { if (confirm("Стереть карту начисто? Сделай сначала Экспорт, если жаль.")) { skipSave.current = false; setData(makeDefaults()); } };
+
+  if (cloud && !joined) return <JoinGate onJoin={joinCampaign} />;
+
+  return (
+    <div className="stele">
+      <div className="top">
+        <div className="wordmark"><span className="rune">ᛈ</span> Рагнарёк-AU</div>
+        <div className="tools no-print">
+          <span className={"saved" + (saved ? " on" : "")}><span className="rune">ᛊ</span> сохранено</span>
+          {cloud ? <span className="mode cloud">облако · {campaign}</span> : <span className="mode local">локально</span>}
+          <button className="iobtn" onClick={exportJSON}><span className="rune">ᛟ</span> Экспорт</button>
+          <label className="iobtn"><span className="rune">ᛟ</span> Импорт<input type="file" accept="application/json" onChange={importJSON} style={{ display: "none" }} /></label>
+          <button className="iobtn" onClick={() => window.print()}><span className="rune">ᛚ</span> Печать</button>
+          <button className="iobtn" onClick={resetAll}>Сброс</button>
+        </div>
+      </div>
+
+      <div className="idrow">
+        <label className="avatar" title="загрузить портрет">
+          {data.img ? <img src={data.img} alt="портрет" /> : <span className="ph"><span className="rune">ᛗ</span>портрет</span>}
+          <input className="no-print" type="file" accept="image/*" onChange={onImg} style={{ display: "none" }} />
+        </label>
+        <div className="idfields">
+          <div className="row2">
+            <div className="field" style={{ flex: 2, minWidth: 200 }}><label>Имя героя</label><input className="t-input big" value={data.name} onChange={(e) => set({ name: e.target.value })} placeholder="кто ты сейчас" /></div>
+            <div className="field" style={{ flex: 1, minWidth: 180 }}>
+              <label>Концепт <span className="tip" data-tip="кто ты в двух словах до пробуждения" style={{ color: "var(--faint)" }}>?</span></label>
+              <input className="t-input" value={data.concept} onChange={(e) => set({ concept: e.target.value })} placeholder="рыбак, студентка-медик…" />
+            </div>
+          </div>
+          <div className="field"><label>Биография · кратко</label><textarea className="ta" value={data.bio} onChange={(e) => set({ bio: e.target.value })} placeholder="откуда, чем жил до того, как миф постучал" /></div>
+          <div className="arc">смертный&nbsp;&rarr;&nbsp;<b>?</b><span className="sh">осколков {data.shards}/9</span></div>
+          <div className="adv no-print">
+            <div className="blk"><span className="k">Ранг</span><span className="rk">{tier}</span>{tier !== "Смертный" && arch && <span className="rk-arch">· {arch}</span>}</div>
+            <div className="blk">
+              <span className="k tip" data-tip="всего получено адвансов — только растёт; ранг не падает">Продвижения</span>
+              <div className="stepper">
+                <button onClick={() => set({ advances: Math.max(0, data.advances - 1) })} aria-label="меньше">&minus;</button>
+                <span className="num">{data.advances}</span>
+                <button onClick={() => set({ advances: data.advances + 1 })} aria-label="больше">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid2">
+        <div className="card">
+          <div className="sec-title"><span className="rune" style={{ color: "var(--steel)" }}>ᚨ</span> Атрибуты</div>
+          <div className="divider" />
+          {ATTRS.map((at) => {
+            const a = attrs[at.key];
+            return (
+              <div className="trait-row" key={at.key}>
+                <div className="trait-name">{at.label}<span className={"val-chip" + (a.plus > 0 ? " divine" : "")}>{fmt(a.die, a.plus)}</span></div>
+                <div className="track-wrap">
+                  <div className="track">{DICE.map((d) => (<button key={d} className={"pip" + (a.die === d && a.plus === 0 ? " on" : "")} onClick={() => setAttrDie(at.key, d)}>d{d}</button>))}</div>
+                  {a.die === 12 && (
+                    <div className="track divine-track">
+                      <span className="dcap"><span className="rune">ᛟ</span> сверх</span>
+                      {[1, 2, 3].map((p) => (<button key={p} className={"pip divine" + (a.plus === p ? " on" : "")} onClick={() => setAttrPlus(at.key, p)} title="слом потолка — дар древа">+{p}</button>))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          <div className="derived">{derived.map((d) => (<div className="stat" key={d.k}><div className="v">{d.v}</div><div className="k">{d.k}</div></div>))}</div>
+          <div className="auto-note">Считается само: Парирование от Рукопашного, Стойкость и Нагрузка — от Выносливости и Силы.</div>
+        </div>
+
+        <div className="card">
+          <div className="sec-title"><span className="rune" style={{ color: "var(--steel)" }}>ᚱ</span> Навыки</div>
+          <div className="divider" />
+          <div className="skgroup-label">Ядро · у всех</div>
+          {CORE.map((k) => <SkillRow key={k.n} sk={k} value={skills[k.n]} core onChange={(v) => setSkill(k.n, v)} />)}
+          <div className="skgroup-label">Доступно поднимать</div>
+          {OPEN.map((k) => <SkillRow key={k.n} sk={k} value={skills[k.n]} onChange={(v) => setSkill(k.n, v)} />)}
+          <div className="skgroup-label">Заблокировано до древа · мифика</div>
+          <div className="locked">{LOCKED.map((l) => (<div className="lock-chip" key={l.name}><span className="rune">ᛉ</span>{l.name}<span className="lh">· {l.hint}</span></div>))}</div>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 18 }}>
+        <div className="sec-title" style={{ fontSize: 16 }}><span className="rune" style={{ color: "var(--steel)" }}>ᛒ</span> Снаряжение</div>
+        <div className="help">Что при тебе: одежда, инструмент, телефон, оружие, машина, всякая всячина.</div>
+        <textarea className="ta" style={{ minHeight: 70 }} value={data.gear} onChange={(e) => set({ gear: e.target.value })} placeholder="перечисли свободно, по строке на вещь или как удобно" />
+      </div>
+
+      <div className="card" style={{ marginTop: 18 }}>
+        <div className="grid2" style={{ gap: 28 }}>
+          <div>
+            <div className="sec-title" style={{ fontSize: 16 }}>Эджи</div>
+            <div className="help">Преимущества — таланты и приёмы сверх кубиков. Берутся за продвижения.</div>
+            <ListField items={data.edges} onChange={(v) => set({ edges: v })} placeholder="добавить эдж" rune="ᚲ" />
+          </div>
+          <div>
+            <div className="sec-title" style={{ fontSize: 16 }}>Хиндрансы</div>
+            <div className="help">Изъяны — слабости и зароки. Берутся на старте, дают очки на создание.</div>
+            <ListField items={data.hindrances} onChange={(v) => set({ hindrances: v })} placeholder="добавить хиндранс" rune="ᚾ" />
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 18 }}>
+        <div className="grid2" style={{ gap: 28 }}>
+          <div>
+            <div className="sec-title" style={{ fontSize: 16 }}><span className="rune" style={{ color: "var(--bronze)" }}>ᛏ</span> Гейсы</div>
+            <div className="help">Зароки и запреты, что связывают тебя. Нарушишь — будет цена.</div>
+            <ListField items={data.geasa} onChange={(v) => set({ geasa: v })} placeholder="добавить гейс" rune="ᛏ" />
+          </div>
+          <div>
+            <div className="sec-title" style={{ fontSize: 16 }}><span className="rune" style={{ color: "var(--bronze)" }}>ᛈ</span> Пророчества</div>
+            <div className="help">Слова судьбы, сказанные о тебе. Сбудутся так или иначе.</div>
+            <ListField items={data.prophecies} onChange={(v) => set({ prophecies: v })} placeholder="добавить пророчество" rune="ᛈ" />
+          </div>
+        </div>
+      </div>
+
+      <div className="divine">
+        <div className="sec-title"><span className="rune">ᛟ</span> Божественное</div>
+        <div className="shard-cap" style={{ marginTop: 6 }}>Осколок истинной природы за каждый из девяти миров. Лит — обретён.</div>
+        <div className="shards">
+          {SHARD_RUNES.map((r, i) => (<button key={i} className={"niche" + (i < data.shards ? " lit" : "")} onClick={() => set({ shards: data.shards === i + 1 ? i : i + 1 })} title={`мир ${i + 1}`}><span className="rune">{r}</span><span className="n">{i + 1}</span></button>))}
+        </div>
+        <div className="shard-cap"><b>{data.shards}</b> из 9 обретено</div>
+        <div className="dz-grid">
+          <div className="dz-card"><h4>Текущий узел</h4><input className="t-input" value={data.node} onChange={(e) => set({ node: e.target.value })} placeholder="где ты на древе" /><p style={{ fontSize: 12, color: "var(--faint)", margin: "10px 0 0" }}>Куда ведёт — не показывается. Это знает только ведущая.</p></div>
+          <div className="dz-card"><h4>Ближайшая развилка</h4><div className="fork-opt"><span className="boon">Аспект</span><div className="eff">&mdash; наполнится при сборке древа &mdash;</div></div><div className="fork-opt"><span className="boon">Мощь</span><div className="eff">&mdash; наполнится при сборке древа &mdash;</div></div><p style={{ fontSize: 12, color: "var(--faint)", margin: "10px 0 0" }}>Только следующий шаг и его боны. Дальше — тьма.</p></div>
+          <div className="dz-card"><h4>Наследие</h4><div className="sealed"><div className="seal">?</div><div className="txt">Запечатано. Раскроется в конце <b>девятого мира</b>.<br />Рагнарёк — десятая арка.</div></div></div>
+        </div>
+      </div>
+
+      <div className="howto">
+        <div className="sec-title" style={{ fontSize: 16 }}>Как качаться</div>
+        <div className="cols">
+          <div className="mortal">
+            <h5><span className="rune">ᛗ</span> Смертный рост · Адванс</h5>
+            <p className="lead">Обычная прокачка Саваги. Раз в одну-две сессии ведущая даёт адванс.</p>
+            <ul><li>За адванс — <b>одно</b>: поднять навык; взять эдж; открыть пару навыков с нуля.</li><li>Поднять атрибут — <b>раз в ранг</b>.</li><li>Счётчик только растёт → растёт ранг: <b>Смертный → Герой → Полубог → Бог</b>. Ранг не падает.</li></ul>
+          </div>
+          <div className="div-h">
+            <h5><span className="rune">ᛟ</span> Божественный рост · Шаг древа</h5>
+            <p className="lead">Твоё пробуждение. Раз на мир — <b>9 за кампанию</b>, не тратит адванс.</p>
+            <ul><li>Шаг — выбор на ближайшей развилке: видишь варианты и их боны, но не бога.</li><li>Бон — <b>одно</b>: открыть мифику; +1 сверх d12; аспект-сила; или осколок.</li><li>В конце <b>9-го мира</b> раскрывается наследие. Рагнарёк — 10-я арка.</li></ul>
+          </div>
+        </div>
+      </div>
+
+      <div className="hints">
+        <div className="hint"><div className="ht"><span className="rune">ᚠ</span> Инициатива</div><div className="hb">Тяни руну из мешочка. Порядок — по Футарку.</div></div>
+        <div className="hint joker"><div className="ht"><span className="rune">ᛈ</span> Перт — Джокер</div><div className="hb">Ходишь когда хочешь. +2 ко всем чертам и урону в раунде.</div></div>
+        <div className="hint"><div className="ht"><span className="rune">ᚦ</span> Бросок черты</div><div className="hb">Кубик черты + рунический d6. На «взрыве» руна — омен.</div></div>
+      </div>
+
+      <div className="footnote">v0.6 · экран игрока. {cloud ? "Облако подключено — карта пишется в Firebase." : "Облако не настроено — карта живёт локально в браузере."} Кубики и руны кидаются вживую.</div>
+    </div>
+  );
+}
+
+function JoinGate({ onJoin }) {
+  const [code, setCode] = useState("");
+  const [nm, setNm] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    const c = code.trim().toLowerCase().replace(/[^a-zа-я0-9_-]/gi, "");
+    if (!c) { setErr("Введи код кампании."); return; }
+    setBusy(true); setErr("");
+    try { await onJoin(c, nm.trim()); } catch (e) { setErr(e.message || "Не удалось войти."); setBusy(false); }
+  };
+  return (
+    <div className="gate-wrap">
+      <div className="gate">
+        <div className="wordmark"><span className="rune">ᛈ</span> Рагнарёк-AU</div>
+        <h2>Войти в кампанию</h2>
+        <div className="sub">Код даёт ведущая. Карта сохранится в облаке.</div>
+        <div className="field"><label>Код кампании</label><input className="t-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="напр. ragnarok2026" onKeyDown={(e) => e.key === "Enter" && go()} /></div>
+        <div className="field"><label>Имя персонажа</label><input className="t-input" value={nm} onChange={(e) => setNm(e.target.value)} placeholder="кто ты" onKeyDown={(e) => e.key === "Enter" && go()} /></div>
+        <button className="go" onClick={go} disabled={busy}>{busy ? "Вхожу…" : "Войти"}</button>
+        {err && <div className="gerr">{err}</div>}
+        <div className="gnote">Вернёшься с того же устройства — карта подхватится сама. На случай переезда жми Экспорт.</div>
+      </div>
+    </div>
+  );
+}
+
+function SkillRow({ sk, value, core, onChange }) {
+  return (
+    <div className="trait-row" style={{ alignItems: "center" }}>
+      <div className="trait-name" style={{ paddingTop: 0 }}>
+        <span className="tip" data-tip={sk.w}>{sk.n}</span>
+        <span className="attr-chip" style={{ color: ATTR_TINT[sk.a], borderColor: ATTR_TINT[sk.a] }}>{sk.a}</span>
+      </div>
+      <div className="track">
+        {!core && (<button className={"pip untr" + (value == null ? " on" : "")} onClick={() => onChange(null)} title="не обучен (d4−2)">&mdash;</button>)}
+        {DICE.map((d) => (<button key={d} className={"pip" + (value === d ? " on" : "")} onClick={() => onChange(d)}>d{d}</button>))}
+      </div>
+    </div>
+  );
+}
+
+function ListField({ items, onChange, placeholder, rune }) {
+  const [val, setVal] = useState("");
+  const add = () => { const v = val.trim(); if (!v) return; onChange([...items, v]); setVal(""); };
+  return (
+    <div>
+      <div className="list">
+        {items.length === 0 && <div className="empty">пока пусто</div>}
+        {items.map((it, i) => (<div className="lrow" key={i}><span className="rune lb">{rune}</span><span className="lt">{it}</span><button className="lx no-print" onClick={() => onChange(items.filter((_, j) => j !== i))}>&times;</button></div>))}
+      </div>
+      <div className="addrow no-print"><input className="t-input" value={val} onChange={(e) => setVal(e.target.value)} placeholder={placeholder} onKeyDown={(e) => e.key === "Enter" && add()} /><button className="addbtn" onClick={add}>+</button></div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

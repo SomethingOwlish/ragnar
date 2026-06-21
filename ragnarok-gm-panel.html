@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Панель ведущей</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Runic&display=swap');
+:root{
+  --bg:#0F1216; --surf:#171D24; --surf2:#1F262F; --line:#2A333D; --line-soft:#222A33;
+  --ink:#E8ECF2; --muted:#93A1B0; --faint:#5E6B78;
+  --steel:#7FA8CE; --bronze:#CE9A4C; --ember:#E5AE62; --red:#C06A4E;
+  --disp:'Spectral',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace; --rune:'Noto Sans Runic','Segoe UI Historic',serif;
+}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.5; -webkit-font-smoothing:antialiased;}
+input{font-family:inherit; color:inherit;}
+button{font-family:inherit; cursor:pointer;}
+.wrap{max-width:1180px; margin:0 auto; padding:26px 22px 60px;}
+.rune{font-family:var(--rune); line-height:1;}
+.top{display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:22px;}
+.wordmark{font-family:var(--disp); font-weight:700; font-size:15px; letter-spacing:.16em; text-transform:uppercase; display:flex; align-items:center; gap:10px;}
+.wordmark .rune{color:var(--bronze); font-size:18px;}
+.tag{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--bronze); border:1px solid #4A3B22; border-radius:999px; padding:5px 12px;}
+.gate-wrap{display:flex; min-height:70vh; align-items:center; justify-content:center; padding:20px;}
+.gate{width:100%; max-width:420px; background:var(--surf); border:1px solid var(--line); border-radius:14px; padding:30px;}
+.gate .wordmark{justify-content:center; margin-bottom:8px;}
+.gate h2{font-family:var(--disp); font-weight:600; font-size:22px; text-align:center; margin:4px 0 18px;}
+.gate label{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); font-weight:600; display:block; margin-bottom:5px;}
+.t-input{background:var(--surf2); border:1px solid var(--line); border-radius:8px; padding:11px 12px; font-size:15px; outline:none; width:100%;}
+.t-input:focus{border-color:var(--steel);}
+.go{width:100%; background:var(--bronze); color:#1A1206; border:none; border-radius:9px; padding:13px; font-size:15px; font-weight:700; margin-top:16px;}
+.go:hover{background:var(--ember);}
+.gerr{color:var(--red); font-size:13px; margin-top:12px; text-align:center;}
+.gnote{color:var(--faint); font-size:12px; margin-top:16px; text-align:center; line-height:1.6;}
+.bar{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px; color:var(--muted); font-size:13px;}
+.bar b{color:var(--ink);}
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:16px;}
+.pc{background:var(--surf); border:1px solid var(--line); border-radius:12px; padding:16px;}
+.pc .h{display:flex; gap:12px; align-items:flex-start;}
+.pc .av{width:54px; height:64px; flex:none; border-radius:8px; background:var(--surf2); border:1px solid var(--line); overflow:hidden; display:flex; align-items:center; justify-content:center; color:var(--faint);}
+.pc .av img{width:100%; height:100%; object-fit:cover;}
+.pc .nm{font-family:var(--disp); font-size:18px; font-weight:600;}
+.pc .cc{font-size:12px; color:var(--muted);}
+.pc .rk{font-family:var(--disp); font-size:13px; color:var(--steel); margin-top:3px;}
+.pc .rk .arch{color:var(--bronze);}
+.row{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
+.ab{font-family:var(--mono); font-size:11px; background:var(--surf2); border:1px solid var(--line); border-radius:6px; padding:3px 7px; color:var(--muted);}
+.ab b{color:var(--ink);}
+.ab.div{color:var(--ember); border-color:#4A3B22;}
+.shline{display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line-soft);}
+.dots{display:flex; gap:3px;}
+.dot{width:11px; height:11px; border-radius:3px; background:var(--surf2); border:1px solid var(--line);}
+.dot.on{background:var(--ember); border-color:var(--bronze);}
+.shtxt{font-size:12px; color:var(--muted);}
+.shtxt b{color:var(--ember); font-family:var(--mono);}
+.node{font-size:12px; color:var(--muted); margin-top:10px;}
+.node b{color:var(--ink);}
+.empty{color:var(--faint); padding:40px 0; text-align:center;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
+
+/* ВСТАВЬ СЮДА тот же конфиг Firebase, что и в карте игрока. */
+const firebaseConfig = {
+  apiKey: "AIzaSyCSb7M5IbOql61HIqOUxe3ct4VqdjkhLyE",
+  authDomain: "ragnarau-80866.firebaseapp.com",
+  projectId: "ragnarau-80866",
+  storageBucket: "ragnarau-80866.firebasestorage.app",
+  messagingSenderId: "727752765165",
+  appId: "1:727752765165:web:8c625b7675f022a1b026e4"
+};
+
+const HAS_FB = !!(window.firebase && firebaseConfig.apiKey && firebaseConfig.apiKey !== "ВСТАВЬ_СЮДА");
+let db = null, auth = null;
+if (HAS_FB) { try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.error(e); } }
+
+const ATTRS = [["agility","ЛОВ"],["smarts","СМЕ"],["spirit","ДУХ"],["strength","СИЛ"],["vigor","ВЫН"]];
+const ARCH = { agility: "Охотник", smarts: "Рунознатец", spirit: "Скальд", strength: "Воин", vigor: "Исполин" };
+const tierOf = (n) => (n >= 16 ? "Бог" : n >= 10 ? "Полубог" : n >= 4 ? "Герой" : "Смертный");
+function dominantArch(a) {
+  if (!a) return null; let best = null, bv = -1, tie = false;
+  for (const k of Object.keys(ARCH)) { const v = a[k].die + a[k].plus * 2; if (v > bv) { bv = v; best = k; tie = false; } else if (v === bv) tie = true; }
+  return tie ? null : ARCH[best];
+}
+const fmt = (x) => (x && x.plus > 0 ? `d12+${x.plus}` : x ? `d${x.die}` : "—");
+
+function App() {
+  const [joined, setJoined] = useState(false);
+  const [campaign, setCampaign] = useState("");
+  const [chars, setChars] = useState([]);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    if (!joined || !db) return;
+    const ref = db.collection("campaigns").doc(campaign).collection("characters");
+    const unsub = ref.onSnapshot(
+      (qs) => { const arr = []; qs.forEach((d) => arr.push({ id: d.id, ...d.data() })); arr.sort((a, b) => (a.name || "").localeCompare(b.name || "")); setChars(arr); },
+      (e) => setErr("Ошибка чтения: " + e.message)
+    );
+    return () => unsub();
+  }, [joined, campaign]);
+
+  async function enter(code) {
+    if (!HAS_FB || !db) { setErr("Вставь конфиг Firebase в этот файл."); return; }
+    const c = code.trim().toLowerCase().replace(/[^a-zа-я0-9_-]/gi, "");
+    if (!c) { setErr("Введи код кампании."); return; }
+    try { await auth.signInAnonymously(); } catch (e) { setErr("Включи Anonymous в Firebase → Authentication."); return; }
+    setCampaign(c); setJoined(true); setErr("");
+  }
+
+  if (!joined) return <Gate err={err} onEnter={enter} />;
+
+  return (
+    <div className="wrap">
+      <div className="top">
+        <div className="wordmark"><span className="rune">ᛟ</span> Рагнарёк-AU · ведущая</div>
+        <span className="tag">кампания · {campaign}</span>
+      </div>
+      <div className="bar"><b>{chars.length}</b> {chars.length === 1 ? "герой" : "героев"} · обновляется вживую {err && <span style={{ color: "var(--red)" }}>· {err}</span>}</div>
+      {chars.length === 0 ? (
+        <div className="empty">Пока никто не вошёл. Дай игрокам ссылку на карту и код «{campaign}».</div>
+      ) : (
+        <div className="grid">{chars.map((c) => <PCard key={c.id} c={c} />)}</div>
+      )}
+    </div>
+  );
+}
+
+function PCard({ c }) {
+  const tier = tierOf(c.advances || 0);
+  const arch = dominantArch(c.attrs);
+  const shards = c.shards || 0;
+  return (
+    <div className="pc">
+      <div className="h">
+        <div className="av">{c.img ? <img src={c.img} alt="" /> : <span className="rune" style={{ fontSize: 22 }}>ᛗ</span>}</div>
+        <div>
+          <div className="nm">{c.name || "без имени"}</div>
+          {c.concept && <div className="cc">{c.concept}</div>}
+          <div className="rk">{tier}{tier !== "Смертный" && arch && <span className="arch"> · {arch}</span>} · адв. {c.advances || 0}</div>
+        </div>
+      </div>
+      <div className="row">
+        {ATTRS.map(([k, lbl]) => { const a = c.attrs && c.attrs[k]; const div = a && a.plus > 0; return <span key={k} className={"ab" + (div ? " div" : "")}>{lbl} <b>{fmt(a)}</b></span>; })}
+      </div>
+      <div className="shline">
+        <div className="dots">{Array.from({ length: 9 }).map((_, i) => <span key={i} className={"dot" + (i < shards ? " on" : "")} />)}</div>
+        <span className="shtxt">осколков <b>{shards}</b>/9</span>
+      </div>
+      {c.node && <div className="node">узел: <b>{c.node}</b></div>}
+    </div>
+  );
+}
+
+function Gate({ err, onEnter }) {
+  const [code, setCode] = useState("");
+  return (
+    <div className="gate-wrap">
+      <div className="gate">
+        <div className="wordmark"><span className="rune">ᛟ</span> Рагнарёк-AU</div>
+        <h2>Панель ведущей</h2>
+        <label>Код кампании</label>
+        <input className="t-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="тот же, что у игроков" onKeyDown={(e) => e.key === "Enter" && onEnter(code)} />
+        <button className="go" onClick={() => onEnter(code)}>Открыть</button>
+        {err && <div className="gerr">{err}</div>}
+        <div className="gnote">Видишь карты всех игроков этой кампании. Полное древо и подмена твинов — следующим шагом.</div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
