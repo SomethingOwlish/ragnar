@@ -157,7 +157,33 @@ button{font-family:inherit; cursor:pointer;}
 .gate .go:hover{background:var(--bronze-deep);}
 .gate .gerr{color:var(--red); font-size:13px; margin-top:12px; text-align:center;}
 .gate .gnote{color:var(--faint); font-size:12px; margin-top:16px; text-align:center; line-height:1.6;}
-@media print{ .no-print{display:none !important;} body{background:#fff;} }
+.print-sheet{display:none;}
+@media print{
+  @page{ margin:12mm; }
+  body{ background:#fff; }
+  .stele{ display:none !important; }
+  .print-sheet{ display:block !important; color:#1b1b1b; line-height:1.4; }
+  .print-sheet .p-head{display:flex; gap:14px; align-items:flex-start; border-bottom:2px solid #222; padding-bottom:10px; margin-bottom:12px;}
+  .print-sheet .p-av{width:64px; height:80px; object-fit:cover; border:1px solid #999; border-radius:4px;}
+  .print-sheet .p-id{flex:1;}
+  .print-sheet .p-name{font-family:'Spectral',serif; font-size:24px; font-weight:700; line-height:1.1;}
+  .print-sheet .p-cc{font-size:12px; color:#555; margin-top:2px;}
+  .print-sheet .p-meta{text-align:right; font-size:11px; color:#333;}
+  .print-sheet .p-meta .pr{font-family:'Spectral',serif; font-size:14px; font-weight:600; color:#7a5210;}
+  .print-sheet .p-attrs{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12.5px; margin-bottom:6px;}
+  .print-sheet .p-attrs b{font-weight:600;}
+  .print-sheet .p-derived{font-size:11.5px; color:#333; border-top:1px solid #ddd; border-bottom:1px solid #ddd; padding:6px 0; margin-bottom:10px;}
+  .print-sheet .p-sec{font-family:'Spectral',serif; font-weight:600; font-size:13px; color:#2F6090; border-bottom:1px solid #ccc; margin:12px 0 6px; padding-bottom:2px; break-after:avoid;}
+  .print-sheet .p-skills{column-count:3; column-gap:18px;}
+  .print-sheet .p-sk{display:flex; justify-content:space-between; gap:8px; font-size:11.5px; padding:2px 0; break-inside:avoid; border-bottom:1px dotted #e3e3e3;}
+  .print-sheet .p-sk .d{font-family:'JetBrains Mono',monospace; color:#444;}
+  .print-sheet .p-cols{display:flex; gap:24px;}
+  .print-sheet .p-cols > div{flex:1;}
+  .print-sheet .p-li{font-size:11.5px; padding:1px 0;}
+  .print-sheet .p-empty{font-size:11px; color:#aaa;}
+  .print-sheet .p-text{font-size:11.5px; color:#333; white-space:pre-wrap;}
+  .print-sheet .p-cols, .print-sheet .p-skills{break-inside:avoid;}
+}
 </style>
 </head>
 <body>
@@ -338,6 +364,7 @@ function App() {
   if (cloud && !joined) return <JoinGate onJoin={joinCampaign} />;
 
   return (
+    <React.Fragment>
     <div className="stele">
       <div className="top">
         <div className="wordmark"><span className="rune">ᛈ</span> Рагнарёк-AU</div>
@@ -489,7 +516,58 @@ function App() {
         <div className="hint"><div className="ht"><span className="rune">ᚦ</span> Бросок черты</div><div className="hb">Кубик черты + рунический d6. На «взрыве» руна — омен.</div></div>
       </div>
 
-      <div className="footnote">v0.6 · экран игрока. {cloud ? "Облако подключено — карта пишется в Firebase." : "Облако не настроено — карта живёт локально в браузере."} Кубики и руны кидаются вживую.</div>
+      <div className="footnote">v0.7 · экран игрока. {cloud ? "Облако подключено — карта пишется в Firebase." : "Облако не настроено — карта живёт локально в браузере."} Кубики и руны кидаются вживую. Кнопка «Печать» даёт отдельный компактный лист.</div>
+    </div>
+    <PrintSheet data={data} />
+    </React.Fragment>
+  );
+}
+
+function PrintSheet({ data }) {
+  const { attrs, skills } = data;
+  const fighting = skills["Рукопашный"];
+  const parry = 2 + (fighting ? halfDie(fighting) : 0);
+  const tough = 2 + halfDie(attrs.vigor.die) + attrs.vigor.plus;
+  const load = 5 * (attrs.strength.die + attrs.strength.plus);
+  const tier = tierOf(data.advances);
+  const arch = dominantArch(attrs);
+  const trained = OPEN.filter((s) => skills[s.n] != null);
+  const rankLine = tier + (tier !== "Смертный" && arch ? " · " + arch : "");
+  const renderList = (arr) => arr && arr.length ? arr.map((x, i) => <div className="p-li" key={i}>• {x}</div>) : <div className="p-empty">—</div>;
+  return (
+    <div className="print-sheet">
+      <div className="p-head">
+        {data.img ? <img className="p-av" src={data.img} alt="" /> : null}
+        <div className="p-id">
+          <div className="p-name">{data.name || "—"}</div>
+          <div className="p-cc">{data.concept || ""}</div>
+        </div>
+        <div className="p-meta">
+          <div className="pr">{rankLine}</div>
+          <div>адвансов {data.advances} · осколков {data.shards}/9</div>
+        </div>
+      </div>
+      <div className="p-attrs">
+        {ATTRS.map((a) => <span key={a.key}><b>{a.label}</b> {fmt(attrs[a.key].die, attrs[a.key].plus)}</span>)}
+      </div>
+      <div className="p-derived">Скорость 6&#8243; · Парирование {parry} · Стойкость {tough} · Размер 0 · Нагрузка {load}</div>
+      <div className="p-sec">Навыки</div>
+      <div className="p-skills">
+        {CORE.map((s) => <div className="p-sk" key={s.n}><span>{s.n}</span><span className="d">{fmt(skills[s.n], 0)}</span></div>)}
+        {trained.map((s) => <div className="p-sk" key={s.n}><span>{s.n}</span><span className="d">{fmt(skills[s.n], 0)}</span></div>)}
+      </div>
+      <div className="p-cols">
+        <div><div className="p-sec">Эджи</div>{renderList(data.edges)}</div>
+        <div><div className="p-sec">Хиндрансы</div>{renderList(data.hindrances)}</div>
+      </div>
+      <div className="p-cols">
+        <div><div className="p-sec">Гейсы</div>{renderList(data.geasa)}</div>
+        <div><div className="p-sec">Пророчества</div>{renderList(data.prophecies)}</div>
+      </div>
+      {data.gear ? <div><div className="p-sec">Снаряжение</div><div className="p-text">{data.gear}</div></div> : null}
+      {data.bio ? <div><div className="p-sec">Биография</div><div className="p-text">{data.bio}</div></div> : null}
+      <div className="p-sec">Божественное</div>
+      <div className="p-text">Текущий узел: {data.node || "—"}. Осколков {data.shards}/9. Наследие запечатано до конца девятого мира.</div>
     </div>
   );
 }
