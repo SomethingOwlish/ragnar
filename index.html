@@ -1,20 +1,16 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-default-theme="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Рагнарёк-AU</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||document.documentElement.getAttribute('data-default-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Noto+Sans+Runic&display=swap');
-:root{
-  --bg:#0F1216; --surf:#171D24; --surf2:#1F262F; --line:#2A333D;
-  --ink:#E8ECF2; --muted:#93A1B0; --faint:#5E6B78;
-  --steel:#7FA8CE; --steel-deep:#3A5773; --bronze:#CE9A4C; --bronze-deep:#6E4A14; --ember:#E5AE62;
-  --disp:'Spectral',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --rune:'Noto Sans Runic','Segoe UI Historic',serif;
-}
 *{box-sizing:border-box;}
-body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.6; -webkit-font-smoothing:antialiased; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:40px 20px;}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.6; -webkit-font-smoothing:antialiased; min-height:100vh; display:flex; flex-direction:column;}
 .rune{font-family:var(--rune); line-height:1;}
+.portal-main{flex:1; display:flex; align-items:center; justify-content:center; padding:40px 20px;}
 .portal{width:100%; max-width:720px;}
 .wordmark{font-family:var(--disp); font-weight:700; font-size:13px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); display:flex; align-items:center; gap:10px; justify-content:center;}
 .wordmark .rune{color:var(--bronze); font-size:16px;}
@@ -43,6 +39,8 @@ body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); 
 </style>
 </head>
 <body>
+<header data-shell data-role="portal"></header>
+<main class="portal-main">
 <div class="portal">
   <div class="wordmark"><span class="rune">ᛈ</span> модерн-AU · скандинавский миф · SWADE</div>
   <div class="hero">
@@ -71,5 +69,7 @@ body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); 
     Для надёжного сохранения лучше открывать карту прямой ссылкой в отдельной вкладке.
   </div>
 </div>
+</main>
+<script src="app-shell.js" defer></script>
 </body>
 </html>

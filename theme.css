@@ -1,0 +1,127 @@
+/* ============================================================
+   Рагнарёк-AU · единый слой темы
+   Все цветовые решения живут здесь. Имена переменных совпадают
+   с теми, что уже использовали страницы, поэтому правила страниц
+   менять не нужно — они подхватывают тему сами.
+
+   Тему ставит data-theme на <html>: "light" или "dark".
+   Дефолт берётся из data-default-theme на <html>; выбор игрока
+   пишется в localStorage и перекрывает дефолт на всех страницах
+   (см. app-shell.js).
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Runic&display=swap');
+
+:root{
+  /* шрифты — общие для обеих тем */
+  --disp:'Spectral',Georgia,serif;
+  --sans:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --rune:'Noto Sans Runic','Segoe UI Historic',serif;
+  /* плавный переход при смене темы */
+  --theme-fade:background-color .25s ease, border-color .25s ease, color .25s ease;
+}
+
+/* ============================ ТЁМНАЯ ============================ */
+:root,
+html[data-theme="dark"]{
+  --bg:#0F1216; --surf:#171D24; --surf2:#1F262F; --inset:#222A33;
+  --warm:#241D10; --warm2:#1E1809; --warm-inset:#2C2412;
+  --warm-field:#211B0E; --warm-chosen:#33290F; --warm-chip:#241D10;
+  --line:#2A333D; --line-soft:#222A33; --line-warm:#4A3B22;
+  --ink:#E8ECF2; --muted:#93A1B0; --faint:#5E6B78;
+  --steel:#7FA8CE; --steel-soft:#5C84AC; --steel-deep:#3A5773;
+  --bronze:#CE9A4C; --bronze-deep:#6E4A14; --ember:#E5AE62; --red:#C06A4E;
+  --choice-on:#1B2A3A;
+  --on-ink:#15110A;          /* текст на залитых steel/bronze кнопках */
+  --on-steel:#0F1216;        /* текст на ярком steel в тёмной теме */
+  --tip-bg:#05070A; --tip-ink:#F3F6FA;
+  --niche-idle:#6E6242;
+}
+
+/* ============================ СВЕТЛАЯ ============================ */
+html[data-theme="light"]{
+  --bg:#E2EAF1; --surf:#F5F8FB; --surf2:#E8F0F6; --inset:#DCE6EF;
+  --warm:#F3E9D6; --warm2:#ECE0C7; --warm-inset:#E7D9BB;
+  --warm-field:#FBF6EC; --warm-chosen:#F6ECD6; --warm-chip:#FBF4E6;
+  --line:#C7D5E1; --line-soft:#D7E1EA; --line-warm:#D9C49B;
+  --ink:#1B2733; --muted:#566779; --faint:#8B99A6;
+  --steel:#2F6090; --steel-soft:#5C84AC; --steel-deep:#4A6E92;
+  --bronze:#9A6B22; --bronze-deep:#6E4A14; --ember:#BC7E2A; --red:#A8482F;
+  --choice-on:#EAF1F8;
+  --on-ink:#FFFFFF;
+  --on-steel:#FFFFFF;
+  --tip-bg:#1B2733; --tip-ink:#F3F6FA;
+  --niche-idle:#A99970;
+}
+
+/* мягкий кросс-фейд основных поверхностей при переключении темы */
+html.theme-ready body,
+html.theme-ready .card,
+html.theme-ready .surf,
+html.theme-ready input,
+html.theme-ready textarea,
+html.theme-ready button{ transition:var(--theme-fade); }
+
+/* ============================================================
+   ОБОЛОЧКА: верхняя полоса (навигация между кабинетами + тема).
+   Одинаковая на всех страницах, наполняется из app-shell.js.
+   ============================================================ */
+.shell{
+  position:sticky; top:0; z-index:40;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:9px 18px; background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:saturate(1.1) blur(8px);
+  border-bottom:1px solid var(--line-soft);
+  font-family:var(--sans);
+}
+.shell .rune{ font-family:var(--rune); line-height:1; }
+.shell-brand{
+  font-family:var(--disp); font-weight:700; font-size:13px;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+  display:flex; align-items:center; gap:9px; white-space:nowrap;
+}
+.shell-brand .rune{ font-size:16px; }
+.shell-brand.player .rune{ color:var(--steel); }
+.shell-brand.gm .rune{ color:var(--bronze); }
+.shell-nav{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.shell-link{
+  display:inline-flex; align-items:center; gap:7px; text-decoration:none;
+  background:var(--surf); border:1px solid var(--line); color:var(--ink);
+  border-radius:8px; padding:6px 12px; font-size:12.5px; letter-spacing:.02em;
+  transition:border-color .15s, color .15s, background .15s;
+}
+.shell-link .rune{ font-size:14px; color:var(--faint); }
+.shell-link:hover{ border-color:var(--steel-soft); color:var(--steel); }
+.shell-link:hover .rune{ color:var(--steel); }
+.shell-link.gm:hover{ border-color:var(--line-warm); color:var(--bronze); }
+.shell-link.gm:hover .rune{ color:var(--bronze); }
+.shell-link.here{ background:var(--surf2); border-color:var(--steel-soft); color:var(--steel); cursor:default; }
+.shell-link.here.gm{ border-color:var(--line-warm); color:var(--bronze); }
+.shell-link.here .rune{ color:inherit; }
+.shell-spacer{ flex:1; }
+.shell-role{
+  font-size:11px; letter-spacing:.14em; text-transform:uppercase; font-weight:600;
+  border:1px solid var(--line); border-radius:999px; padding:4px 11px; white-space:nowrap;
+}
+.shell-role.player{ color:var(--steel); border-color:var(--steel-soft); }
+.shell-role.gm{ color:var(--bronze); border-color:var(--line-warm); }
+
+/* переключатель темы */
+.theme-toggle{
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--surf); border:1px solid var(--line); color:var(--ink);
+  border-radius:999px; padding:6px 13px; font-size:12.5px; font-family:var(--sans);
+  cursor:pointer; transition:border-color .15s, color .15s;
+}
+.theme-toggle:hover{ border-color:var(--bronze); color:var(--bronze); }
+.theme-toggle .tt-ico{ font-size:14px; line-height:1; }
+.theme-toggle .tt-lbl{ letter-spacing:.04em; }
+
+@media (max-width:560px){
+  .shell{ padding:8px 12px; gap:8px; }
+  .shell-brand{ font-size:11px; }
+  .theme-toggle .tt-lbl{ display:none; }
+}
+
+@media print{ .shell, .theme-toggle{ display:none !important; } }

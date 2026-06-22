@@ -1,17 +1,12 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-default-theme="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Рагнарёк-AU · Панель ведущей</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||document.documentElement.getAttribute('data-default-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Runic&display=swap');
-:root{
-  --bg:#0F1216; --surf:#171D24; --surf2:#1F262F; --line:#2A333D; --line-soft:#222A33;
-  --ink:#E8ECF2; --muted:#93A1B0; --faint:#5E6B78;
-  --steel:#7FA8CE; --bronze:#CE9A4C; --ember:#E5AE62; --red:#C06A4E;
-  --disp:'Spectral',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace; --rune:'Noto Sans Runic','Segoe UI Historic',serif;
-}
 *{box-sizing:border-box;}
 body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.5; -webkit-font-smoothing:antialiased;}
 input{font-family:inherit; color:inherit;}
@@ -76,9 +71,39 @@ button{font-family:inherit; cursor:pointer;}
 .fork-send{flex:1; background:var(--bronze); color:#1A1206; border:none; border-radius:7px; padding:7px; font-size:12px; font-weight:700; cursor:pointer;}
 .fork-send:hover{background:var(--ember);}
 .empty{color:var(--faint); padding:40px 0; text-align:center;}
+.lists-btn{background:var(--surf2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:7px 13px; font-size:12.5px;}
+.lists-btn:hover{border-color:var(--bronze); color:var(--bronze);}
+.modal-bg{position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:flex-start; justify-content:center; padding:34px 16px; z-index:50; overflow:auto;}
+.modal{background:var(--surf); border:1px solid var(--line); border-radius:14px; width:100%; max-width:760px; padding:20px;}
+.modal-head{display:flex; align-items:center; justify-content:space-between;}
+.modal-title{font-family:var(--disp); font-size:20px; color:var(--bronze);}
+.modal-x{background:none; border:none; color:var(--muted); font-size:24px; line-height:1; cursor:pointer;}
+.modal-x:hover{color:var(--ink);}
+.modal-note{font-size:12px; color:var(--faint); margin:6px 0 14px; line-height:1.5;}
+.modal-note b{color:var(--bronze);}
+.le-sec{font-family:var(--disp); font-size:15px; font-weight:600; margin:14px 0 8px;}
+.le-table{display:flex; flex-direction:column; gap:5px;}
+.le-row{display:flex; gap:6px; align-items:center;}
+.le-row.le-h{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); padding:0 2px;}
+.le-row input, .le-row select{background:var(--surf2); border:1px solid var(--line); color:var(--ink); border-radius:6px; padding:6px 8px; font-size:12.5px; outline:none; min-width:0;}
+.le-row input:focus{border-color:var(--steel);}
+.le-n{flex:0 0 150px;}
+.le-s{flex:0 0 110px;}
+.le-d{flex:1;}
+.le-x{flex:0 0 26px; background:none; border:none; color:var(--faint); font-size:18px; line-height:1; cursor:pointer; text-align:center;}
+.le-x:hover{color:var(--red);}
+.le-add{align-self:flex-start; margin-top:4px; background:none; border:1px dashed var(--line); color:var(--muted); border-radius:7px; padding:6px 12px; font-size:12px; cursor:pointer;}
+.le-add:hover{border-color:var(--steel); color:var(--steel);}
+.modal-body{max-height:54vh; overflow:auto; padding-right:4px;}
+.modal-foot{display:flex; align-items:center; gap:10px; margin-top:18px; padding-top:14px; border-top:1px solid var(--line-soft);}
+.le-reset{background:none; border:1px solid var(--line); color:var(--muted); border-radius:8px; padding:8px 13px; font-size:12.5px; cursor:pointer;}
+.le-cancel{background:var(--surf2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:8px 15px; font-size:13px; cursor:pointer;}
+.le-save{background:var(--bronze); color:#1A1206; border:none; border-radius:8px; padding:8px 18px; font-size:13px; font-weight:700; cursor:pointer;}
+.le-save:hover{background:var(--ember);}
 </style>
 </head>
 <body>
+<header data-shell data-role="gm" data-here="panel"></header>
 <div id="root"></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -105,6 +130,42 @@ if (HAS_FB) { try { if (!firebase.apps.length) firebase.initializeApp(firebaseCo
 
 const ATTRS = [["agility","ЛОВ"],["smarts","СМЕ"],["spirit","ДУХ"],["strength","СИЛ"],["vigor","ВЫН"]];
 const ARCH = { agility: "Охотник", smarts: "Рунознатец", spirit: "Скальд", strength: "Воин", vigor: "Исполин" };
+const DEFAULT_HINDRANCES = [
+  { n: "Упрямство", s: "minor", d: "делаешь по-своему даже во вред" },
+  { n: "Любопытство", s: "major", d: "не можешь пройти мимо тайны" },
+  { n: "Кодекс чести", s: "major", d: "держишь слово и принципы любой ценой" },
+  { n: "Верность", s: "minor", d: "не бросаешь своих" },
+  { n: "Самоуверенность", s: "major", d: "уверен, что справишься с чем угодно" },
+  { n: "Осторожность", s: "minor", d: "семь раз отмеришь, лишний раз не рискнёшь" },
+  { n: "Героизм", s: "major", d: "не можешь не помочь попавшему в беду" },
+  { n: "Эгоист", s: "minor", d: "своя шкура дороже чужой" },
+  { n: "Болтливость", s: "minor", d: "не умеешь держать язык за зубами" },
+  { n: "Невезучий", s: "major", d: "−1 бенни на сессию" },
+  { n: "Фобия", s: "minor", d: "панический страх: высота, толпа, темнота…" },
+  { n: "Зависимость", s: "minor", d: "тянет к выпивке, никотину или азарту" },
+  { n: "В долгах", s: "minor", d: "кредиты и счета висят над тобой" },
+  { n: "Тайна", s: "minor", d: "скрываешь то, что может всё разрушить" },
+  { n: "Старая травма", s: "minor", d: "колено или спина подводят под нагрузкой" },
+  { n: "Вспыльчивость", s: "minor", d: "быстро вскипаешь" },
+  { n: "Пацифизм", s: "minor", d: "не поднимешь руку первым" },
+  { n: "Обязательство", s: "minor", d: "работа или семья постоянно требуют тебя" },
+];
+const DEFAULT_EDGES = [
+  { n: "Шустрый", r: "Ловкость d6+", d: "+2 к Скорости, бег d10" },
+  { n: "Атлет", r: "Ловкость d8+", d: "+1 к Атлетике и физическим проверкам" },
+  { n: "Крепыш", r: "Сила d6+, Вын. d6+", d: "+1 Стойкость, легче носишь груз" },
+  { n: "Внимательный", r: "—", d: "+2 к Вниманию" },
+  { n: "Смелый", r: "Дух d6+", d: "+2 против страха" },
+  { n: "Везучий", r: "—", d: "+1 бенни на сессию" },
+  { n: "Сильная воля", r: "—", d: "+1 к Запугиванию/Подначке и сопротивлению им" },
+  { n: "Целитель", r: "Дух d6+", d: "+2 к Лечению — медик, спасатель" },
+  { n: "Привлекательный", r: "Дух d6+", d: "располагаешь людей внешностью" },
+  { n: "Лингвист", r: "Смекалка d6+", d: "родной + английский + ещё пара языков" },
+  { n: "Знаток", r: "Смекалка d8+", d: "+2 к Исследованию: архивы, поиск, базы" },
+  { n: "Связи", r: "—", d: "есть полезные знакомства, которые выручают" },
+  { n: "Водила", r: "Ловкость d6+", d: "+2 к Вождению и Лодкам" },
+  { n: "Обеспеченный", r: "—", d: "стартуешь с хорошими средствами" },
+];
 const tierOf = (n) => (n >= 16 ? "Бог" : n >= 10 ? "Полубог" : n >= 4 ? "Герой" : "Смертный");
 function dominantArch(a) {
   if (!a) return null; let best = null, bv = -1, tie = false;
@@ -118,6 +179,7 @@ function App() {
   const [campaign, setCampaign] = useState("");
   const [chars, setChars] = useState([]);
   const [err, setErr] = useState("");
+  const [showLists, setShowLists] = useState(false);
 
   useEffect(() => {
     if (!joined || !db) return;
@@ -143,7 +205,10 @@ function App() {
     <div className="wrap">
       <div className="top">
         <div className="wordmark"><span className="rune">ᛟ</span> Рагнарёк-AU · ведущая</div>
-        <span className="tag">кампания · {campaign}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button className="lists-btn" onClick={() => setShowLists(true)}>Эджи и изъяны</button>
+          <span className="tag">кампания · {campaign}</span>
+        </div>
       </div>
       <div className="bar"><b>{chars.length}</b> {chars.length === 1 ? "герой" : "героев"} · обновляется вживую {err && <span style={{ color: "var(--red)" }}>· {err}</span>}</div>
       {chars.length === 0 ? (
@@ -151,6 +216,7 @@ function App() {
       ) : (
         <div className="grid">{chars.map((c) => <PCard key={c.id} c={c} campaign={campaign} />)}</div>
       )}
+      {showLists && <ListsEditor campaign={campaign} onClose={() => setShowLists(false)} />}
     </div>
   );
 }
@@ -223,6 +289,87 @@ function PCard({ c, campaign }) {
   );
 }
 
+function ListsEditor({ campaign, onClose }) {
+  const [hind, setHind] = useState(null);
+  const [edges, setEdges] = useState(null);
+  const [status, setStatus] = useState("Загрузка…");
+  const ref = db.collection("campaigns").doc(campaign).collection("config").doc("lists");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const cfg = await ref.get();
+        if (cfg.exists) { const c = cfg.data(); setHind(c.hindrances && c.hindrances.length ? c.hindrances : DEFAULT_HINDRANCES); setEdges(c.edges && c.edges.length ? c.edges : DEFAULT_EDGES); setStatus(""); }
+        else { setHind(DEFAULT_HINDRANCES); setEdges(DEFAULT_EDGES); setStatus("Пока стандартные списки — отредактируй и сохрани."); }
+      } catch (e) { setHind(DEFAULT_HINDRANCES); setEdges(DEFAULT_EDGES); setStatus("Не загрузилось — показаны стандартные."); }
+    })();
+  }, [campaign]);
+
+  const setH = (i, k, v) => setHind((a) => a.map((row, j) => (j === i ? { ...row, [k]: v } : row)));
+  const delH = (i) => setHind((a) => a.filter((_, j) => j !== i));
+  const addH = () => setHind((a) => [...a, { n: "", s: "minor", d: "" }]);
+  const setE = (i, k, v) => setEdges((a) => a.map((row, j) => (j === i ? { ...row, [k]: v } : row)));
+  const delE = (i) => setEdges((a) => a.filter((_, j) => j !== i));
+  const addE = () => setEdges((a) => [...a, { n: "", r: "—", d: "" }]);
+
+  const save = async () => {
+    const h = (hind || []).filter((x) => x.n.trim()).map((x) => ({ n: x.n.trim(), s: x.s === "major" ? "major" : "minor", d: (x.d || "").trim() }));
+    const e = (edges || []).filter((x) => x.n.trim()).map((x) => ({ n: x.n.trim(), r: (x.r || "—").trim(), d: (x.d || "").trim() }));
+    try { await ref.set({ hindrances: h, edges: e }); setStatus("Сохранено ✓"); setTimeout(() => setStatus(""), 1600); }
+    catch (err) { setStatus("Ошибка: " + err.message); }
+  };
+  const resetDefaults = () => { setHind(DEFAULT_HINDRANCES); setEdges(DEFAULT_EDGES); setStatus("Подставлены стандартные — не забудь сохранить."); };
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-title">Эджи и изъяны кампании</div>
+          <button className="modal-x" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-note">Меняет списки для всех новых созданий персонажей в этой кампании. Конфликты-противоположности пока зашиты в коде. {status && <b>· {status}</b>}</div>
+        {hind === null ? <div className="empty">Загрузка…</div> : (
+          <div className="modal-body">
+            <div className="le-sec">Изъяны</div>
+            <div className="le-table">
+              <div className="le-row le-h"><span className="le-n">Название</span><span className="le-s">Тип</span><span className="le-d">Описание</span><span className="le-x" /></div>
+              {hind.map((row, i) => (
+                <div className="le-row" key={i}>
+                  <input className="le-n" value={row.n} onChange={(e) => setH(i, "n", e.target.value)} placeholder="название" />
+                  <select className="le-s" value={row.s} onChange={(e) => setH(i, "s", e.target.value)}><option value="minor">малый</option><option value="major">большой</option></select>
+                  <input className="le-d" value={row.d} onChange={(e) => setH(i, "d", e.target.value)} placeholder="описание" />
+                  <button className="le-x" onClick={() => delH(i)} title="удалить">×</button>
+                </div>
+              ))}
+              <button className="le-add" onClick={addH}>+ изъян</button>
+            </div>
+
+            <div className="le-sec">Эджи</div>
+            <div className="le-table">
+              <div className="le-row le-h"><span className="le-n">Название</span><span className="le-s">Требование</span><span className="le-d">Описание</span><span className="le-x" /></div>
+              {edges.map((row, i) => (
+                <div className="le-row" key={i}>
+                  <input className="le-n" value={row.n} onChange={(e) => setE(i, "n", e.target.value)} placeholder="название" />
+                  <input className="le-s le-req" value={row.r} onChange={(e) => setE(i, "r", e.target.value)} placeholder="требование" />
+                  <input className="le-d" value={row.d} onChange={(e) => setE(i, "d", e.target.value)} placeholder="описание" />
+                  <button className="le-x" onClick={() => delE(i)} title="удалить">×</button>
+                </div>
+              ))}
+              <button className="le-add" onClick={addE}>+ эдж</button>
+            </div>
+          </div>
+        )}
+        <div className="modal-foot">
+          <button className="le-reset" onClick={resetDefaults}>Стандартные</button>
+          <div style={{ flex: 1 }} />
+          <button className="le-cancel" onClick={onClose}>Закрыть</button>
+          <button className="le-save" onClick={save}>Сохранить</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Gate({ err, onEnter }) {
   const [code, setCode] = useState("");
   return (
@@ -242,5 +389,6 @@ function Gate({ err, onEnter }) {
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
+<script src="app-shell.js" defer></script>
 </body>
 </html>

@@ -1,19 +1,12 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-default-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Рагнарёк-AU · Карта героя (облако)</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||document.documentElement.getAttribute('data-default-theme')||'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Runic&display=swap');
-:root{
-  --bg:#E2EAF1; --surf:#F5F8FB; --surf2:#E8F0F6; --inset:#DCE6EF;
-  --warm:#F3E9D6; --warm2:#ECE0C7; --warm-inset:#E7D9BB;
-  --line:#C7D5E1; --line-soft:#D7E1EA; --line-warm:#D9C49B;
-  --ink:#1B2733; --muted:#566779; --faint:#8B99A6;
-  --steel:#2F6090; --steel-soft:#5C84AC; --bronze:#9A6B22; --bronze-deep:#6E4A14; --ember:#BC7E2A; --red:#A8482F;
-  --disp:'Spectral',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace; --rune:'Noto Sans Runic','Segoe UI Historic',serif;
-}
 *{box-sizing:border-box;}
 body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.5; -webkit-font-smoothing:antialiased;}
 input,textarea{font-family:inherit; color:inherit;}
@@ -67,18 +60,18 @@ button{font-family:inherit; cursor:pointer;}
 .trait-name{font-size:15px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-top:5px;}
 .attr-chip{font-family:var(--mono); font-size:10px; letter-spacing:.08em; border:1px solid; border-radius:5px; padding:1px 5px; font-weight:500;}
 .val-chip{font-family:var(--mono); font-size:11px; border:1px solid var(--line); border-radius:5px; padding:1px 6px; color:var(--steel-soft);}
-.val-chip.divine{color:var(--bronze); border-color:var(--line-warm); background:#FBF4E6;}
+.val-chip.divine{color:var(--bronze); border-color:var(--line-warm); background:var(--warm-chip);}
 .tip{border-bottom:1px dotted var(--faint); cursor:help; position:relative;}
-.tip:hover::after{content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 7px); max-width:230px; width:max-content; background:var(--ink); color:#F3F6FA; font-size:12px; line-height:1.4; padding:7px 10px; border-radius:7px; z-index:30; box-shadow:0 6px 18px -6px rgba(20,30,40,.5);}
-.tip:hover::before{content:''; position:absolute; left:12px; bottom:calc(100% + 2px); border:5px solid transparent; border-top-color:var(--ink); z-index:30;}
+.tip:hover::after{content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 7px); max-width:230px; width:max-content; background:var(--tip-bg); color:var(--tip-ink); font-size:12px; line-height:1.4; padding:7px 10px; border-radius:7px; z-index:30; box-shadow:0 6px 18px -6px rgba(20,30,40,.5);}
+.tip:hover::before{content:''; position:absolute; left:12px; bottom:calc(100% + 2px); border:5px solid transparent; border-top-color:var(--tip-bg); z-index:30;}
 .track-wrap{display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex:none;}
 .track{display:flex; gap:4px; align-items:center;}
 .pip{min-width:33px; text-align:center; padding:6px 4px; border:1px solid var(--line); background:var(--surf); color:var(--muted); border-radius:6px; font-family:var(--mono); font-size:13px; transition:.12s;}
 .pip:hover{border-color:var(--steel-soft); color:var(--ink);}
-.pip.on{background:var(--steel); border-color:var(--steel); color:#fff; font-weight:700;}
+.pip.on{background:var(--steel); border-color:var(--steel); color:var(--on-steel); font-weight:700;}
 .pip.divine{border:1px solid var(--line-warm); color:var(--bronze); background:var(--surf); min-width:30px;}
 .pip.divine:hover{border-color:var(--bronze);}
-.pip.divine.on{background:var(--bronze); border-color:var(--bronze-deep); color:#fff;}
+.pip.divine.on{background:var(--bronze); border-color:var(--bronze-deep); color:var(--on-ink);}
 .pip.untr{font-size:15px;}
 .divine-track{display:flex; gap:4px; align-items:center; animation:reveal .18s ease;}
 .divine-track .dcap{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--bronze); font-weight:600; display:flex; align-items:center; gap:4px;}
@@ -111,7 +104,7 @@ button{font-family:inherit; cursor:pointer;}
 .shard-cap{font-size:12px; color:var(--muted);}
 .shard-cap b{color:var(--ember); font-family:var(--mono);}
 .shards{display:flex; gap:11px; flex-wrap:wrap; margin:14px 0 6px;}
-.niche{width:56px; height:70px; border:1px solid var(--line-warm); border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:var(--warm-inset); color:#A99970; transition:.18s;}
+.niche{width:56px; height:70px; border:1px solid var(--line-warm); border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:var(--warm-inset); color:var(--niche-idle); transition:.18s;}
 .niche .rune{font-size:25px;}
 .niche .n{font-family:var(--mono); font-size:10px;}
 .niche:hover{border-color:var(--bronze);}
@@ -119,16 +112,16 @@ button{font-family:inherit; cursor:pointer;}
 .dz-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(258px,1fr)); gap:16px; margin-top:18px;}
 .dz-card{background:var(--warm2); border:1px solid var(--line-warm); border-radius:10px; padding:16px;}
 .dz-card h4{font-family:var(--disp); font-weight:600; font-size:15px; margin:0 0 10px;}
-.dz-card .t-input{background:#FBF6EC; border-color:var(--line-warm); border-bottom-color:var(--bronze);}
-.fork-opt{border:1px solid var(--line-warm); border-radius:8px; padding:11px 12px; margin-top:9px; background:#FBF6EC;}
+.dz-card .t-input{background:var(--warm-field); border-color:var(--line-warm); border-bottom-color:var(--bronze);}
+.fork-opt{border:1px solid var(--line-warm); border-radius:8px; padding:11px 12px; margin-top:9px; background:var(--warm-field);}
 .fork-opt .boon{display:inline-block; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--bronze-deep); border:1px solid var(--line-warm); border-radius:999px; padding:3px 9px; margin-bottom:7px;}
 .fork-opt .eff{font-size:13px; color:var(--faint); font-style:italic;}
-.fork-opt.pick{display:block; width:100%; text-align:left; background:#FBF6EC; cursor:pointer;}
+.fork-opt.pick{display:block; width:100%; text-align:left; background:var(--warm-field); cursor:pointer;}
 .fork-opt.pick:hover{border-color:var(--bronze);}
-.fork-opt.chosen{border-color:var(--bronze); background:#F6ECD6; box-shadow:inset 3px 0 0 var(--bronze);}
+.fork-opt.chosen{border-color:var(--bronze); background:var(--warm-chosen); box-shadow:inset 3px 0 0 var(--bronze);}
 .fork-opt .ftitle{font-size:11px; color:var(--bronze-deep); font-weight:600; letter-spacing:.04em; text-transform:uppercase;}
 .sealed{display:flex; align-items:center; gap:14px;}
-.seal{width:52px; height:52px; flex:none; border-radius:50%; border:2px solid var(--bronze-deep); display:flex; align-items:center; justify-content:center; color:var(--bronze-deep); font-family:var(--disp); font-size:26px; background:#FBF6EC;}
+.seal{width:52px; height:52px; flex:none; border-radius:50%; border:2px solid var(--bronze-deep); display:flex; align-items:center; justify-content:center; color:var(--bronze-deep); font-family:var(--disp); font-size:26px; background:var(--warm-field);}
 .sealed .txt{font-size:13px; color:var(--muted);}
 .howto{background:var(--surf); border:1px solid var(--line); border-radius:11px; padding:18px; margin-top:18px;}
 .howto .cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:22px; margin-top:8px;}
@@ -157,7 +150,7 @@ button{font-family:inherit; cursor:pointer;}
 .gate h2{font-family:var(--disp); font-weight:600; font-size:22px; text-align:center; margin:6px 0 4px;}
 .gate .sub{text-align:center; color:var(--muted); font-size:13px; margin-bottom:22px;}
 .gate .field{margin-bottom:16px;}
-.gate .go{width:100%; background:var(--bronze); color:#fff; border:none; border-radius:9px; padding:13px; font-size:15px; font-weight:600; letter-spacing:.03em; margin-top:6px;}
+.gate .go{width:100%; background:var(--bronze); color:var(--on-ink); border:none; border-radius:9px; padding:13px; font-size:15px; font-weight:600; letter-spacing:.03em; margin-top:6px;}
 .gate .go:hover{background:var(--bronze-deep);}
 .gate .gerr{color:var(--red); font-size:13px; margin-top:12px; text-align:center;}
 .gate .gnote{color:var(--faint); font-size:12px; margin-top:16px; text-align:center; line-height:1.6;}
@@ -181,7 +174,7 @@ button{font-family:inherit; cursor:pointer;}
 .track .pip.x2:not(.on){border-style:dashed; border-color:var(--line-warm);}
 .choice{display:block; width:100%; text-align:left; background:var(--surf2); border:1px solid var(--line); border-radius:9px; padding:10px 12px; margin-bottom:8px; cursor:pointer; font:inherit; color:inherit;}
 .choice:hover{border-color:var(--steel-soft);}
-.choice.on{border-color:var(--steel); background:#EAF1F8; box-shadow:inset 3px 0 0 var(--steel);}
+.choice.on{border-color:var(--steel); background:var(--choice-on); box-shadow:inset 3px 0 0 var(--steel);}
 .choice .cn{font-size:14px; font-weight:600;}
 .choice .csev{font-size:10px; letter-spacing:.08em; text-transform:uppercase; margin-left:8px; padding:1px 6px; border-radius:5px; border:1px solid var(--line);}
 .choice .csev.major{color:var(--red); border-color:var(--red);}
@@ -202,7 +195,7 @@ button{font-family:inherit; cursor:pointer;}
 .wiz-nav{display:flex; justify-content:space-between; align-items:center; margin-top:22px; gap:10px;}
 .wiz-back{background:var(--surf2); border:1px solid var(--line); color:var(--ink); border-radius:9px; padding:10px 18px; font-size:14px;}
 .wiz-back:hover{border-color:var(--steel-soft);}
-.wiz-next{background:var(--steel); border:none; color:#fff; border-radius:9px; padding:10px 24px; font-size:14px; font-weight:600;}
+.wiz-next{background:var(--steel); border:none; color:var(--on-steel); border-radius:9px; padding:10px 24px; font-size:14px; font-weight:600;}
 .wiz-next:hover{background:#27527c;}
 .wiz-next:disabled{opacity:.4; cursor:not-allowed;}
 .wiz-finish{background:var(--bronze);}
@@ -251,6 +244,7 @@ button{font-family:inherit; cursor:pointer;}
 </style>
 </head>
 <body>
+<header data-shell data-role="player" data-here="sheet"></header>
 <div id="root"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -367,7 +361,7 @@ function skillCost(val, isCore, attrDie) {
   let c = 0; for (let l = base + 1; l <= tl; l++) c += (l <= al ? 1 : 2);
   return c;
 }
-const HINDRANCES = [
+const DEFAULT_HINDRANCES = [
   { n: "Упрямство", s: "minor", d: "делаешь по-своему даже во вред" },
   { n: "Любопытство", s: "major", d: "не можешь пройти мимо тайны" },
   { n: "Кодекс чести", s: "major", d: "держишь слово и принципы любой ценой" },
@@ -387,7 +381,7 @@ const HINDRANCES = [
   { n: "Пацифизм", s: "minor", d: "не поднимешь руку первым" },
   { n: "Обязательство", s: "minor", d: "работа или семья постоянно требуют тебя" },
 ];
-const EDGES = [
+const DEFAULT_EDGES = [
   { n: "Шустрый", r: "Ловкость d6+", d: "+2 к Скорости, бег d10" },
   { n: "Атлет", r: "Ловкость d8+", d: "+1 к Атлетике и физическим проверкам" },
   { n: "Крепыш", r: "Сила d6+, Вын. d6+", d: "+1 Стойкость, легче носишь груз" },
@@ -417,6 +411,7 @@ function App() {
   const [charId, setCharId] = useState(null);
   const [data, setData] = useState(() => loadLocal() || makeDefaults());
   const [creating, setCreating] = useState(() => !cloud && ((loadLocal() || makeDefaults()).created === false));
+  const [lists, setLists] = useState({ hindrances: DEFAULT_HINDRANCES, edges: DEFAULT_EDGES });
   const [saved, setSaved] = useState(false);
   const skipSave = useRef(true);
 
@@ -446,6 +441,10 @@ function App() {
     if (!name) throw new Error("Введи имя персонажа.");
     try { await auth.signInAnonymously(); }
     catch (e) { throw new Error("Анонимный вход выключен. Ведущей: включи Anonymous в Firebase → Authentication."); }
+    try {
+      const cfg = await db.collection("campaigns").doc(code).collection("config").doc("lists").get();
+      if (cfg.exists) { const c = cfg.data(); setLists({ hindrances: (c.hindrances && c.hindrances.length) ? c.hindrances : DEFAULT_HINDRANCES, edges: (c.edges && c.edges.length) ? c.edges : DEFAULT_EDGES }); }
+    } catch (e) { console.error("Списки:", e); }
     const col = db.collection("campaigns").doc(code).collection("characters");
     let id = null, d = null;
     try {
@@ -483,7 +482,7 @@ function App() {
   const resetAll = () => { if (confirm("Стереть карту начисто? Сделай сначала Экспорт, если жаль.")) { skipSave.current = false; setData(makeDefaults()); } };
 
   if (cloud && !joined) return <JoinGate onJoin={joinCampaign} />;
-  if (creating) return <CreationWizard data={data} set={set} setAttrDie={setAttrDie} setSkill={setSkill} onDone={() => { skipSave.current = false; set({ created: true }); setCreating(false); }} />;
+  if (creating) return <CreationWizard data={data} lists={lists} set={set} setAttrDie={setAttrDie} setSkill={setSkill} onDone={() => { skipSave.current = false; set({ created: true }); setCreating(false); }} />;
 
   return (
     <React.Fragment>
@@ -720,7 +719,7 @@ function WizSkill({ sk, core, data, setSkill }) {
   );
 }
 
-function CreationWizard({ data, set, setAttrDie, setSkill, onDone }) {
+function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
   const [step, setStep] = useState(0);
   const [hind, setHind] = useState([]);
   const [conv, setConv] = useState({ attr: 0, edge: 0, skill: 0 });
@@ -821,7 +820,7 @@ function CreationWizard({ data, set, setAttrDie, setSkill, onDone }) {
             <h2 className="wiz-h">Изъяны</h2>
             <p className="wiz-sub">Слабости дают очки: большой = 2, малый = 1, всего до 4. Ниже обменяй их на атрибуты, эджи или навыки.</p>
             <div className={"wiz-budget " + (hpUsed > hp ? "over" : "ok")}>Очки изъянов: <b>{hp}</b> · потрачено <b>{hpUsed}</b></div>
-            {HINDRANCES.map((h) => { const on = hind.find((x) => x.n === h.n); return (
+            {lists.hindrances.map((h) => { const on = hind.find((x) => x.n === h.n); return (
               <button key={h.n} className={"choice" + (on ? " on" : "")} onClick={() => toggleHind(h)}>
                 <span className="cn">{h.n}</span><span className={"csev " + h.s}>{h.s === "major" ? "большой" : "малый"}</span>
                 <div className="cd">{h.d}</div>
@@ -842,7 +841,7 @@ function CreationWizard({ data, set, setAttrDie, setSkill, onDone }) {
             <h2 className="wiz-h">Эджи</h2>
             <p className="wiz-sub">Один эдж — даром (ты человек), плюс по эджу за каждые 2 очка изъянов. Требования автоматически не проверяются — свериться с ведущей.</p>
             <div className={"wiz-budget " + (data.edges.length > edgeSlots ? "over" : "ok")}>Слоты эджей: <b>{data.edges.length}/{edgeSlots}</b></div>
-            {EDGES.map((e) => { const on = data.edges.includes(e.n); return (
+            {lists.edges.map((e) => { const on = data.edges.includes(e.n); return (
               <button key={e.n} className={"choice" + (on ? " on" : "")} onClick={() => toggleEdge(e.n)}>
                 <span className="cn">{e.n}</span>
                 <div className="cd">{e.d}</div><div className="creq">требование: {e.r}</div>
@@ -935,5 +934,6 @@ function ListField({ items, onChange, placeholder, rune }) {
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
+<script src="app-shell.js" defer></script>
 </body>
 </html>
