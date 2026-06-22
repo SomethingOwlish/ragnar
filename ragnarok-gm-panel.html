@@ -180,6 +180,7 @@ function App() {
   const [chars, setChars] = useState([]);
   const [err, setErr] = useState("");
   const [showLists, setShowLists] = useState(false);
+  const [danger, setDanger] = useState(false);
 
   useEffect(() => {
     if (!joined || !db) return;
@@ -207,25 +208,32 @@ function App() {
         <div className="wordmark"><span className="rune">ᛟ</span> Рагнарёк-AU · ведущая</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button className="lists-btn" onClick={() => setShowLists(true)}>Эджи и изъяны</button>
+          <button className="lists-btn" onClick={() => setDanger((d) => !d)} style={danger ? { borderColor: "var(--red)", color: "var(--red)" } : undefined} title="Включить опасные действия: удаление героев">{danger ? "✓ правка списка" : "правка списка"}</button>
           <span className="tag">кампания · {campaign}</span>
         </div>
       </div>
-      <div className="bar"><b>{chars.length}</b> {chars.length === 1 ? "герой" : "героев"} · обновляется вживую {err && <span style={{ color: "var(--red)" }}>· {err}</span>}</div>
+      <div className="bar"><b>{chars.length}</b> {chars.length === 1 ? "герой" : "героев"} · обновляется вживую {danger && <span style={{ color: "var(--red)" }}>· режим удаления включён</span>}{err && <span style={{ color: "var(--red)" }}>· {err}</span>}</div>
       {chars.length === 0 ? (
         <div className="empty">Пока никто не вошёл. Дай игрокам ссылку на карту и код «{campaign}».</div>
       ) : (
-        <div className="grid">{chars.map((c) => <PCard key={c.id} c={c} campaign={campaign} />)}</div>
+        <div className="grid">{chars.map((c) => <PCard key={c.id} c={c} campaign={campaign} danger={danger} />)}</div>
       )}
       {showLists && <ListsEditor campaign={campaign} onClose={() => setShowLists(false)} />}
     </div>
   );
 }
 
-function PCard({ c, campaign }) {
+function PCard({ c, campaign, danger }) {
   const tier = tierOf(c.advances || 0);
   const arch = dominantArch(c.attrs);
   const shards = c.shards || 0;
   const [open, setOpen] = useState(false);
+  const openHref = "ragnarok-character-sheet-cloud.html?gmview=1&campaign=" + encodeURIComponent(campaign) + "&char=" + encodeURIComponent(c.id);
+  const delChar = async () => {
+    if (!confirm("Удалить героя «" + (c.name || "без имени") + "» из кампании? Это необратимо.")) return;
+    try { await db.collection("campaigns").doc(campaign).collection("characters").doc(c.id).delete(); }
+    catch (e) { alert("Не удалось удалить: " + e.message); }
+  };
   const [opts, setOpts] = useState([{ type: "Открытие", title: "", effect: "" }, { type: "Аспект", title: "", effect: "" }]);
   const setOpt = (i, k, v) => setOpts((os) => os.map((o, j) => (j === i ? { ...o, [k]: v } : o)));
   const addRow = () => setOpts((os) => os.length < 4 ? [...os, { type: "Мощь", title: "", effect: "" }] : os);
@@ -251,6 +259,10 @@ function PCard({ c, campaign }) {
           {c.concept && <div className="cc">{c.concept}</div>}
           <div className="rk">{tier}{tier !== "Смертный" && arch && <span className="arch"> · {arch}</span>} · адв. {c.advances || 0}</div>
         </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+        <a className="lists-btn" href={openHref} target="_blank" rel="noopener" style={{ textDecoration: "none", fontSize: 12 }}>Открыть карту</a>
+        {danger && <button className="lists-btn" onClick={delChar} style={{ borderColor: "var(--red)", color: "var(--red)", fontSize: 12 }}>Удалить героя</button>}
       </div>
       <div className="row">
         {ATTRS.map(([k, lbl]) => { const a = c.attrs && c.attrs[k]; const div = a && a.plus > 0; return <span key={k} className={"ab" + (div ? " div" : "")}>{lbl} <b>{fmt(a)}</b></span>; })}

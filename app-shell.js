@@ -65,6 +65,7 @@
 
   function hrefFor(key, role) {
     var it = ITEMS[key];
+    if (key === "tree")   return "divine-tree.html?role=gm";
     if (key === "worlds") return "nine-worlds.html?role=" + role;
     if (key === "chars")  return "characters.html?role=" + role;
     return it.href;

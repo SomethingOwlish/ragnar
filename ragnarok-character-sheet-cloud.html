@@ -12,6 +12,8 @@ body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); 
 input,textarea{font-family:inherit; color:inherit;}
 button{font-family:inherit; cursor:pointer;}
 .stele{max-width:1120px; margin:0 auto; padding:28px 22px 60px;}
+.stele.view-locked > *:not(.top){ pointer-events:none; }
+.stele.view-locked > *:not(.top) input, .stele.view-locked > *:not(.top) textarea{ opacity:.92; }
 .sec-title{font-family:var(--disp); font-weight:600; font-size:19px; display:flex; align-items:center; gap:10px; color:var(--ink);}
 .rune{font-family:var(--rune); line-height:1;}
 .card{background:var(--surf); border:1px solid var(--line); border-radius:11px; padding:18px;}
@@ -406,6 +408,8 @@ const CONFLICTS = {
 
 function App() {
   const cloud = HAS_FB && !!db;
+  const _params = (typeof URLSearchParams !== "undefined") ? new URLSearchParams(location.search) : { get: () => null };
+  const gmview = _params.get("gmview") === "1";   // ведущая открыла карту игрока на просмотр
   const [joined, setJoined] = useState(!cloud);           // в локальном режиме сразу показываем лист
   const [campaign, setCampaign] = useState("");
   const [charId, setCharId] = useState(null);
@@ -413,11 +417,27 @@ function App() {
   const [creating, setCreating] = useState(() => !cloud && ((loadLocal() || makeDefaults()).created === false));
   const [lists, setLists] = useState({ hindrances: DEFAULT_HINDRANCES, edges: DEFAULT_EDGES });
   const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState(false);          // правка карточки — за кнопкой
+  const canEdit = !gmview && editing;                     // в режиме ведущей правка запрещена
   const skipSave = useRef(true);
+
+  // ведущая открыла карту конкретного героя на просмотр (?gmview=1&campaign=..&char=..)
+  useEffect(() => {
+    if (!cloud || !gmview) return;
+    const camp = _params.get("campaign"), cid = _params.get("char");
+    if (!camp || !cid) return;
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) {}
+      try {
+        const doc = await db.collection("campaigns").doc(camp).collection("characters").doc(cid).get();
+        if (doc.exists) { skipSave.current = true; setData({ ...makeDefaults(), ...doc.data() }); setCampaign(camp); setCharId(cid); setJoined(true); setCreating(false); }
+      } catch (e) { console.error("Просмотр карты:", e); }
+    })();
+  }, []);
 
   // автосохранение (облако + локальная копия), с дебаунсом
   useEffect(() => {
-    if (!joined) return;
+    if (!joined || gmview) return;                         // в просмотре ведущей не сохраняем
     if (skipSave.current) { skipSave.current = false; return; }
     const t = setTimeout(async () => {
       try {
@@ -481,21 +501,28 @@ function App() {
   const importJSON = (e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { setData({ ...makeDefaults(), ...JSON.parse(rd.result) }); } catch (err) { alert("Не удалось прочитать файл карты."); } }; rd.readAsText(f); e.target.value = ""; };
   const resetAll = () => { if (confirm("Стереть карту начисто? Сделай сначала Экспорт, если жаль.")) { skipSave.current = false; setData(makeDefaults()); } };
 
-  if (cloud && !joined) return <JoinGate onJoin={joinCampaign} />;
+  if (cloud && !joined) return gmview ? <div className="gate-wrap"><div className="gate"><div className="wordmark"><span className="rune">ᛈ</span> Рагнарёк-AU</div><h2>Загрузка карты…</h2></div></div> : <JoinGate onJoin={joinCampaign} />;
   if (creating) return <CreationWizard data={data} lists={lists} set={set} setAttrDie={setAttrDie} setSkill={setSkill} onDone={() => { skipSave.current = false; set({ created: true }); setCreating(false); }} />;
 
   return (
     <React.Fragment>
-    <div className="stele">
+    <div className={"stele" + (canEdit ? "" : " view-locked")}>
       <div className="top">
         <div className="wordmark"><span className="rune">ᛈ</span> Рагнарёк-AU</div>
         <div className="tools no-print">
+          {gmview ? (
+            <span className="mode" style={{ color: "var(--bronze)", borderColor: "var(--line-warm)" }}>просмотр ведущей · только чтение</span>
+          ) : (
+            <button className="iobtn" onClick={() => setEditing((e) => !e)} style={editing ? { borderColor: "var(--steel)", color: "var(--steel)" } : undefined}>
+              {editing ? "✓ Готово" : "✎ Редактировать"}
+            </button>
+          )}
           <span className={"saved" + (saved ? " on" : "")}><span className="rune">ᛊ</span> сохранено</span>
           {cloud ? <span className="mode cloud">облако · {campaign}</span> : <span className="mode local">локально</span>}
           <button className="iobtn" onClick={exportJSON}><span className="rune">ᛟ</span> Экспорт</button>
-          <label className="iobtn"><span className="rune">ᛟ</span> Импорт<input type="file" accept="application/json" onChange={importJSON} style={{ display: "none" }} /></label>
+          {!gmview && <label className="iobtn"><span className="rune">ᛟ</span> Импорт<input type="file" accept="application/json" onChange={importJSON} style={{ display: "none" }} /></label>}
           <button className="iobtn" onClick={() => window.print()}><span className="rune">ᛚ</span> Печать</button>
-          <button className="iobtn" onClick={resetAll}>Сброс</button>
+          {!gmview && <button className="iobtn" onClick={resetAll}>Сброс</button>}
         </div>
       </div>
 
