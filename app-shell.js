@@ -71,6 +71,10 @@
     return it.href;
   }
 
+  function isPlayerAuthed() {
+    try { return !!localStorage.getItem("ragnarok-current"); } catch (e) { return false; }
+  }
+
   function buildShell(host) {
     var role = host.getAttribute("data-role") || "portal";
     var here = host.getAttribute("data-here") || "";
@@ -87,7 +91,10 @@
 
     // навигация
     var keys = (NAV[role] || []).filter(function (k) {
-      return !(ITEMS[k].gm && role !== "gm"); // gm-пункты только ведущей
+      if (ITEMS[k].gm && role !== "gm") return false;                 // gm-пункты только ведущей
+      // у игрока вкладки (кроме портала и своей карты) показываем только после входа в карту
+      if (role === "player" && (k === "tree" || k === "worlds" || k === "chars") && !isPlayerAuthed()) return false;
+      return true;
     });
     if (keys.length) {
       var nav = document.createElement("nav");
@@ -137,14 +144,22 @@
     host.appendChild(btn);
   }
 
-  function init() {
+  function buildAll() {
     document.querySelectorAll("[data-shell]").forEach(buildShell);
     refreshToggles(document.documentElement.getAttribute("data-theme") || current());
+  }
+
+  function init() {
+    buildAll();
     // плавные переходы включаем после первой отрисовки (без мигания на загрузке)
-    requestAnimationFrame(function () {
+    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 0); };
+    raf(function () {
       document.documentElement.classList.add("theme-ready");
     });
   }
+
+  // карта героя шлёт это событие после входа/перевхода — пересобираем навигацию
+  window.addEventListener("ragnarok:auth", buildAll);
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

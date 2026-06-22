@@ -421,6 +421,29 @@ function App() {
   const canEdit = !gmview && editing;                     // в режиме ведущей правка запрещена
   const skipSave = useRef(true);
 
+  // авто-перевход: если игрок уже входил в эту сессию, не спрашиваем заново
+  // (сбрасывается только при заходе на портал — index.html чистит ragnarok-current)
+  useEffect(() => {
+    if (!cloud || gmview || joined) return;
+    let cur = null; try { cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null"); } catch (e) {}
+    if (!cur || !cur.campaign || !cur.charId) return;
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) {}
+      try {
+        const cfg = await db.collection("campaigns").doc(cur.campaign).collection("config").doc("lists").get();
+        if (cfg.exists) { const c = cfg.data(); setLists({ hindrances: (c.hindrances && c.hindrances.length) ? c.hindrances : DEFAULT_HINDRANCES, edges: (c.edges && c.edges.length) ? c.edges : DEFAULT_EDGES }); }
+      } catch (e) {}
+      try {
+        const doc = await db.collection("campaigns").doc(cur.campaign).collection("characters").doc(cur.charId).get();
+        if (doc.exists) {
+          skipSave.current = true;
+          const d = { ...makeDefaults(), ...doc.data() };
+          setData(d); setCampaign(cur.campaign); setCharId(cur.charId); setJoined(true); setCreating(d.created === false);
+        } else { try { localStorage.removeItem("ragnarok-current"); } catch (e) {} }   // героя удалили — на гейт
+      } catch (e) { console.error("Авто-вход:", e); }
+    })();
+  }, []);
+
   // ведущая открыла карту конкретного героя на просмотр (?gmview=1&campaign=..&char=..)
   useEffect(() => {
     if (!cloud || !gmview) return;
@@ -435,10 +458,12 @@ function App() {
     })();
   }, []);
 
+  // сообщаем оболочке о входе — чтобы появились вкладки (древо/миры/граф)
+  useEffect(() => { if (joined && !gmview) { try { window.dispatchEvent(new Event("ragnarok:auth")); } catch (e) {} } }, [joined]);
+
   // автосохранение (облако + локальная копия), с дебаунсом
   useEffect(() => {
-    if (!joined || gmview) return;                         // в просмотре ведущей не сохраняем
-    if (skipSave.current) { skipSave.current = false; return; }
+    if (!joined || gmview) return;                         // в просмотре ведущей не сохраняем    if (skipSave.current) { skipSave.current = false; return; }
     const t = setTimeout(async () => {
       try {
         if (cloud && campaign && charId) {
