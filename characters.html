@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Граф богов</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+
+</style>
+</head>
+<body>
+<header data-shell data-here="chars"></header>
+<script>
+/* роль для верхней полосы — из адреса (или фиксированная для древа) */
+(function(){
+  var fixed = null;
+  var r = fixed || (new URLSearchParams(location.search).get("role")==="gm" ? "gm" : "player");
+  var h = document.querySelector("[data-shell]");
+  if (h) h.setAttribute("data-role", r);
+})();
+</script>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useMemo, useEffect } = React;
+const { Plus, Minus, X, Eye, EyeOff, Palette, Database, Trash2, Link2, Maximize2, Search, Network, Crosshair, ArrowLeft, RotateCcw, Send, Lock } = window.LI;
+
+/* ============================ Токены ============================ */
+const GOLD = "#e6c34d";
+const INK = "#0a0e1a";
+const R = 22;
+const VBW = 1280, VBH = 860;
+
+/* 9 миров + чудовища */
+const KINDS = {
+  "асы": "#e6c34d", "ваны": "#6bbf59", "альвы": "#9fd0ff", "люди": "#7f9cb5",
+  "йотуны": "#8b6fc4", "двемеры": "#f0883e", "мёртвые": "#4fb3a3",
+  "нифльхейм": "#88b4e8", "муспельхейм": "#ef6b4a", "чудовища": "#d0455a",
+};
+const KIND_LIST = Object.keys(KINDS);
+
+const initialLegend = [
+  { id: "ally", label: "Союз", color: "#6bbf59", directed: false },
+  { id: "feud", label: "Вражда", color: "#d0455a", directed: false },
+  { id: "kin", label: "Родство", color: "#b5793f", directed: false },
+  { id: "love", label: "Любовь / узы", color: "#e58fb0", directed: false },
+  { id: "oath", label: "Долг / клятва", color: "#e6c34d", directed: false },
+  { id: "mentor", label: "Наставник →", color: "#9b6fe0", directed: true },
+  { id: "secret", label: "Тайна", color: "#d946ef", directed: false },
+];
+
+const initialNodes = [
+  { id: "0_1", name: "Один", kind: "асы", role: "Верховный ас Асгарда; бог войны, мудрости и поэзии. Отдал глаз за знание, висел на Иггдрасиле; ведёт павших в Вальхаллу.", notes: "", vis: true, x: 80, y: 80, ax: 0.37, ay: -0.4 },
+  { id: "0_2", name: "Фригг", kind: "асы", role: "Жена Одина, владычица Асгарда; провидица, знающая судьбы, но молчащая. Мать Бальдра.", notes: "", vis: true, x: 166, y: 80, ax: 0.61, ay: -0.46 },
+  { id: "0_3", name: "Тор", kind: "асы", role: "Бог грома, сын Одина; молот Мьёльнир. Защитник Мидгарда и Асгарда от йотунов.", notes: "", vis: true, x: 252, y: 80, ax: 0.55, ay: -0.2 },
+  { id: "0_4", name: "Бальдр", kind: "асы", role: "Сияющий бог света и добра, сын Одина и Фригг. Гибнет от руки слепого Хёда; вернётся править новым миром.", notes: "", vis: true, x: 338, y: 80, ax: 0.4, ay: -0.75 },
+  { id: "0_5", name: "Хёд", kind: "асы", role: "Слепой бог, сын Одина; невольно убивает Бальдра, направленный Локи.", notes: "", vis: true, x: 424, y: 80, ax: 0.47, ay: -0.49 },
+  { id: "0_6", name: "Хеймдалль", kind: "асы", role: "Страж Асгарда у моста Бифрёст; всечувствующий, трубит в Гьяллархорн в начале Рагнарёка.", notes: "", vis: true, x: 510, y: 80, ax: 0.49, ay: -0.4 },
+  { id: "0_7", name: "Тюр", kind: "асы", role: "Бог войны, права и клятвы; потерял руку в пасти Фенрира, чтобы боги сковали волка.", notes: "", vis: true, x: 596, y: 80, ax: 0.75, ay: -0.45 },
+  { id: "0_8", name: "Браги", kind: "асы", role: "Бог поэзии и красноречия, муж Идунн.", notes: "", vis: true, x: 682, y: 80, ax: 0.41, ay: -0.44 },
+  { id: "0_9", name: "Идунн", kind: "асы", role: "Хранительница яблок вечной молодости богов, жена Браги.", notes: "", vis: true, x: 768, y: 80, ax: 0.46, ay: -0.38 },
+  { id: "0_10", name: "Видар", kind: "асы", role: "Молчаливый сын Одина; в Рагнарёк отомстит Фенриру за отца.", notes: "", vis: true, x: 854, y: 80, ax: 0.51, ay: -0.34 },
+  { id: "0_11", name: "Вали", kind: "асы", role: "Сын Одина, рождён ради мести за Бальдра; в первый же день убил Хёда.", notes: "", vis: true, x: 940, y: 80, ax: 0.62, ay: -0.28 },
+  { id: "0_12", name: "Улль", kind: "асы", role: "Бог-лучник и лыжник, пасынок Тора; покровитель поединка.", notes: "", vis: true, x: 1026, y: 80, ax: 0.58, ay: -0.48 },
+  { id: "0_13", name: "Форсети", kind: "асы", role: "Бог правосудия и примирения, сын Бальдра и Нанны.", notes: "", vis: true, x: 1112, y: 80, ax: 0.42, ay: -0.36 },
+  { id: "0_14", name: "Сив", kind: "асы", role: "Жена Тора, златовласая богиня плодородия; Локи остриг её волосы.", notes: "", vis: true, x: 1198, y: 80, ax: 0.63, ay: -0.52 },
+  { id: "0_15", name: "Магни", kind: "асы", role: "Сын Тора, наделён нечеловеческой силой; унаследует молот.", notes: "", vis: true, x: 80, y: 172, ax: 0.58, ay: -0.52 },
+  { id: "0_16", name: "Моди", kind: "асы", role: "Сын Тора, воплощение боевой ярости.", notes: "", vis: true, x: 166, y: 172, ax: 0.48, ay: -0.4 },
+  { id: "0_17", name: "Нанна", kind: "асы", role: "Жена Бальдра; умерла от горя и взошла с ним на погребальный костёр.", notes: "", vis: true, x: 252, y: 172, ax: 0.61, ay: -0.41 },
+  { id: "0_18", name: "Эйр", kind: "асы", role: "Богиня-целительница, лучшая во врачевании.", notes: "", vis: true, x: 338, y: 172, ax: 0.48, ay: -0.41 },
+  { id: "0_19", name: "Сигюн", kind: "асы", role: "Верная жена Локи; держит чашу над его лицом, ловя яд змеи.", notes: "", vis: true, x: 424, y: 172, ax: 0.54, ay: -0.29 },
+  { id: "0_20", name: "Локи", kind: "асы", role: "Бог-трикстер и оборотень, йотунской крови среди асов; и причина бед, и спаситель. Отец чудовищ, зачинщик Рагнарёка.", notes: "", vis: true, x: 510, y: 172, ax: -0.45, ay: 0.5 },
+  { id: "0_21", name: "Бури", kind: "асы", role: "Первый ас, вылизанный коровой Аудумлой изо льда; дед Одина.", notes: "", vis: true, x: 596, y: 172, ax: 0.57, ay: -0.27 },
+  { id: "0_22", name: "Бёр", kind: "асы", role: "Сын Бури, отец Одина, Вили и Ве.", notes: "", vis: true, x: 682, y: 172, ax: 0.51, ay: -0.46 },
+  { id: "0_23", name: "Вили", kind: "асы", role: "Брат Одина; вместе с ним создал мир из тела Имира.", notes: "", vis: true, x: 768, y: 172, ax: 0.54, ay: -0.33 },
+  { id: "0_24", name: "Ве", kind: "асы", role: "Брат Одина; дал первым людям облик и чувства.", notes: "", vis: true, x: 854, y: 172, ax: 0.48, ay: -0.28 },
+  { id: "0_25", name: "Норны", kind: "асы", role: "Урд, Верданди и Скульд — три девы судьбы у источника под Иггдрасилем; плетут нити прошлого, настоящего и грядущего.", notes: "", vis: true, x: 940, y: 172, ax: 0.0, ay: 0.0 },
+  { id: "0_26", name: "Соль", kind: "асы", role: "Богиня солнца, гонимая по небу волком; её дочь взойдёт над новым миром.", notes: "", vis: true, x: 1026, y: 172, ax: 0.46, ay: -0.53 },
+  { id: "0_27", name: "Мани", kind: "асы", role: "Бог луны, брат Соль; преследуем волком Хати.", notes: "", vis: true, x: 1112, y: 172, ax: 0.5, ay: -0.34 },
+  { id: "0_28", name: "Мимир", kind: "асы", role: "Мудрейшее существо, страж источника знания; обезглавлен, его говорящая голова советует Одину.", notes: "", vis: true, x: 1198, y: 172, ax: 0.37, ay: -0.45 },
+  { id: "0_29", name: "Квасир", kind: "асы", role: "Мудрейший, рождён из слюны асов и ванов; из его крови сварен мёд поэзии.", notes: "", vis: true, x: 80, y: 264, ax: 0.41, ay: -0.48 },
+  { id: "1_1", name: "Ньёрд", kind: "ваны", role: "Бог моря, ветра и богатства из Ванахейма; отец Фрейра и Фрейи.", notes: "", vis: true, x: 166, y: 264, ax: 0.38, ay: -0.39 },
+  { id: "1_2", name: "Фрейр", kind: "ваны", role: "Бог изобилия, мира и царственности; отдал свой меч ради любви и потому гибнет от Сурта.", notes: "", vis: true, x: 252, y: 264, ax: 0.45, ay: -0.65 },
+  { id: "1_3", name: "Фрейя", kind: "ваны", role: "Богиня любви, войны, плодородия и сейда; забирает половину павших в чертог Фолькванг.", notes: "", vis: true, x: 338, y: 264, ax: 0.46, ay: -0.52 },
+  { id: "1_4", name: "Гулльвейг", kind: "ваны", role: "Таинственная ведьма-ванка; её троекратное сожжение асами развязало войну асов и ванов.", notes: "", vis: true, x: 424, y: 264, ax: 0.34, ay: -0.42 },
+  { id: "2_1", name: "Светлые альвы", kind: "альвы", role: "Сияющий народ Альвхейма — прекрасные духи света и плодородия.", notes: "", vis: true, x: 510, y: 264, ax: 0.48, ay: -0.43 },
+  { id: "2_2", name: "Вёлунд", kind: "альвы", role: "Легендарный кузнец, «князь альвов»; пленённый конунгом, выковал страшную месть и улетел на крыльях.", notes: "", vis: true, x: 596, y: 264, ax: 0.42, ay: -0.63 },
+  { id: "3_1", name: "Рагнар Лодброк", kind: "люди", role: "Легендарный конунг-викинг; гроза Англии и Франкии, погиб в змеиной яме короля Эллы.", notes: "", vis: true, x: 682, y: 264, ax: 0.02, ay: -0.08 },
+  { id: "3_2", name: "Бьёрн Железнобокий", kind: "люди", role: "Сын Рагнара, морской вождь; легендарный основатель шведской династии Мунсё.", notes: "", vis: true, x: 768, y: 264, ax: 0.13, ay: -0.02 },
+  { id: "3_3", name: "Ивар Бескостный", kind: "люди", role: "Сын Рагнара, хитрейший предводитель Великой языческой армии в Англии.", notes: "", vis: true, x: 854, y: 264, ax: 0.11, ay: -0.19 },
+  { id: "3_4", name: "Сигурд Змей-в-Глазу", kind: "люди", role: "Сын Рагнара, конунг с отметиной змея в глазу.", notes: "", vis: true, x: 940, y: 264, ax: -0.01, ay: -0.02 },
+  { id: "3_5", name: "Уббе", kind: "люди", role: "Сын Рагнара, вождь Великой армии.", notes: "", vis: true, x: 1026, y: 264, ax: 0.07, ay: -0.02 },
+  { id: "3_6", name: "Аслауг", kind: "люди", role: "Жена Рагнара, дочь Сигурда и Брюнхильд; мудрая провидица.", notes: "", vis: true, x: 1112, y: 264, ax: 0.03, ay: -0.18 },
+  { id: "3_7", name: "Лагерта", kind: "люди", role: "Легендарная женщина-воин, первая жена Рагнара (по Саксону Грамматику).", notes: "", vis: true, x: 1198, y: 264, ax: 0.11, ay: -0.12 },
+  { id: "3_8", name: "Сигурд Фафниробойца", kind: "люди", role: "Величайший герой Эдды; убил дракона Фафнира и омылся его кровью. В немецкой традиции — Зигфрид.", notes: "", vis: true, x: 80, y: 356, ax: -0.01, ay: -0.03 },
+  { id: "3_9", name: "Брюнхильд", kind: "люди", role: "Валькирия и дева-воительница, возлюбленная Сигурда; её месть губит Вёльсунгов.", notes: "", vis: true, x: 166, y: 356, ax: -0.07, ay: -0.03 },
+  { id: "3_10", name: "Гудрун", kind: "люди", role: "Жена Сигурда, героиня песней Эдды; пережила гибель рода и мстила.", notes: "", vis: true, x: 252, y: 356, ax: 0.05, ay: -0.0 },
+  { id: "3_11", name: "Гуннар", kind: "люди", role: "Нифлунгский конунг, брат Гудрун; погиб в змеиной яме, играя на арфе.", notes: "", vis: true, x: 338, y: 356, ax: 0.08, ay: -0.21 },
+  { id: "3_12", name: "Хёгни", kind: "люди", role: "Брат Гуннара, стойкий воин Нифлунгов.", notes: "", vis: true, x: 424, y: 356, ax: -0.06, ay: -0.04 },
+  { id: "3_13", name: "Сигмунд", kind: "люди", role: "Отец Сигурда; единственный, кто вытащил меч Грам из ствола Барнстокка.", notes: "", vis: true, x: 510, y: 356, ax: 0.0, ay: -0.01 },
+  { id: "3_14", name: "Вёльсунг", kind: "люди", role: "Родоначальник рода Вёльсунгов, потомок Одина.", notes: "", vis: true, x: 596, y: 356, ax: -0.09, ay: 0.01 },
+  { id: "3_15", name: "Синфьётли", kind: "люди", role: "Сын Сигмунда, оборотень-волк; герой ранних подвигов Вёльсунгов.", notes: "", vis: true, x: 682, y: 356, ax: -0.1, ay: -0.07 },
+  { id: "3_16", name: "Хельги", kind: "люди", role: "Хельги Убийца Хундинга — герой-воитель Эдды, любимец валькирии Сигрун.", notes: "", vis: true, x: 768, y: 356, ax: -0.05, ay: -0.1 },
+  { id: "3_17", name: "Старкад", kind: "люди", role: "Легендарный богатырь, проживший три срока жизни; одарён и проклят богами.", notes: "", vis: true, x: 854, y: 356, ax: -0.1, ay: 0.01 },
+  { id: "3_18", name: "Хрольв Краки", kind: "люди", role: "Легендарный датский конунг из Лейре, окружённый прославленными воинами.", notes: "", vis: true, x: 940, y: 356, ax: 0.08, ay: -0.23 },
+  { id: "3_19", name: "Бёдвар Бьярки", kind: "люди", role: "Витязь Хрольва Краки; в битве сражается духом-медведем.", notes: "", vis: true, x: 1026, y: 356, ax: 0.01, ay: -0.21 },
+  { id: "3_20", name: "Эгиль Скаллагримссон", kind: "люди", role: "Скальд и берсерк X века, герой исландской саги; великий поэт и буян.", notes: "", vis: true, x: 1112, y: 356, ax: -0.02, ay: -0.05 },
+  { id: "3_21", name: "Гуннар с Хлидаренди", kind: "люди", role: "Доблестный лучник «Саги о Ньяле»; пал, преданный судьбой.", notes: "", vis: true, x: 1198, y: 356, ax: 0.1, ay: -0.09 },
+  { id: "3_22", name: "Ньяль", kind: "люди", role: "Мудрый законник «Саги о Ньяле»; сгорел в своём доме с семьёй.", notes: "", vis: true, x: 80, y: 448, ax: -0.01, ay: 0.0 },
+  { id: "3_23", name: "Греттир Сильный", kind: "люди", role: "Могучий изгой исландской саги; боролся с нежитью-драугами.", notes: "", vis: true, x: 166, y: 448, ax: -0.07, ay: 0.02 },
+  { id: "3_24", name: "Гисли", kind: "люди", role: "Герой-изгой «Саги о Гисли»; верный чести беглец.", notes: "", vis: true, x: 252, y: 448, ax: -0.05, ay: -0.09 },
+  { id: "3_25", name: "Харальд Прекрасноволосый", kind: "люди", role: "Полулегендарный первый король единой Норвегии.", notes: "", vis: true, x: 338, y: 448, ax: -0.08, ay: -0.16 },
+  { id: "3_26", name: "Олаф Трюггвасон", kind: "люди", role: "Король-викинг, крестивший Норвегию; пал в битве при Свольдере.", notes: "", vis: true, x: 424, y: 448, ax: -0.09, ay: -0.14 },
+  { id: "3_27", name: "Эйрик Рыжий", kind: "люди", role: "Изгнанник, основавший норманнскую колонию в Гренландии.", notes: "", vis: true, x: 510, y: 448, ax: -0.11, ay: 0.01 },
+  { id: "3_28", name: "Лейф Эрикссон", kind: "люди", role: "Сын Эйрика; первым из европейцев достиг Винланда (Северной Америки).", notes: "", vis: true, x: 596, y: 448, ax: 0.08, ay: -0.09 },
+  { id: "3_29", name: "Беовульф", kind: "люди", role: "Герой-гаут древнего эпоса; одолел Гренделя и его мать, пал в схватке с драконом.", notes: "", vis: true, x: 682, y: 448, ax: -0.13, ay: -0.21 },
+  { id: "4_1", name: "Скади", kind: "йотуны", role: "Йотунша-охотница, богиня зимы, гор и лыж; пришла мстить за отца Тьяцци, вышла за Ньёрда.", notes: "", vis: true, x: 768, y: 448, ax: -0.2, ay: 0.1 },
+  { id: "4_2", name: "Тьяцци", kind: "йотуны", role: "Йотун-орёл, похитивший Идунн с яблоками молодости; убит асами.", notes: "", vis: true, x: 854, y: 448, ax: -0.61, ay: 0.17 },
+  { id: "4_3", name: "Ангрбода", kind: "йотуны", role: "Ведьма Железного леса, возлюбленная Локи; мать Фенрира, Хель и Ёрмунганда.", notes: "", vis: true, x: 940, y: 448, ax: -0.47, ay: 0.24 },
+  { id: "4_4", name: "Герд", kind: "йотуны", role: "Прекрасная йотунша, ради которой Фрейр отдал меч; стала его женой.", notes: "", vis: true, x: 1026, y: 448, ax: -0.57, ay: 0.31 },
+  { id: "4_5", name: "Гуннлёд", kind: "йотуны", role: "Дочь Суттунга, стерегущая мёд поэзии; Один выманил у неё мёд.", notes: "", vis: true, x: 1112, y: 448, ax: -0.53, ay: 0.31 },
+  { id: "4_6", name: "Суттунг", kind: "йотуны", role: "Йотун, владевший мёдом поэзии, спрятанным в горе Хнитбьёрг.", notes: "", vis: true, x: 1198, y: 448, ax: -0.54, ay: 0.25 },
+  { id: "4_7", name: "Гейррёд", kind: "йотуны", role: "Йотун-враг Тора, заманивший громовержца без молота.", notes: "", vis: true, x: 80, y: 540, ax: -0.53, ay: 0.3 },
+  { id: "4_8", name: "Хюмир", kind: "йотуны", role: "Великан, с которым Тор добывал котёл и удил Мирового Змея.", notes: "", vis: true, x: 166, y: 540, ax: -0.5, ay: 0.13 },
+  { id: "4_9", name: "Трюм", kind: "йотуны", role: "Конунг турсов, похитивший Мьёльнир и требовавший в жёны Фрейю.", notes: "", vis: true, x: 252, y: 540, ax: -0.58, ay: 0.31 },
+  { id: "4_10", name: "Утгарда-Локи", kind: "йотуны", role: "Конунг крепости Утгард, мастер иллюзий; обманом посрамил Тора в состязаниях.", notes: "", vis: true, x: 338, y: 540, ax: -0.62, ay: 0.34 },
+  { id: "4_11", name: "Вафтруднир", kind: "йотуны", role: "Древнейший и мудрейший йотун; состязался с Одином в знаниях и проиграл.", notes: "", vis: true, x: 424, y: 540, ax: -0.58, ay: 0.33 },
+  { id: "4_12", name: "Бергельмир", kind: "йотуны", role: "Единственный йотун, спасшийся в потопе крови Имира; прародитель новых великанов.", notes: "", vis: true, x: 510, y: 540, ax: -0.48, ay: 0.25 },
+  { id: "4_13", name: "Хресвельг", kind: "йотуны", role: "Йотун в обличье орла на краю небес; взмахами крыльев рождает ветер.", notes: "", vis: true, x: 596, y: 540, ax: -0.59, ay: 0.28 },
+  { id: "4_14", name: "Бели", kind: "йотуны", role: "Йотун, убитый Фрейром оленьим рогом.", notes: "", vis: true, x: 682, y: 540, ax: -0.45, ay: 0.17 },
+  { id: "5_1", name: "Брокк", kind: "двемеры", role: "Двемер-кузнец; с братом Синдри выковал Мьёльнир, вепря Гуллинбурсти и кольцо Драупнир.", notes: "", vis: true, x: 768, y: 540, ax: 0.12, ay: -0.23 },
+  { id: "5_2", name: "Синдри", kind: "двемеры", role: "Двемер-мастер (Эйтри), брат Брокка; создатель сокровищ асов.", notes: "", vis: true, x: 854, y: 540, ax: 0.08, ay: -0.08 },
+  { id: "5_3", name: "Регин", kind: "двемеры", role: "Кузнец и наставник Сигурда, брат Фафнира; подбил героя убить дракона ради золота.", notes: "", vis: true, x: 940, y: 540, ax: 0.26, ay: -0.24 },
+  { id: "5_4", name: "Хрейдмар", kind: "двемеры", role: "Отец Фафнира, Регина и Отра; взял выкуп проклятым золотом Андвари.", notes: "", vis: true, x: 1026, y: 540, ax: 0.18, ay: -0.08 },
+  { id: "5_5", name: "Андвари", kind: "двемеры", role: "Двемер, владевший золотом и кольцом Андваранаут; проклял отнятое сокровище.", notes: "", vis: true, x: 1112, y: 540, ax: 0.09, ay: -0.21 },
+  { id: "5_6", name: "Альвис", kind: "двемеры", role: "Всезнающий двемер; заговорённый Тором, окаменел на рассвете.", notes: "", vis: true, x: 1198, y: 540, ax: 0.14, ay: -0.15 },
+  { id: "5_7", name: "Двалин", kind: "двемеры", role: "Один из старейших двемеров, мастер рун и сокровищ.", notes: "", vis: true, x: 80, y: 632, ax: 0.09, ay: -0.11 },
+  { id: "5_8", name: "Фьялар и Галар", kind: "двемеры", role: "Двемеры-братья, убившие Квасира и сварившие из его крови мёд поэзии.", notes: "", vis: true, x: 166, y: 632, ax: 0.17, ay: -0.33 },
+  { id: "5_9", name: "Сыновья Ивальди", kind: "двемеры", role: "Двемеры-кузнецы; выковали Скидбладнир, копьё Гунгнир и золотые волосы Сив.", notes: "", vis: true, x: 252, y: 632, ax: 0.2, ay: -0.31 },
+  { id: "6_1", name: "Хель", kind: "мёртвые", role: "Владычица мира мёртвых, дочь Локи; наполовину живая дева, наполовину труп.", notes: "", vis: true, x: 338, y: 632, ax: -0.25, ay: 0.6 },
+  { id: "6_2", name: "Модгуд", kind: "мёртвые", role: "Дева, стерегущая мост Гьялларбру на пути в Хель.", notes: "", vis: true, x: 424, y: 632, ax: -0.21, ay: 0.36 },
+  { id: "6_3", name: "Эйнхерии", kind: "мёртвые", role: "Павшие герои Вальхаллы; пируют и бьются до Рагнарёка.", notes: "", vis: true, x: 510, y: 632, ax: -0.09, ay: 0.29 },
+  { id: "6_4", name: "Драугр", kind: "мёртвые", role: "Оживший мертвец из кургана; стережёт клады и душит живых (фольклор).", notes: "", vis: true, x: 596, y: 632, ax: -0.12, ay: 0.21 },
+  { id: "7_1", name: "Имир", kind: "нифльхейм", role: "Первое существо, рождённое из льда и пламени в Гиннунгагапе; из его тела создан мир.", notes: "", vis: true, x: 682, y: 632, ax: -0.39, ay: 0.13 },
+  { id: "7_2", name: "Аудумла", kind: "нифльхейм", role: "Изначальная корова, вскормившая Имира; вылизала изо льда первого аса Бури.", notes: "", vis: true, x: 768, y: 632, ax: -0.29, ay: 0.02 },
+  { id: "8_1", name: "Сурт", kind: "муспельхейм", role: "Огненный страж Муспельхейма с пылающим мечом; в Рагнарёк сожжёт мир.", notes: "", vis: true, x: 854, y: 632, ax: -0.4, ay: 0.95 },
+  { id: "8_2", name: "Логи", kind: "муспельхейм", role: "Воплощение дикого огня; в Утгарде «переел» самого Локи.", notes: "", vis: true, x: 940, y: 632, ax: -0.33, ay: 0.59 },
+  { id: "8_3", name: "Сыны Муспелля", kind: "муспельхейм", role: "Огненные всадники, что в Рагнарёк прорвутся по Бифрёсту и обрушат его.", notes: "", vis: true, x: 1026, y: 632, ax: -0.33, ay: 0.82 },
+  { id: "9_1", name: "Фенрир", kind: "чудовища", role: "Чудовищный волк, сын Локи; разорвёт оковы и поглотит Одина в Рагнарёк.", notes: "", vis: true, x: 1112, y: 632, ax: -0.7, ay: 0.85 },
+  { id: "9_2", name: "Ёрмунганд", kind: "чудовища", role: "Мировой Змей, опоясавший Мидгард; смертельный враг Тора.", notes: "", vis: true, x: 1198, y: 632, ax: -0.65, ay: 0.7 },
+  { id: "9_3", name: "Нидхёгг", kind: "чудовища", role: "Дракон-трупоед, грызущий корень Иггдрасиля; переживёт конец мира.", notes: "", vis: true, x: 80, y: 724, ax: -0.6, ay: 0.6 },
+  { id: "9_4", name: "Гарм", kind: "чудовища", role: "Чудовищный пёс, страж врат Хель; в Рагнарёк насмерть сразится с Тюром.", notes: "", vis: true, x: 166, y: 724, ax: -0.55, ay: 0.46 },
+  { id: "9_5", name: "Слейпнир", kind: "чудовища", role: "Восьминогий конь Одина, рождённый Локи; быстрейший скакун меж миров.", notes: "", vis: true, x: 252, y: 724, ax: -0.61, ay: 0.54 },
+  { id: "9_6", name: "Сколл", kind: "чудовища", role: "Волк, преследующий Солнце; настигнет его в Рагнарёк.", notes: "", vis: true, x: 338, y: 724, ax: -0.44, ay: 0.57 },
+  { id: "9_7", name: "Хати", kind: "чудовища", role: "Волк, что гонится за Луной по небу.", notes: "", vis: true, x: 424, y: 724, ax: -0.66, ay: 0.47 },
+  { id: "9_8", name: "Фафнир", kind: "чудовища", role: "Сын Хрейдмара, обратившийся драконом из жадности; убит Сигурдом.", notes: "", vis: true, x: 510, y: 724, ax: -0.64, ay: 0.56 },
+  { id: "9_9", name: "Грендель", kind: "чудовища", role: "Болотное чудовище из эпоса о Беовульфе; пожирало воинов конунга Хродгара.", notes: "", vis: true, x: 596, y: 724, ax: -0.55, ay: 0.52 },
+  { id: "9_10", name: "Тролль", kind: "чудовища", role: "Великан-людоед скандинавского фольклора; на солнце обращается в камень.", notes: "", vis: true, x: 682, y: 724, ax: -0.45, ay: 0.65 },
+  { id: "9_11", name: "Нёкк", kind: "чудовища", role: "Водяной дух-оборотень; заманивает людей музыкой в омут (фольклор).", notes: "", vis: true, x: 768, y: 724, ax: -0.59, ay: 0.59 },
+  { id: "9_12", name: "Хульдра", kind: "чудовища", role: "Лесная дева с коровьим хвостом; манит и губит путников (фольклор).", notes: "", vis: true, x: 854, y: 724, ax: -0.53, ay: 0.49 },
+  { id: "9_13", name: "Кракен", kind: "чудовища", role: "Исполинское морское чудовище, топящее корабли (скандинавский фольклор).", notes: "", vis: true, x: 940, y: 724, ax: -0.49, ay: 0.65 },
+  { id: "9_14", name: "Мара", kind: "чудовища", role: "Дух-кошмар, садящийся на грудь спящему (фольклор).", notes: "", vis: true, x: 1026, y: 724, ax: -0.43, ay: 0.67 },
+];
+const initialEdges = [];
+
+let _seq = 0;
+const uid = (p) => `${p}-${Date.now()}-${_seq++}`;
+const FONT_DISPLAY = "'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif";
+const FONT_UI = "system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+const trunc = (s, n) => (s && s.length > n ? s.slice(0, n - 1) + "…" : s || "");
+
+/* ============================ Компонент ============================ */
+function Characters() {
+  const [nodes, setNodes] = useState(initialNodes);
+  const [edges, setEdges] = useState(initialEdges);
+  const [legend, setLegend] = useState(initialLegend);
+  const __ROLE__ = (new URLSearchParams(location.search).get("role") === "gm") ? "gm" : "player";
+  const [gm, _setGm] = useState(__ROLE__ === "gm");
+  const setGm = (v) => { if (__ROLE__ === "gm") _setGm(v); };
+  const [mode, setMode] = useState("links"); // links | grid
+  const [selected, setSelected] = useState(null);
+  const [selEdge, setSelEdge] = useState(null);
+  const [linking, setLinking] = useState(false);
+  const [linkFrom, setLinkFrom] = useState(null);
+  const [showData, setShowData] = useState(false);
+  const [query, setQuery] = useState("");
+  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  const [kindFilter, setKindFilter] = useState(() => new Set());
+  const toggleKind = (k) => setKindFilter((st) => { const m = new Set(st); m.has(k) ? m.delete(k) : m.add(k); return m; });
+
+  const legendMap = useMemo(() => Object.fromEntries(legend.map((l) => [l.id, l])), [legend]);
+  const nodeMap = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
+  const current = selected ? nodeMap[selected] : null;
+  const svgRef = useRef(null);
+  const dragRef = useRef(null);
+  const panRef = useRef(null);
+
+  /* узлы */
+  const patchNode = (id, patch) => setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+  const addNode = () => { const n = { id: uid("c"), name: "Новый", kind: "люди", role: "", notes: "", vis: true, x: 640, y: 430, ax: 0, ay: 0 }; setNodes((ns) => [...ns, n]); setSelected(n.id); };
+  const delNode = (id) => { setNodes((ns) => ns.filter((n) => n.id !== id)); setEdges((es) => es.filter((e) => e.from !== id && e.to !== id)); setSelected(null); };
+
+  /* связи */
+  const setEdgeType = (eid, type) => setEdges((es) => es.map((e) => (e.id === eid ? { ...e, type } : e)));
+  const toggleEdgeVis = (eid) => setEdges((es) => es.map((e) => (e.id === eid ? { ...e, vis: !e.vis } : e)));
+  const delEdge = (eid) => { setEdges((es) => es.filter((e) => e.id !== eid)); setSelEdge(null); };
+  const addEdge = (a, b) => { const e = { id: uid("e"), from: a, to: b, type: legend[0]?.id || "ally", vis: true }; setEdges((es) => [...es, e]); setSelEdge(e.id); };
+
+  const startLink = () => { setLinking(true); setLinkFrom(null); setSelected(null); setSelEdge(null); };
+  const cancelLink = () => { setLinking(false); setLinkFrom(null); };
+  const handleNode = (id) => {
+    if (linking) {
+      if (!linkFrom) { setLinkFrom(id); return; }
+      if (linkFrom !== id) { addEdge(linkFrom, id); setLinking(false); setLinkFrom(null); }
+      else setLinkFrom(null);
+    } else { setSelEdge(null); setSelected(id); }
+  };
+
+  /* зум / пан / перетаскивание (режим связей) */
+  const svgPoint = (evt) => { const p = svgRef.current.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY; return p.matrixTransform(svgRef.current.getScreenCTM().inverse()); };
+  const toContent = (q) => ({ x: (q.x - view.x) / view.k, y: (q.y - view.y) / view.k });
+  const onNodeDown = (evt, id) => { evt.stopPropagation(); const q = toContent(svgPoint(evt)); const n = nodeMap[id]; dragRef.current = { id, ox: n.x - q.x, oy: n.y - q.y, moved: false, canDrag: gm && !linking }; };
+  const onBgDown = (evt) => { setSelEdge(null); const sp = svgPoint(evt); panRef.current = { sx: sp.x, sy: sp.y }; };
+  const onMove = (evt) => {
+    if (dragRef.current) { const d = dragRef.current; if (!d.canDrag) return; const q = toContent(svgPoint(evt)); d.moved = true; patchNode(d.id, { x: Math.round(q.x + d.ox), y: Math.round(q.y + d.oy) }); return; }
+    if (panRef.current) { const sp = svgPoint(evt); const dx = sp.x - panRef.current.sx, dy = sp.y - panRef.current.sy; panRef.current = { sx: sp.x, sy: sp.y }; setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy })); }
+  };
+  const onUp = () => { const d = dragRef.current; if (d && !d.moved) handleNode(d.id); dragRef.current = null; panRef.current = null; };
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const zoomAt = (sx, sy, f) => setView((v) => { const k2 = clamp(v.k * f, 0.3, 3); return { k: k2, x: sx - ((sx - v.x) / v.k) * k2, y: sy - ((sy - v.y) / v.k) * k2 }; });
+  const onWheel = (evt) => { if (evt.cancelable) evt.preventDefault(); const sp = svgPoint(evt); zoomAt(sp.x, sp.y, evt.deltaY < 0 ? 1.12 : 1 / 1.12); };
+  const zoomBy = (f) => zoomAt(VBW / 2, VBH / 2, f);
+  const resetView = () => setView({ x: 0, y: 0, k: 1 });
+
+  const focusNode = (id) => {
+    setSelected(id); setQuery("");
+    if (mode === "links") { const n = nodeMap[id]; if (n) setView((v) => ({ ...v, x: VBW / 2 - n.x * v.k, y: VBH / 2 - n.y * v.k })); }
+  };
+
+  /* легенда */
+  const patchLegend = (lid, patch) => setLegend((ls) => ls.map((l) => (l.id === lid ? { ...l, ...patch } : l)));
+  const addLegend = () => setLegend((ls) => [...ls, { id: uid("t"), label: "Новый тип", color: "#9aa0aa", directed: false }]);
+  const delLegend = (lid) => { if (legend.length <= 1) return; const fb = legend.find((l) => l.id !== lid).id; setLegend((ls) => ls.filter((l) => l.id !== lid)); setEdges((es) => es.map((e) => (e.type === lid ? { ...e, type: fb } : e))); };
+
+  const q = query.trim().toLowerCase();
+  const results = q ? nodes.filter((n) => (gm || n.vis) && n.name.toLowerCase().includes(q)).slice(0, 8) : [];
+
+  return (
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "#e8edf5", minHeight: "100%" }} className="w-full">
+      <style>{`
+        @keyframes cSlide { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
+        .c-slide{ animation:cSlide .3s ease-out both; }
+        .c-node{ cursor:${gm ? "grab" : "pointer"}; }
+        @media (prefers-reduced-motion: reduce){ .c-slide{animation:none} }
+        .c-input{ background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:8px; color:#e8edf5; padding:6px 10px; outline:none; font-size:13px; }
+        .c-input:focus{ border-color:${GOLD}; }
+        .c-btn{ border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.04); color:#e8edf5; }
+        .c-btn:hover{ background:rgba(255,255,255,.1); }
+      `}</style>
+
+      <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+        <div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD }}>Персонажи</div>
+          <div style={{ fontSize: 12, color: "#8b95a7" }}>{nodes.length} лиц · связи и расстановка</div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,.14)" }}>
+            {[["links", "Связи", Network], ["grid", "Сетка", Crosshair]].map(([v, label, Ic]) => {
+              const active = mode === v;
+              return <button key={v} onClick={() => { setMode(v); setSelEdge(null); cancelLink(); }} className="flex items-center gap-1"
+                style={{ background: active ? "#2a3350" : "transparent", color: active ? "#fff" : "#cdd5e2", padding: "6px 12px", fontSize: 13, fontWeight: 600 }}><Ic size={13} /> {label}</button>;
+            })}
+          </div>
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,.14)" }}>
+            {[["gm", "Ведущая"], ["player", "Игрок"]].map(([v, label]) => {
+              const active = (gm ? "gm" : "player") === v;
+              return <button key={v} onClick={() => { setGm(v === "gm"); setSelEdge(null); cancelLink(); }}
+                style={{ background: active ? GOLD : "transparent", color: active ? INK : "#cdd5e2", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
+            })}
+          </div>
+          {gm && (
+            <>
+              <button className="c-btn flex items-center gap-1" onClick={addNode}><Plus size={14} /> Персонаж</button>
+              {mode === "links" && <button className="c-btn flex items-center gap-1" onClick={linking ? cancelLink : startLink} style={linking ? { borderColor: GOLD, color: GOLD } : undefined}><Link2 size={14} /> {linking ? "Отмена" : "Связь"}</button>}
+              <button className="c-btn flex items-center gap-1" onClick={() => setShowData(true)}><Database size={14} /> Данные</button>
+            </>
+          )}
+        </div>
+      </header>
+
+      <div className="relative">
+        {/* поиск */}
+        <div className="absolute" style={{ top: 12, right: 16, zIndex: 6, width: "min(260px, 70%)" }}>
+          <div className="flex items-center gap-2" style={{ background: "rgba(10,14,26,.92)", border: "1px solid rgba(255,255,255,.16)", borderRadius: 10, padding: "5px 10px" }}>
+            <Search size={14} style={{ color: "#8b95a7", flexShrink: 0 }} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="поиск персонажа…"
+              style={{ flex: 1, background: "none", border: "none", outline: "none", color: "#e8edf5", fontSize: 13 }} />
+            {query && <button onClick={() => setQuery("")} style={{ background: "none", border: "none", color: "#8b95a7", cursor: "pointer" }}><X size={14} /></button>}
+          </div>
+          {results.length > 0 && (
+            <div style={{ marginTop: 4, background: "rgba(10,14,26,.96)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 10, overflow: "hidden" }}>
+              {results.map((n) => (
+                <button key={n.id} onClick={() => focusNode(n.id)} className="flex items-center gap-2"
+                  style={{ width: "100%", textAlign: "left", padding: "6px 10px", background: "none", border: "none", borderBottom: "1px solid rgba(255,255,255,.06)", color: "#e8edf5", cursor: "pointer", fontSize: 13 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: KINDS[n.kind] || "#888", flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>{n.name}</span>
+                  <span style={{ fontSize: 11, color: "#8b95a7" }}>{n.kind}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* фильтр по виду */}
+        <div className="absolute" style={{ left: 16, bottom: 16, zIndex: 6, background: "rgba(10,14,26,.88)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 12, padding: 10, maxWidth: "min(380px, 80%)" }}>
+          <div className="flex items-center justify-between mb-1.5" style={{ fontSize: 10.5, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px" }}>
+            <span>Фильтр по виду</span>
+            {kindFilter.size > 0 && <button onClick={() => setKindFilter(new Set())} style={{ background: "none", border: "none", color: GOLD, cursor: "pointer", fontSize: 11 }}>сбросить</button>}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {KIND_LIST.map((k) => {
+              const on = kindFilter.has(k);
+              const active = kindFilter.size === 0 || on;
+              return (
+                <button key={k} onClick={() => toggleKind(k)} className="flex items-center gap-1"
+                  style={{ fontSize: 11.5, padding: "2px 8px", borderRadius: 14, cursor: "pointer",
+                    border: on ? `1px solid ${KINDS[k]}` : "1px solid rgba(255,255,255,.14)",
+                    background: on ? `${KINDS[k]}26` : "transparent", color: active ? "#e8edf5" : "#5a6473", opacity: active ? 1 : 0.55 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: KINDS[k], display: "inline-block" }} />{k}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {mode === "links" ? (
+          <MapView
+            nodes={nodes} edges={edges} legend={legend} legendMap={legendMap} nodeMap={nodeMap}
+            gm={gm} selEdge={selEdge} setSelEdge={setSelEdge} selected={selected} q={q} kindFilter={kindFilter}
+            linking={linking} linkFrom={linkFrom} view={view}
+            svgRef={svgRef} onNodeDown={onNodeDown} onBgDown={onBgDown} onMove={onMove} onUp={onUp} onWheel={onWheel} zoomBy={zoomBy} resetView={resetView}
+            setEdgeType={setEdgeType} toggleEdgeVis={toggleEdgeVis} delEdge={delEdge}
+            onLegend={patchLegend} addLegend={addLegend} delLegend={delLegend}
+          />
+        ) : (
+          <GridView nodes={nodes} gm={gm} selected={selected} q={q} kindFilter={kindFilter} patchNode={patchNode} onSelect={(id) => setSelected(id)} />
+        )}
+      </div>
+
+      {current && (
+        <NodeDrawer node={current} gm={gm} edges={edges} nodeMap={nodeMap} legendMap={legendMap}
+          onClose={() => setSelected(null)} patchNode={patchNode} delNode={delNode} toggleEdgeVis={toggleEdgeVis} delEdge={delEdge} />
+      )}
+
+      {showData && <DataModal nodes={nodes} edges={edges} legend={legend} onClose={() => setShowData(false)}
+        onApply={(d) => { setNodes(d.nodes); setEdges(d.edges); setLegend(d.legend); setSelected(null); setSelEdge(null); setShowData(false); }} />}
+    </div>
+  );
+}
+
+/* ============================ Режим: Связи ============================ */
+function MapView(props) {
+  const { nodes, edges, legend, legendMap, nodeMap, gm, selEdge, setSelEdge, selected, q, kindFilter,
+    linking, linkFrom, view, svgRef, onNodeDown, onBgDown, onMove, onUp, onWheel, zoomBy, resetView,
+    setEdgeType, toggleEdgeVis, delEdge, onLegend, addLegend, delLegend } = props;
+
+  const shownNodes = (gm ? nodes : nodes.filter((n) => n.vis)).filter((n) => kindFilter.size === 0 || kindFilter.has(n.kind));
+  const visIds = new Set(shownNodes.map((n) => n.id));
+  const shownEdges = edges.filter((e) => (gm || (e.vis && nodeMap[e.from]?.vis && nodeMap[e.to]?.vis)) && visIds.has(e.from) && visIds.has(e.to));
+  const sel = selEdge ? edges.find((e) => e.id === selEdge) : null;
+
+  const pairKey = (e) => [e.from, e.to].slice().sort().join("__");
+  const groups = {};
+  shownEdges.forEach((e) => { (groups[pairKey(e)] || (groups[pairKey(e)] = [])).push(e.id); });
+  const geom = (e) => {
+    const [s1, s2] = [e.from, e.to].slice().sort();
+    const a = nodeMap[s1], b = nodeMap[s2]; if (!a || !b) return null;
+    const list = groups[pairKey(e)] || [e.id];
+    const k = list.indexOf(e.id), n = list.length;
+    const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const off = (k - (n - 1) / 2) * 34;
+    const cx = (a.x + b.x) / 2 + nx * off, cy = (a.y + b.y) / 2 + ny * off;
+    return { a, b, cx, cy, s1, s2, d: `M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}` };
+  };
+  const arrow = (e, g, color) => {
+    const tgt = nodeMap[e.to]; if (!tgt) return null;
+    let vx, vy;
+    if (e.to === g.s2) { vx = g.b.x - g.cx; vy = g.b.y - g.cy; } else { vx = g.a.x - g.cx; vy = g.a.y - g.cy; }
+    const len = Math.hypot(vx, vy) || 1; vx /= len; vy /= len;
+    const px = -vy, py = vx;
+    const tip = { x: tgt.x - vx * (R + 1), y: tgt.y - vy * (R + 1) };
+    const base = { x: tip.x - vx * 10, y: tip.y - vy * 10 };
+    return <polygon points={`${tip.x},${tip.y} ${base.x + px * 5.5},${base.y + py * 5.5} ${base.x - px * 5.5},${base.y - py * 5.5}`} fill={color} opacity={e.vis ? 0.95 : 0.3} />;
+  };
+
+  return (
+    <div className="relative">
+      <svg ref={svgRef} viewBox={`0 0 ${VBW} ${VBH}`} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp} onWheel={onWheel}
+        style={{ width: "100%", display: "block", background: "radial-gradient(120% 90% at 50% 30%, #121a30 0%, #0a0e1a 72%)", touchAction: "none" }}>
+        <rect x="0" y="0" width={VBW} height={VBH} fill="transparent" onPointerDown={onBgDown} />
+        <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
+          {shownEdges.map((e) => {
+            const g = geom(e); if (!g) return null;
+            const lt = legendMap[e.type]; const color = lt?.color || "#888";
+            const hidden = !e.vis; const isSel = selEdge === e.id;
+            return (
+              <g key={e.id}>
+                {isSel && <path d={g.d} fill="none" stroke="#fff" strokeWidth="7" opacity="0.45" strokeLinecap="round" />}
+                <path d={g.d} fill="none" stroke={color} strokeWidth={isSel ? 3.5 : 2.2} opacity={hidden ? 0.26 : 0.8} strokeDasharray={hidden ? "5 7" : undefined} strokeLinecap="round" />
+                {lt?.directed && arrow(e, g, color)}
+                {gm && !linking && <path d={g.d} fill="none" stroke="transparent" strokeWidth="15" style={{ cursor: "pointer" }} onClick={() => setSelEdge(e.id)} />}
+              </g>
+            );
+          })}
+          {shownNodes.map((n) => {
+            const armed = linkFrom === n.id, here = selected === n.id;
+            const hit = q && n.name.toLowerCase().includes(q);
+            const col = KINDS[n.kind] || "#9aa0aa";
+            const dim = gm && !n.vis;
+            return (
+              <g key={n.id} className="c-node" onPointerDown={(e) => onNodeDown(e, n.id)} style={{ opacity: dim ? 0.4 : (q && !hit ? 0.3 : 1) }}>
+                {hit && <circle cx={n.x} cy={n.y} r={R + 9} fill="none" stroke="#fff" strokeWidth="2" opacity="0.8" />}
+                {(armed || here) && <circle cx={n.x} cy={n.y} r={R + 6} fill="none" stroke={GOLD} strokeWidth="2" strokeDasharray={armed ? "4 4" : undefined} />}
+                <circle cx={n.x} cy={n.y} r={R} fill={col} stroke="#0a0e1a" strokeWidth="2.5" />
+                <circle cx={n.x} cy={n.y} r={R} fill="none" stroke="rgba(255,255,255,.3)" strokeWidth="1" />
+                {dim && <g><circle cx={n.x + R - 3} cy={n.y - R + 3} r="7" fill="#0a0e1a" /><text x={n.x + R - 3} y={n.y - R + 6} textAnchor="middle" style={{ fontSize: 9, fill: "#8b95a7" }}>✕</text></g>}
+                <text x={n.x} y={n.y + R + 13} textAnchor="middle" style={{ fontFamily: FONT_DISPLAY, fontSize: 13, fill: "#f1f4fa" }}>{n.name}</text>
+              </g>
+            );
+          })}
+        </g>
+      </svg>
+
+      <div className="absolute left-4 top-4 flex flex-col gap-1">
+        <button className="c-btn" style={{ padding: "6px" }} onClick={() => zoomBy(1.2)}><Plus size={14} /></button>
+        <button className="c-btn" style={{ padding: "6px" }} onClick={() => zoomBy(1 / 1.2)}><Minus size={14} /></button>
+        <button className="c-btn" style={{ padding: "6px" }} onClick={resetView}><Maximize2 size={14} /></button>
+      </div>
+
+      {linking && (
+        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: `1px solid ${GOLD}`, borderRadius: 12, padding: "8px 14px", color: GOLD, fontSize: 13 }}>
+          {linkFrom ? `Из «${nodeMap[linkFrom]?.name}» → выбери второго (он — цель стрелки)` : "Новая связь: выбери первого"}
+        </div>
+      )}
+
+      {gm && !linking && sel && (
+        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: "1px solid rgba(255,255,255,.16)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", width: "min(360px, 92%)" }}>
+          <div className="flex items-center justify-between mb-2">
+            <div style={{ fontSize: 13, color: GOLD }}>{nodeMap[sel.from]?.name} → {nodeMap[sel.to]?.name}</div>
+            <button onClick={() => setSelEdge(null)} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer" }}><X size={16} /></button>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {legend.map((t) => (
+              <button key={t.id} onClick={() => setEdgeType(sel.id, t.id)} className="flex items-center gap-1"
+                style={{ fontSize: 12, padding: "3px 8px", borderRadius: 16, cursor: "pointer", border: sel.type === t.id ? `1px solid ${t.color}` : "1px solid rgba(255,255,255,.14)", background: sel.type === t.id ? `${t.color}26` : "transparent", color: "#e8edf5" }}>
+                <span style={{ width: 12, height: 3, borderRadius: 2, background: t.color, display: "inline-block" }} /> {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="c-btn flex items-center gap-1" onClick={() => toggleEdgeVis(sel.id)}>{sel.vis ? <><Eye size={14} /> Видна игрокам</> : <><EyeOff size={14} /> Скрыта</>}</button>
+            <button className="c-btn flex items-center gap-1" onClick={() => delEdge(sel.id)} style={{ color: "#ef6b4a" }}><Trash2 size={14} /> Убрать</button>
+          </div>
+        </div>
+      )}
+
+      <div className="absolute right-4 bottom-4" style={{ background: "rgba(10,14,26,.84)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: 11, backdropFilter: "blur(6px)", maxWidth: 320 }}>
+        <div className="flex items-center gap-2 mb-1" style={{ color: GOLD, fontSize: 10.5, letterSpacing: ".5px", textTransform: "uppercase" }}>
+          <Palette size={11} /> Связи
+        </div>
+        <div className="flex flex-wrap gap-x-2.5 gap-y-1">
+          {legend.map((l) => (
+            gm ? (
+              <span key={l.id} className="flex items-center gap-1">
+                <input type="color" value={l.color} onChange={(e) => onLegend(l.id, { color: e.target.value })} style={{ width: 16, height: 16, border: "none", background: "none", padding: 0, cursor: "pointer" }} />
+                <input className="c-input" style={{ width: 78, padding: "1px 5px", fontSize: 11 }} value={l.label} onChange={(e) => onLegend(l.id, { label: e.target.value })} />
+                <button onClick={() => onLegend(l.id, { directed: !l.directed })} title="Стрелка" style={{ background: "none", border: "none", cursor: "pointer", color: l.directed ? GOLD : "#5a6473", fontSize: 13 }}>→</button>
+                <button onClick={() => delLegend(l.id)} style={{ color: "#8b95a7", background: "none", border: "none", cursor: "pointer" }}><X size={12} /></button>
+              </span>
+            ) : (
+              <span key={l.id} className="flex items-center gap-1"><span style={{ width: 14, height: 4, borderRadius: 2, background: l.color, display: "inline-block" }} /><span style={{ fontSize: 11, color: "#cdd5e2" }}>{l.label}</span></span>
+            )
+          ))}
+          {gm && <button className="c-btn flex items-center gap-1" style={{ padding: "2px 8px" }} onClick={addLegend}><Plus size={11} /></button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Режим: Сетка (без связей) ============================ */
+function GridView({ nodes, gm, selected, q, kindFilter, patchNode, onSelect }) {
+  const svgRef = useRef(null);
+  const dragRef = useRef(null);
+  const cx = VBW / 2, cy = VBH / 2, hw = VBW / 2 - 110, hh = VBH / 2 - 80;
+  const shown = (gm ? nodes : nodes.filter((n) => n.vis)).filter((n) => kindFilter.size === 0 || kindFilter.has(n.kind));
+  const px = (ax) => cx + (ax || 0) * hw;
+  const py = (ay) => cy - (ay || 0) * hh;
+  const svgPoint = (evt) => { const p = svgRef.current.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY; return p.matrixTransform(svgRef.current.getScreenCTM().inverse()); };
+  const clamp = (v) => Math.max(-1, Math.min(1, v));
+  const onDown = (evt, id) => { evt.stopPropagation(); dragRef.current = { id, moved: false }; };
+  const onMove = (evt) => { const d = dragRef.current; if (!d || !gm) return; const p = svgPoint(evt); d.moved = true; patchNode(d.id, { ax: +clamp((p.x - cx) / hw).toFixed(2), ay: +clamp((cy - p.y) / hh).toFixed(2) }); };
+  const onUp = () => { const d = dragRef.current; if (d && !d.moved) onSelect(d.id); dragRef.current = null; };
+
+  return (
+    <div className="relative">
+      <svg ref={svgRef} viewBox={`0 0 ${VBW} ${VBH}`} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
+        style={{ width: "100%", display: "block", background: "radial-gradient(120% 90% at 50% 40%, #121a30 0%, #0a0e1a 72%)", touchAction: "none" }}>
+        {/* оси */}
+        <line x1={cx - hw} y1={cy} x2={cx + hw} y2={cy} stroke="rgba(255,255,255,.18)" strokeWidth="1.5" />
+        <line x1={cx} y1={cy - hh} x2={cx} y2={cy + hh} stroke="rgba(255,255,255,.18)" strokeWidth="1.5" />
+        <rect x={cx - hw} y={cy - hh} width={hw * 2} height={hh * 2} fill="none" stroke="rgba(255,255,255,.08)" />
+        <text x={cx} y={cy - hh - 12} textAnchor="middle" style={{ fontSize: 13, fill: "#d0455a", letterSpacing: ".5px" }}>ЗА РАГНАРЁК</text>
+        <text x={cx} y={cy + hh + 22} textAnchor="middle" style={{ fontSize: 13, fill: "#6bbf59", letterSpacing: ".5px" }}>ПРОТИВ</text>
+        <text x={cx - hw - 8} y={cy - 6} textAnchor="end" style={{ fontSize: 13, fill: "#ef8b3a", letterSpacing: ".5px" }}>ХАОС</text>
+        <text x={cx + hw + 8} y={cy - 6} textAnchor="start" style={{ fontSize: 13, fill: "#5aa9e6", letterSpacing: ".5px" }}>ПОРЯДОК</text>
+        {/* точки */}
+        {shown.map((n) => {
+          const here = selected === n.id;
+          const hit = q && n.name.toLowerCase().includes(q);
+          const col = KINDS[n.kind] || "#9aa0aa";
+          const dim = gm && !n.vis;
+          return (
+            <g key={n.id} className="c-node" onPointerDown={(e) => onDown(e, n.id)} style={{ opacity: dim ? 0.4 : (q && !hit ? 0.3 : 1) }}>
+              {hit && <circle cx={px(n.ax)} cy={py(n.ay)} r="15" fill="none" stroke="#fff" strokeWidth="2" />}
+              {here && <circle cx={px(n.ax)} cy={py(n.ay)} r="13" fill="none" stroke={GOLD} strokeWidth="2" />}
+              <circle cx={px(n.ax)} cy={py(n.ay)} r="7" fill={col} stroke="#0a0e1a" strokeWidth="1.5" />
+              <text x={px(n.ax)} y={py(n.ay) - 11} textAnchor="middle" style={{ fontSize: 11, fill: "#cdd5e2" }}>{n.name}</text>
+            </g>
+          );
+        })}
+      </svg>
+      <div className="absolute right-4 bottom-4" style={{ fontSize: 12, color: "#8b95a7", maxWidth: 230, textAlign: "right" }}>
+        Только расстановка, без связей. {gm ? "Тащи точку — задать координаты. Клик — карточка." : "Клик — карточка."}
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Сайдбар персонажа ============================ */
+function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, delNode, toggleEdgeVis, delEdge }) {
+  const col = KINDS[node.kind] || "#9aa0aa";
+  const rels = edges.filter((e) => (e.from === node.id || e.to === node.id) && (gm || e.vis));
+  return (
+    <div className="c-slide" style={{ position: "fixed", top: 64, right: 0, bottom: 0, width: "min(360px, 92vw)", zIndex: 30,
+      background: `linear-gradient(180deg, ${col}1f 0%, #0c1120 22%, #0a0e1a 100%)`, borderLeft: "1px solid rgba(255,255,255,.12)",
+      boxShadow: "-18px 0 40px rgba(0,0,0,.45)", overflowY: "auto", padding: 16 }}>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-center gap-3" style={{ flex: 1 }}>
+          <span style={{ width: 22, height: 22, borderRadius: "50%", background: col, boxShadow: `0 0 20px ${col}`, flexShrink: 0 }} />
+          {gm ? (
+            <input className="c-input" value={node.name} onChange={(e) => patchNode(node.id, { name: e.target.value })} style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD, background: "none", border: "none", padding: 0, width: "100%" }} />
+          ) : <span style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD }}>{node.name}</span>}
+        </div>
+        <button onClick={onClose} className="c-btn" style={{ padding: "4px 8px" }}><X size={16} /></button>
+      </div>
+
+      {gm ? (
+        <div className="flex items-center gap-2 mb-3">
+          <select className="c-input" value={node.kind} onChange={(e) => patchNode(node.id, { kind: e.target.value })} style={{ flex: 1 }}>
+            {KIND_LIST.map((k) => <option key={k} value={k} style={{ color: "#000" }}>{k}</option>)}
+          </select>
+          <button className="c-btn flex items-center gap-1" onClick={() => patchNode(node.id, { vis: !node.vis })} title="Виден игрокам">
+            {node.vis ? <><Eye size={14} /> виден</> : <><EyeOff size={14} /> скрыт</>}
+          </button>
+        </div>
+      ) : (
+        <span style={{ display: "inline-block", marginBottom: 12, fontSize: 11, color: "#0a0e1a", background: col, borderRadius: 12, padding: "2px 10px" }}>{node.kind}</span>
+      )}
+
+      <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>Кто это</div>
+      {gm ? (
+        <textarea className="c-input" value={node.role} onChange={(e) => patchNode(node.id, { role: e.target.value })} placeholder="кто, откуда, чем известен" style={{ width: "100%", height: 56, resize: "vertical", marginBottom: 14 }} />
+      ) : <div style={{ fontSize: 14, marginBottom: 14, color: "#cdd5e2", lineHeight: 1.4 }}>{node.role || "—"}</div>}
+
+      {/* координаты */}
+      {gm && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>Координаты</div>
+          <div style={{ fontSize: 11, color: "#8b95a7", marginBottom: 2 }}>Хаос ↔ Порядок: <span style={{ color: "#cdd5e2" }}>{(node.ax || 0).toFixed(2)}</span></div>
+          <input type="range" min="-100" max="100" value={(node.ax || 0) * 100} onChange={(e) => patchNode(node.id, { ax: +(e.target.value / 100).toFixed(2) })} style={{ width: "100%" }} />
+          <div style={{ fontSize: 11, color: "#8b95a7", marginTop: 4, marginBottom: 2 }}>Против ↔ За Рагнарёк: <span style={{ color: "#cdd5e2" }}>{(node.ay || 0).toFixed(2)}</span></div>
+          <input type="range" min="-100" max="100" value={(node.ay || 0) * 100} onChange={(e) => patchNode(node.id, { ay: +(e.target.value / 100).toFixed(2) })} style={{ width: "100%" }} />
+        </div>
+      )}
+
+      <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>Связи ({rels.length})</div>
+      <div className="grid gap-2" style={{ gridTemplateColumns: "1fr", marginBottom: 14 }}>
+        {rels.map((e) => {
+          const lt = legendMap[e.type] || {};
+          const outgoing = e.from === node.id;
+          const other = nodeMap[outgoing ? e.to : e.from];
+          const dirMark = lt.directed ? (outgoing ? "→" : "←") : "·";
+          return (
+            <div key={e.id} className="flex items-center gap-2" style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: "6px 10px", opacity: gm && !e.vis ? 0.55 : 1 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: lt.color || "#888", flexShrink: 0 }} />
+              <div style={{ flex: 1, fontSize: 13 }}><span style={{ color: "#9aa7b8" }}>{lt.label || e.type}</span> <span style={{ color: "#cdd5e2" }}>{dirMark} {other?.name || "?"}</span></div>
+              {gm && (
+                <>
+                  <button onClick={() => toggleEdgeVis(e.id)} title={e.vis ? "Видна" : "Скрыта"} style={{ background: "none", border: "none", cursor: "pointer", color: e.vis ? "#6bbf59" : "#8b95a7" }}>{e.vis ? <Eye size={15} /> : <EyeOff size={15} />}</button>
+                  <button onClick={() => delEdge(e.id)} title="Убрать" style={{ background: "none", border: "none", cursor: "pointer", color: "#8b95a7" }}><Trash2 size={14} /></button>
+                </>
+              )}
+            </div>
+          );
+        })}
+        {rels.length === 0 && <div style={{ fontSize: 13, color: "#8b95a7" }}>пока ни с кем не связан</div>}
+      </div>
+
+      {gm && (
+        <>
+          <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>Заметки ведущей</div>
+          <textarea className="c-input" value={node.notes} onChange={(e) => patchNode(node.id, { notes: e.target.value })} placeholder="тайны, наследие, зацепки…" style={{ width: "100%", height: 60, resize: "vertical", marginBottom: 14 }} />
+          <button className="c-btn flex items-center gap-1" onClick={() => delNode(node.id)} style={{ color: "#ef6b4a" }}><Trash2 size={14} /> Удалить персонажа</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ============================ Данные ============================ */
+function DataModal({ nodes, edges, legend, onClose, onApply }) {
+  const [text, setText] = useState(JSON.stringify({ nodes, edges, legend }, null, 2));
+  const [err, setErr] = useState("");
+  const apply = () => { try { const d = JSON.parse(text); if (!d.nodes || !d.edges || !d.legend) throw new Error("нужны поля nodes, edges, legend"); setErr(""); onApply(d); } catch (e) { setErr("Не разобрал JSON: " + e.message); } };
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 50 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#11162a", border: "1px solid rgba(255,255,255,.14)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
+        <div className="flex items-center justify-between mb-3">
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Данные персонажей</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer" }}><X size={18} /></button>
+        </div>
+        <div style={{ fontSize: 12, color: "#8b95a7", marginBottom: 8 }}>Скопируй, чтобы сохранить. Вставь свой JSON и нажми «Применить».</div>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
+          style={{ width: "100%", height: 280, background: "#0a0e1a", color: "#cdd5e2", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: 12, fontFamily: "ui-monospace,monospace", fontSize: 12 }} />
+        {err && <div style={{ color: "#ef6b4a", fontSize: 12, marginTop: 6 }}>{err}</div>}
+        <div className="flex justify-end gap-2 mt-3">
+          <button className="c-btn" onClick={onClose}>Закрыть</button>
+          <button onClick={apply} style={{ background: GOLD, color: INK, border: "none", borderRadius: 8, padding: "6px 16px", fontWeight: 600, cursor: "pointer" }}>Применить</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Characters />);
+</script>
+<script src="app-shell.js" defer></script>
+
+<script>
+/* у игрока прячем переключатель «Ведущая | Игрок» — роль задаётся ссылкой.
+   Ждём, пока React дорисует кнопки (наблюдатель), затем прячем и отключаемся. */
+(function(){
+  var role = new URLSearchParams(location.search).get("role")==="gm" ? "gm" : "player";
+  if (role === "gm") return;
+  function tryHide(){
+    var hit = false;
+    document.querySelectorAll("button").forEach(function(b){
+      if (b.textContent.trim()==="Ведущая" && b.parentElement){ b.parentElement.style.display="none"; hit = true; }
+    });
+    return hit;
+  }
+  if (tryHide()) return;
+  var obs = new MutationObserver(function(){ if (tryHide()) obs.disconnect(); });
+  obs.observe(document.documentElement, { childList:true, subtree:true });
+  setTimeout(function(){ obs.disconnect(); }, 5000);
+})();
+</script>
+</body>
+</html>

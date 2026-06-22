@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Девять миров</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+
+</style>
+</head>
+<body>
+<header data-shell data-here="worlds"></header>
+<script>
+/* роль для верхней полосы — из адреса (или фиксированная для древа) */
+(function(){
+  var fixed = null;
+  var r = fixed || (new URLSearchParams(location.search).get("role")==="gm" ? "gm" : "player");
+  var h = document.querySelector("[data-shell]");
+  if (h) h.setAttribute("data-role", r);
+})();
+</script>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useMemo, useEffect } = React;
+const { Plus, Minus, X, Eye, EyeOff, Palette, Database, Trash2, Link2, Maximize2, Search, Network, Crosshair, ArrowLeft, RotateCcw, Send, Lock } = window.LI;
+
+/* ============================ Сид-данные ============================ */
+const GOLD = "#e6c34d";
+const INK = "#0a0e1a";
+
+const initialLegend = [
+  { id: "branch", label: "Ветви Иггдрасиля", color: "#6b8e23" },
+  { id: "bifrost", label: "Бифрёст", color: "#38bdf8" },
+  { id: "roots", label: "Корни", color: "#8b5e34" },
+  { id: "rift", label: "Разлом", color: "#d946ef" },
+];
+
+/* Раскладка «древо жизни»: центральный столп из 5 миров + по 2 слева/справа */
+const initialWorlds = [
+  { id: "asgard", name: "Асгард", sub: "престол асов", color: "#e6c34d", x: 450, y: 90,
+    locations: [
+      { id: "as1", name: "Валаскьяльв", tags: ["престол", "всевидение"], vis: true },
+      { id: "as2", name: "Вальхалла", tags: ["павшие", "пир"], vis: true },
+      { id: "as3", name: "Идавёлль", tags: ["после Рагнарёка"], vis: false },
+    ] },
+  { id: "alfheim", name: "Альвхейм", sub: "дом светлых альвов", color: "#cfe8ff", x: 450, y: 280,
+    locations: [
+      { id: "al1", name: "Светлая роща", tags: ["свет", "альвы"], vis: true },
+      { id: "al2", name: "Грань зари", tags: ["граница", "переход"], vis: true },
+    ] },
+  { id: "vanaheim", name: "Ванахейм", sub: "земля ванов, изобилие", color: "#6bbf59", x: 200, y: 370,
+    locations: [
+      { id: "va1", name: "Дикий сад", tags: ["плодородие", "ваны"], vis: true },
+      { id: "va2", name: "Старая ярмарка", tags: ["обмен", "перемирие"], vis: true },
+    ] },
+  { id: "niflheim", name: "Нифльхейм", sub: "туман, лёд, исток", color: "#bcdcff", x: 700, y: 370,
+    locations: [
+      { id: "ni1", name: "Хвергельмир", tags: ["исток", "корень"], vis: true },
+      { id: "ni2", name: "Ледяные пустоши", tags: ["туман", "стужа"], vis: true },
+    ] },
+  { id: "midgard", name: "Мидгард", sub: "мир людей — здесь прорастает миф", color: "#7f9cb5", x: 450, y: 520,
+    locations: [
+      { id: "mi1", name: "Осло", tags: ["город", "люди"], vis: true },
+      { id: "mi2", name: "Старый фьорд", tags: ["порог", "миф"], vis: true },
+      { id: "mi3", name: "Заброшенная станция", tags: ["разлом"], vis: false },
+    ] },
+  { id: "muspelheim", name: "Муспельхейм", sub: "огонь, что сожжёт мир", color: "#ef6b4a", x: 200, y: 670,
+    locations: [
+      { id: "mu1", name: "Чертог Сурта", tags: ["огонь", "меч"], vis: true },
+      { id: "mu2", name: "Кромка пламени", tags: ["Рагнарёк"], vis: false },
+    ] },
+  { id: "jotunheim", name: "Йотунхейм", sub: "владения йотунов", color: "#8b6fc4", x: 700, y: 670,
+    locations: [
+      { id: "jo1", name: "Железный лес", tags: ["Ангрбода", "чудовища"], vis: true },
+      { id: "jo2", name: "Утгард", tags: ["великаны", "обман"], vis: true },
+    ] },
+  { id: "svartalfheim", name: "Свартальвхейм", sub: "кузни и тьма двемеров", color: "#f0883e", x: 450, y: 760,
+    locations: [
+      { id: "sv1", name: "Кузни Нидавеллира", tags: ["двемеры", "артефакты"], vis: true },
+      { id: "sv2", name: "Глубокие штольни", tags: ["тьма", "эхо"], vis: true },
+    ] },
+  { id: "helheim", name: "Хельхейм", sub: "царство мёртвых", color: "#4fb3a3", x: 450, y: 970,
+    locations: [
+      { id: "he1", name: "Врата Хель", tags: ["мёртвые", "порог"], vis: true },
+      { id: "he2", name: "Настранд", tags: ["яд", "Нидхёгг"], vis: false },
+    ] },
+];
+
+const initialEdges = [
+  { id: "e1", from: "asgard", to: "alfheim", type: "branch", vis: true },
+  { id: "e2", from: "asgard", to: "vanaheim", type: "branch", vis: true },
+  { id: "e3", from: "asgard", to: "niflheim", type: "branch", vis: true },
+  { id: "e4", from: "alfheim", to: "vanaheim", type: "branch", vis: true },
+  { id: "e5", from: "alfheim", to: "niflheim", type: "branch", vis: true },
+  { id: "e6", from: "alfheim", to: "midgard", type: "bifrost", vis: true },
+  { id: "e7", from: "vanaheim", to: "midgard", type: "branch", vis: true },
+  { id: "e8", from: "niflheim", to: "midgard", type: "branch", vis: true },
+  { id: "e9", from: "midgard", to: "muspelheim", type: "roots", vis: true },
+  { id: "e10", from: "midgard", to: "jotunheim", type: "roots", vis: true },
+  { id: "e11", from: "midgard", to: "svartalfheim", type: "roots", vis: true },
+  { id: "e12", from: "muspelheim", to: "svartalfheim", type: "roots", vis: true },
+  { id: "e13", from: "jotunheim", to: "svartalfheim", type: "roots", vis: true },
+  { id: "e14", from: "svartalfheim", to: "helheim", type: "roots", vis: true },
+  { id: "e15", from: "muspelheim", to: "helheim", type: "rift", vis: false },
+  { id: "e16", from: "jotunheim", to: "helheim", type: "rift", vis: false },
+  { id: "e17", from: "vanaheim", to: "muspelheim", type: "branch", vis: true },
+  { id: "e18", from: "niflheim", to: "jotunheim", type: "branch", vis: true },
+];
+
+let _seq = 0;
+const uid = (p) => `${p}-${Date.now()}-${_seq++}`;
+
+const FONT_DISPLAY = "'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif";
+const FONT_UI = "system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+
+/* ============================ Компонент ============================ */
+function NineWorlds() {
+  const [worlds, setWorlds] = useState(initialWorlds);
+  const [edges, setEdges] = useState(initialEdges);
+  const [legend, setLegend] = useState(initialLegend);
+  const __ROLE__ = (new URLSearchParams(location.search).get("role") === "gm") ? "gm" : "player";
+  const [gm, _setGm] = useState(__ROLE__ === "gm");
+  const setGm = (v) => { if (__ROLE__ === "gm") _setGm(v); };
+  const [selected, setSelected] = useState(null);   // мир в сайдбаре
+  const [selEdge, setSelEdge] = useState(null);      // выбранная связь
+  const [linking, setLinking] = useState(false);     // режим «новая связь»
+  const [linkFrom, setLinkFrom] = useState(null);
+  const [showData, setShowData] = useState(false);
+
+  const legendMap = useMemo(() => Object.fromEntries(legend.map((l) => [l.id, l])), [legend]);
+  const worldMap = useMemo(() => Object.fromEntries(worlds.map((w) => [w.id, w])), [worlds]);
+  const current = selected ? worldMap[selected] : null;
+
+  /* --- миры/локации --- */
+  const patchWorld = (wid, fn) => setWorlds((ws) => ws.map((w) => (w.id === wid ? fn(w) : w)));
+  const patchLoc = (wid, lid, patch) =>
+    patchWorld(wid, (w) => ({ ...w, locations: w.locations.map((l) => (l.id === lid ? { ...l, ...patch } : l)) }));
+  const addLoc = (wid) =>
+    patchWorld(wid, (w) => ({ ...w, locations: [...w.locations, { id: uid("loc"), name: "Новая локация", tags: [], vis: true }] }));
+  const delLoc = (wid, lid) =>
+    patchWorld(wid, (w) => ({ ...w, locations: w.locations.filter((l) => l.id !== lid) }));
+  const addTag = (wid, lid, t) => {
+    const tag = t.trim(); if (!tag) return;
+    patchWorld(wid, (w) => ({ ...w, locations: w.locations.map((l) => (l.id === lid ? { ...l, tags: [...l.tags, tag] } : l)) }));
+  };
+  const delTag = (wid, lid, i) =>
+    patchWorld(wid, (w) => ({ ...w, locations: w.locations.map((l) => (l.id === lid ? { ...l, tags: l.tags.filter((_, k) => k !== i) } : l)) }));
+
+  /* --- связи --- */
+  const setEdgeType = (eid, type) => setEdges((es) => es.map((e) => (e.id === eid ? { ...e, type } : e)));
+  const toggleEdgeVis = (eid) => setEdges((es) => es.map((e) => (e.id === eid ? { ...e, vis: !e.vis } : e)));
+  const delEdge = (eid) => { setEdges((es) => es.filter((e) => e.id !== eid)); setSelEdge(null); };
+  const addEdge = (a, b) => {
+    const e = { id: uid("e"), from: a, to: b, type: legend[0]?.id || "branch", vis: true };
+    setEdges((es) => [...es, e]);
+    setSelEdge(e.id);
+  };
+
+  /* --- режим связывания --- */
+  const startLink = () => { setLinking(true); setLinkFrom(null); setSelected(null); setSelEdge(null); };
+  const cancelLink = () => { setLinking(false); setLinkFrom(null); };
+  const handleNode = (id) => {
+    if (linking) {
+      if (!linkFrom) { setLinkFrom(id); return; }
+      if (linkFrom !== id) { addEdge(linkFrom, id); setLinking(false); setLinkFrom(null); }
+      else setLinkFrom(null);
+    } else {
+      setSelEdge(null); setSelected(id);
+    }
+  };
+
+  /* --- легенда --- */
+  const patchLegend = (lid, patch) => setLegend((ls) => ls.map((l) => (l.id === lid ? { ...l, ...patch } : l)));
+  const addLegend = () => setLegend((ls) => [...ls, { id: uid("t"), label: "Новая связь", color: "#9aa0aa" }]);
+  const delLegend = (lid) => {
+    if (legend.length <= 1) return;
+    const fallback = legend.find((l) => l.id !== lid).id;
+    setLegend((ls) => ls.filter((l) => l.id !== lid));
+    setEdges((es) => es.map((e) => (e.type === lid ? { ...e, type: fallback } : e)));
+  };
+
+  return (
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "#e8edf5", minHeight: "100%" }} className="w-full">
+      <style>{`
+        @keyframes nwPulse { 0%,100%{opacity:.32} 50%{opacity:.55} }
+        @keyframes nwSlide { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
+        .nw-slide { animation: nwSlide .3s ease-out both; }
+        .nw-node { cursor:pointer; transition: transform .2s ease; transform-box: fill-box; transform-origin:center; }
+        .nw-node:hover { transform: scale(1.07); }
+        .nw-edge-hit { cursor:pointer; }
+        @media (prefers-reduced-motion: reduce){ .nw-slide{animation:none} .nw-halo{animation:none!important} .nw-node{transition:none} }
+        .nw-input { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:8px; color:#e8edf5; padding:6px 10px; outline:none; font-size:13px; }
+        .nw-input:focus { border-color:${GOLD}; }
+        .nw-btn { border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.04); color:#e8edf5; }
+        .nw-btn:hover { background:rgba(255,255,255,.1); }
+      `}</style>
+
+      {/* Шапка */}
+      <header className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+        <div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, letterSpacing: ".5px", color: GOLD }}>Девять миров</div>
+          <div style={{ fontSize: 12, color: "#8b95a7" }}>Иггдрасиль · карта и локации</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,.14)" }}>
+            {[["gm", "Ведущая"], ["player", "Игрок"]].map(([v, label]) => {
+              const active = (gm ? "gm" : "player") === v;
+              return (
+                <button key={v} onClick={() => { setGm(v === "gm"); setSelEdge(null); cancelLink(); }}
+                  style={{ background: active ? GOLD : "transparent", color: active ? INK : "#cdd5e2", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {gm && (
+            <>
+              <button className="nw-btn flex items-center gap-1" onClick={linking ? cancelLink : startLink}
+                style={linking ? { borderColor: GOLD, color: GOLD } : undefined}>
+                <Link2 size={14} /> {linking ? "Отмена" : "Связь"}
+              </button>
+              <button className="nw-btn flex items-center gap-1" onClick={() => setShowData(true)}>
+                <Database size={14} /> Данные
+              </button>
+            </>
+          )}
+        </div>
+      </header>
+
+      <MapView
+        worlds={worlds} edges={edges} legend={legend} legendMap={legendMap} worldMap={worldMap}
+        gm={gm} selEdge={selEdge} setSelEdge={setSelEdge} selected={selected}
+        linking={linking} linkFrom={linkFrom} onNode={handleNode}
+        setEdgeType={setEdgeType} toggleEdgeVis={toggleEdgeVis} delEdge={delEdge}
+        onLegend={patchLegend} addLegend={addLegend} delLegend={delLegend}
+      />
+
+      {current && (
+        <WorldDrawer
+          world={current} gm={gm} onClose={() => setSelected(null)}
+          patchLoc={patchLoc} addLoc={addLoc} delLoc={delLoc} addTag={addTag} delTag={delTag}
+          setName={(n) => patchWorld(current.id, (w) => ({ ...w, name: n }))}
+        />
+      )}
+
+      {showData && <DataModal worlds={worlds} edges={edges} legend={legend} onClose={() => setShowData(false)}
+        onApply={(d) => { setWorlds(d.worlds); setEdges(d.edges); setLegend(d.legend); setSelected(null); setSelEdge(null); setShowData(false); }} />}
+    </div>
+  );
+}
+
+/* ============================ Карта миров ============================ */
+function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setSelEdge, selected, linking, linkFrom, onNode, setEdgeType, toggleEdgeVis, delEdge, onLegend, addLegend, delLegend }) {
+  const shownEdges = edges.filter((e) => gm || e.vis);
+  const sel = selEdge ? edges.find((e) => e.id === selEdge) : null;
+
+  // группируем связи по паре миров, чтобы развести дубли дугами
+  const pairKey = (e) => [e.from, e.to].slice().sort().join("__");
+  const groups = {};
+  shownEdges.forEach((e) => { (groups[pairKey(e)] || (groups[pairKey(e)] = [])).push(e.id); });
+  const edgePath = (e) => {
+    const [s1, s2] = [e.from, e.to].slice().sort();
+    const a = worldMap[s1], b = worldMap[s2];
+    if (!a || !b) return "";
+    const list = groups[pairKey(e)] || [e.id];
+    const k = list.indexOf(e.id), n = list.length;
+    const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const off = (k - (n - 1) / 2) * 44;
+    const cx = (a.x + b.x) / 2 + nx * off, cy = (a.y + b.y) / 2 + ny * off;
+    return `M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}`;
+  };
+
+  return (
+    <div className="relative">
+      <svg viewBox="0 0 900 1080" style={{ width: "100%", display: "block", background: "radial-gradient(120% 80% at 50% 28%, #121a30 0%, #0a0e1a 72%)" }}>
+        <rect x="0" y="0" width="900" height="1080" fill="transparent" onClick={() => setSelEdge(null)} />
+        {/* связи */}
+        {shownEdges.map((e) => {
+          const a = worldMap[e.from], b = worldMap[e.to];
+          if (!a || !b) return null;
+          const c = legendMap[e.type]?.color || "#888";
+          const hidden = !e.vis;
+          const isSel = selEdge === e.id;
+          const d = edgePath(e);
+          return (
+            <g key={e.id}>
+              {isSel && <path d={d} fill="none" stroke="#fff" strokeWidth="8" opacity="0.45" strokeLinecap="round" />}
+              <path d={d} fill="none" stroke={c} strokeWidth={isSel ? 4 : 2.6}
+                opacity={hidden ? 0.28 : 0.85} strokeDasharray={hidden ? "5 7" : undefined} strokeLinecap="round" />
+              {gm && !linking && (
+                <path className="nw-edge-hit" d={d} fill="none" stroke="transparent" strokeWidth="18" onClick={() => setSelEdge(e.id)} />
+              )}
+            </g>
+          );
+        })}
+        {/* узлы */}
+        {worlds.map((w) => {
+          const armed = linkFrom === w.id;
+          const here = selected === w.id;
+          return (
+            <g key={w.id} onClick={() => onNode(w.id)} className="nw-node">
+              <circle className="nw-halo" cx={w.x} cy={w.y} r="48" fill={w.color} opacity="0.32" style={{ animation: "nwPulse 5s ease-in-out infinite" }} />
+              {(armed || here) && <circle cx={w.x} cy={w.y} r="40" fill="none" stroke={GOLD} strokeWidth="2" strokeDasharray={armed ? "4 4" : undefined} />}
+              <circle cx={w.x} cy={w.y} r="32" fill={w.color} stroke="#0a0e1a" strokeWidth="3" />
+              <circle cx={w.x} cy={w.y} r="32" fill="none" stroke="rgba(255,255,255,.35)" strokeWidth="1" />
+              <text x={w.x} y={w.y + 52} textAnchor="middle" style={{ fontFamily: FONT_DISPLAY, fontSize: 19, fill: "#f1f4fa", letterSpacing: ".4px" }}>{w.name}</text>
+              <text x={w.x} y={w.y + 69} textAnchor="middle" style={{ fontSize: 10.5, fill: "#8b95a7" }}>{w.sub}</text>
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Баннер связывания */}
+      {linking && (
+        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: `1px solid ${GOLD}`, borderRadius: 12, padding: "8px 14px", color: GOLD, fontSize: 13 }}>
+          {linkFrom ? `Из «${worldMap[linkFrom]?.name}» → выбери второй мир` : "Новая связь: выбери первый мир"}
+        </div>
+      )}
+
+      {/* Инспектор связи */}
+      {gm && !linking && sel && (
+        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: "1px solid rgba(255,255,255,.16)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", width: "min(340px, 92%)" }}>
+          <div className="flex items-center justify-between mb-2">
+            <div style={{ fontSize: 13, color: GOLD }}>{worldMap[sel.from]?.name} — {worldMap[sel.to]?.name}</div>
+            <button onClick={() => setSelEdge(null)} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer" }}><X size={16} /></button>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {legend.map((t) => (
+              <button key={t.id} onClick={() => setEdgeType(sel.id, t.id)} className="flex items-center gap-1"
+                style={{ fontSize: 12, padding: "3px 8px", borderRadius: 16, cursor: "pointer",
+                  border: sel.type === t.id ? `1px solid ${t.color}` : "1px solid rgba(255,255,255,.14)",
+                  background: sel.type === t.id ? `${t.color}26` : "transparent", color: "#e8edf5" }}>
+                <span style={{ width: 12, height: 3, borderRadius: 2, background: t.color, display: "inline-block" }} /> {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="nw-btn flex items-center gap-1" onClick={() => toggleEdgeVis(sel.id)}>
+              {sel.vis ? <><Eye size={14} /> Видна игрокам</> : <><EyeOff size={14} /> Скрыта</>}
+            </button>
+            <button className="nw-btn flex items-center gap-1" onClick={() => delEdge(sel.id)} style={{ color: "#ef6b4a" }}>
+              <Trash2 size={14} /> Убрать
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Легенда */}
+      <div className="absolute left-4 bottom-4" style={{ background: "rgba(10,14,26,.82)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", minWidth: 210 }}>
+        <div className="flex items-center gap-2 mb-2" style={{ color: GOLD, fontSize: 12, letterSpacing: ".5px", textTransform: "uppercase" }}>
+          <Palette size={13} /> Связи
+        </div>
+        {legend.map((l) => (
+          <div key={l.id} className="flex items-center gap-2 mb-1">
+            {gm ? (
+              <>
+                <input type="color" value={l.color} onChange={(e) => onLegend(l.id, { color: e.target.value })}
+                  style={{ width: 22, height: 22, border: "none", background: "none", padding: 0, cursor: "pointer" }} />
+                <input className="nw-input" style={{ flex: 1, padding: "3px 8px", fontSize: 12 }} value={l.label} onChange={(e) => onLegend(l.id, { label: e.target.value })} />
+                <button onClick={() => delLegend(l.id)} title="Убрать тип" style={{ color: "#8b95a7", background: "none", border: "none", cursor: "pointer" }}><X size={14} /></button>
+              </>
+            ) : (
+              <>
+                <span style={{ width: 16, height: 4, borderRadius: 2, background: l.color, display: "inline-block" }} />
+                <span style={{ fontSize: 12, color: "#cdd5e2" }}>{l.label}</span>
+              </>
+            )}
+          </div>
+        ))}
+        {gm && (
+          <button className="nw-btn flex items-center gap-1 mt-2" style={{ width: "100%", justifyContent: "center", padding: "4px" }} onClick={addLegend}>
+            <Plus size={13} /> тип связи
+          </button>
+        )}
+      </div>
+
+      {gm && !linking && (
+        <div className="absolute right-4 top-4" style={{ fontSize: 12, color: "#8b95a7", maxWidth: 190, textAlign: "right" }}>
+          Клик по миру — локации. Клик по связи — тип / скрыть / убрать. «Связь» — соединить два мира.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================ Сайдбар мира ============================ */
+function WorldDrawer({ world, gm, onClose, patchLoc, addLoc, delLoc, addTag, delTag, setName }) {
+  const shown = gm ? world.locations : world.locations.filter((l) => l.vis);
+  return (
+    <div className="nw-slide" style={{ position: "fixed", top: 64, right: 0, bottom: 0, width: "min(360px, 90vw)", zIndex: 30,
+      background: `linear-gradient(180deg, ${world.color}1f 0%, #0c1120 22%, #0a0e1a 100%)`,
+      borderLeft: "1px solid rgba(255,255,255,.12)", boxShadow: "-18px 0 40px rgba(0,0,0,.45)", overflowY: "auto", padding: 16 }}>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-center gap-3" style={{ flex: 1 }}>
+          <span style={{ width: 22, height: 22, borderRadius: "50%", background: world.color, boxShadow: `0 0 20px ${world.color}`, flexShrink: 0 }} />
+          {gm ? (
+            <input className="nw-input" value={world.name} onChange={(e) => setName(e.target.value)}
+              style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD, background: "none", border: "none", padding: 0, width: "100%" }} />
+          ) : (
+            <span style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD }}>{world.name}</span>
+          )}
+        </div>
+        <button onClick={onClose} className="nw-btn" style={{ padding: "4px 8px" }}><X size={16} /></button>
+      </div>
+      <div style={{ fontSize: 12, color: "#8b95a7", marginBottom: 16 }}>{world.sub} · локаций: {shown.length}</div>
+
+      <div className="grid gap-3" style={{ gridTemplateColumns: "1fr" }}>
+        {shown.map((l) => (
+          <LocationCard key={l.id} loc={l} world={world} gm={gm} patchLoc={patchLoc} delLoc={delLoc} addTag={addTag} delTag={delTag} />
+        ))}
+        {gm && (
+          <button onClick={() => addLoc(world.id)} className="flex items-center justify-center gap-2"
+            style={{ minHeight: 64, border: "1px dashed rgba(255,255,255,.22)", borderRadius: 14, color: "#8b95a7", background: "rgba(255,255,255,.02)", cursor: "pointer" }}>
+            <Plus size={16} /> Добавить локацию
+          </button>
+        )}
+        {!gm && shown.length === 0 && <div style={{ color: "#8b95a7", fontSize: 14 }}>В этом мире пока ничего не открыто.</div>}
+      </div>
+    </div>
+  );
+}
+
+function LocationCard({ loc, world, gm, patchLoc, delLoc, addTag, delTag }) {
+  const [tagInput, setTagInput] = useState("");
+  const submitTag = () => { addTag(world.id, loc.id, tagInput); setTagInput(""); };
+  return (
+    <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 14, padding: 14, opacity: gm && !loc.vis ? 0.6 : 1 }}>
+      <div className="flex items-start justify-between gap-2 mb-2">
+        {gm ? (
+          <input className="nw-input" style={{ flex: 1, fontWeight: 600 }} value={loc.name} onChange={(e) => patchLoc(world.id, loc.id, { name: e.target.value })} />
+        ) : (
+          <div style={{ fontWeight: 600, fontSize: 15 }}>{loc.name}</div>
+        )}
+        {gm && (
+          <div className="flex items-center gap-1">
+            <button title={loc.vis ? "Видна игрокам" : "Скрыта от игроков"} onClick={() => patchLoc(world.id, loc.id, { vis: !loc.vis })}
+              style={{ background: "none", border: "none", cursor: "pointer", color: loc.vis ? "#6bbf59" : "#8b95a7" }}>
+              {loc.vis ? <Eye size={16} /> : <EyeOff size={16} />}
+            </button>
+            <button title="Удалить" onClick={() => delLoc(world.id, loc.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#8b95a7" }}><Trash2 size={15} /></button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {loc.tags.map((t, i) => (
+          <span key={i} className="flex items-center gap-1"
+            style={{ fontSize: 11, background: `${world.color}26`, border: `1px solid ${world.color}55`, color: "#e8edf5", borderRadius: 20, padding: "2px 9px" }}>
+            {t}
+            {gm && <button onClick={() => delTag(world.id, loc.id, i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cdd5e2", lineHeight: 1 }}><X size={11} /></button>}
+          </span>
+        ))}
+        {!gm && loc.tags.length === 0 && <span style={{ fontSize: 11, color: "#8b95a7" }}>без тегов</span>}
+      </div>
+
+      {gm && (
+        <div className="flex gap-1.5 mt-2">
+          <input className="nw-input" style={{ flex: 1, fontSize: 12, padding: "4px 8px" }} placeholder="+ тег"
+            value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submitTag(); }} />
+          <button className="nw-btn" style={{ padding: "4px 10px" }} onClick={submitTag}><Plus size={13} /></button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================ Данные (экспорт/импорт) ============================ */
+function DataModal({ worlds, edges, legend, onClose, onApply }) {
+  const [text, setText] = useState(JSON.stringify({ worlds, edges, legend }, null, 2));
+  const [err, setErr] = useState("");
+  const apply = () => {
+    try {
+      const d = JSON.parse(text);
+      if (!d.worlds || !d.edges || !d.legend) throw new Error("нужны поля worlds, edges, legend");
+      setErr(""); onApply(d);
+    } catch (e) { setErr("Не разобрал JSON: " + e.message); }
+  };
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 50 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#11162a", border: "1px solid rgba(255,255,255,.14)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
+        <div className="flex items-center justify-between mb-3">
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Данные графа</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer" }}><X size={18} /></button>
+        </div>
+        <div style={{ fontSize: 12, color: "#8b95a7", marginBottom: 8 }}>Скопируй, чтобы сохранить. Вставь свой JSON и нажми «Применить», чтобы загрузить.</div>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
+          style={{ width: "100%", height: 280, background: "#0a0e1a", color: "#cdd5e2", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: 12, fontFamily: "ui-monospace,monospace", fontSize: 12 }} />
+        {err && <div style={{ color: "#ef6b4a", fontSize: 12, marginTop: 6 }}>{err}</div>}
+        <div className="flex justify-end gap-2 mt-3">
+          <button className="nw-btn" onClick={onClose}>Закрыть</button>
+          <button onClick={apply} style={{ background: GOLD, color: INK, border: "none", borderRadius: 8, padding: "6px 16px", fontWeight: 600, cursor: "pointer" }}>Применить</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<NineWorlds />);
+</script>
+<script src="app-shell.js" defer></script>
+
+<script>
+/* у игрока прячем переключатель «Ведущая | Игрок» — роль задаётся ссылкой.
+   Ждём, пока React дорисует кнопки (наблюдатель), затем прячем и отключаемся. */
+(function(){
+  var role = new URLSearchParams(location.search).get("role")==="gm" ? "gm" : "player";
+  if (role === "gm") return;
+  function tryHide(){
+    var hit = false;
+    document.querySelectorAll("button").forEach(function(b){
+      if (b.textContent.trim()==="Ведущая" && b.parentElement){ b.parentElement.style.display="none"; hit = true; }
+    });
+    return hit;
+  }
+  if (tryHide()) return;
+  var obs = new MutationObserver(function(){ if (tryHide()) obs.disconnect(); });
+  obs.observe(document.documentElement, { childList:true, subtree:true });
+  setTimeout(function(){ obs.disconnect(); }, 5000);
+})();
+</script>
+</body>
+</html>

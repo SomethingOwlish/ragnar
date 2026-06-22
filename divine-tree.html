@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Древо судеб</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+
+</style>
+</head>
+<body>
+<header data-shell data-here="tree"></header>
+<script>
+/* роль для верхней полосы — из адреса (или фиксированная для древа) */
+(function(){
+  var fixed = "gm";
+  var r = fixed || (new URLSearchParams(location.search).get("role")==="gm" ? "gm" : "player");
+  var h = document.querySelector("[data-shell]");
+  if (h) h.setAttribute("data-role", r);
+})();
+</script>
+<div id="root"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+(function(){
+  var cfg = { apiKey:"AIzaSyCSb7M5IbOql61HIqOUxe3ct4VqdjkhLyE", authDomain:"ragnarau-80866.firebaseapp.com", projectId:"ragnarau-80866", storageBucket:"ragnarau-80866.firebasestorage.app", messagingSenderId:"727752765165", appId:"1:727752765165:web:8c625b7675f022a1b026e4" };
+  try { if (window.firebase) { if (!firebase.apps.length) firebase.initializeApp(cfg); window._fbdb = firebase.firestore(); window._fbauth = firebase.auth(); } } catch(e){ console.error("FB:", e); }
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useMemo, useEffect } = React;
+const { Plus, Minus, X, Eye, EyeOff, Palette, Database, Trash2, Link2, Maximize2, Search, Network, Crosshair, ArrowLeft, RotateCcw, Send, Lock } = window.LI;
+
+/* ============================ Токены ============================ */
+const GOLD = "#e6c34d";
+const INK = "#0a0e1a";
+const R = 26;
+const VBW = 1770, VBH = 1120;
+
+const TIERS = {
+  "смертный": "#9aa7b8", "зов": "#e6c34d", "грань": "#6d7cf0", "лик": "#e58fb0", "наследие": "#d0455a",
+};
+const TIER_LIST = Object.keys(TIERS);
+const BONS = { "Открытие": "#38bdf8", "Аспект": "#9b6fe0", "Мощь": "#ef6b4a", "Осколок": "#e6c34d" };
+const BON_LIST = Object.keys(BONS);
+
+/* ============================ Сид ============================ */
+const M = (id, step, tier, title, bon, fork, dest, children, x, y) =>
+  ({ id, step, tier, title, bon, fork, dest, children, x, y });
+
+const initialNodes = [
+  { id: "r", step: 0, tier: "смертный", title: "Смертный", bon: null, fork: "real", dest: null, children: ["z1", "z10", "z17", "z24", "z31", "z40"], x: 850, y: 1050 },
+  { id: "z1", step: 1, tier: "зов", title: "Зов: Длань", bon: { type: "Открытие", effect: "" }, fork: "real", dest: null, children: ["n2", "n7"], x: 212, y: 920 },
+  { id: "n2", step: 4, tier: "грань", title: "сужение", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n3", "n6"], x: 145, y: 653 },
+  { id: "n3", step: 6, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n4", "n5"], x: 100, y: 387 },
+  { id: "n4", step: 9, tier: "наследие", title: "Тор", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Тюр", children: [], x: 70, y: 120 },
+  { id: "n5", step: 9, tier: "наследие", title: "Тюр", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Тор, Хеймдалль", children: [], x: 130, y: 120 },
+  { id: "n6", step: 9, tier: "наследие", title: "Хеймдалль", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Тюр", children: [], x: 190, y: 120 },
+  { id: "n7", step: 6, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n8", "n9"], x: 280, y: 387 },
+  { id: "n8", step: 9, tier: "наследие", title: "Хёд", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Бальдр", children: [], x: 250, y: 120 },
+  { id: "n9", step: 9, tier: "наследие", title: "Скади", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Ньёрд · также из Волк", children: [], x: 310, y: 120 },
+  { id: "z10", step: 1, tier: "зов", title: "Зов: Вёльва", bon: { type: "Открытие", effect: "" }, fork: "real", dest: null, children: ["n11", "n14"], x: 460, y: 920 },
+  { id: "n11", step: 5, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n12", "n13"], x: 400, y: 520 },
+  { id: "n12", step: 9, tier: "наследие", title: "Фригг", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Норны", children: [], x: 370, y: 120 },
+  { id: "n13", step: 9, tier: "наследие", title: "Норны", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Фригг", children: [], x: 430, y: 120 },
+  { id: "n14", step: 5, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n15", "n16"], x: 520, y: 520 },
+  { id: "n15", step: 9, tier: "наследие", title: "Один", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Мимир, Браги · также из Руна", children: [], x: 490, y: 120 },
+  { id: "n16", step: 9, tier: "наследие", title: "Фрейя", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Фрейр · также из Семя", children: [], x: 550, y: 120 },
+  { id: "z17", step: 1, tier: "зов", title: "Зов: Руна", bon: { type: "Открытие", effect: "" }, fork: "real", dest: null, children: ["n18", "n21"], x: 700, y: 920 },
+  { id: "n18", step: 5, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n19", "n20"], x: 640, y: 520 },
+  { id: "n19", step: 9, tier: "наследие", title: "Браги", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Один", children: [], x: 610, y: 120 },
+  { id: "n20", step: 9, tier: "наследие", title: "Мимир", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Один", children: [], x: 670, y: 120 },
+  { id: "n21", step: 5, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n22", "n23"], x: 760, y: 520 },
+  { id: "n22", step: 9, tier: "наследие", title: "Хугин", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Мунин, Рататоск", children: [], x: 730, y: 120 },
+  { id: "n23", step: 9, tier: "наследие", title: "Мунин", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Хугин, Рататоск", children: [], x: 790, y: 120 },
+  { id: "z24", step: 1, tier: "зов", title: "Зов: Семя", bon: { type: "Открытие", effect: "" }, fork: "real", dest: null, children: ["n25", "n28"], x: 940, y: 920 },
+  { id: "n25", step: 5, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n26", "n27"], x: 880, y: 520 },
+  { id: "n26", step: 9, tier: "наследие", title: "Фрейр", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Фрейя", children: [], x: 850, y: 120 },
+  { id: "n27", step: 9, tier: "наследие", title: "Ньёрд", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Скади", children: [], x: 910, y: 120 },
+  { id: "n28", step: 5, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n29", "n30"], x: 1000, y: 520 },
+  { id: "n29", step: 9, tier: "наследие", title: "Эйр", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Сигюн", children: [], x: 970, y: 120 },
+  { id: "n30", step: 9, tier: "наследие", title: "Соль", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Бальдр", children: [], x: 1030, y: 120 },
+  { id: "z31", step: 1, tier: "зов", title: "Зов: Волк", bon: { type: "Открытие", effect: "" }, fork: "real", dest: null, children: ["n32", "n37"], x: 1232, y: 920 },
+  { id: "n32", step: 4, tier: "грань", title: "сужение", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n33", "n36"], x: 1165, y: 653 },
+  { id: "n33", step: 6, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n34", "n35"], x: 1120, y: 387 },
+  { id: "n34", step: 9, tier: "наследие", title: "Локи", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Ангрбода · также из Сумерки", children: [], x: 1090, y: 120 },
+  { id: "n35", step: 9, tier: "наследие", title: "Ангрбода", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Локи", children: [], x: 1150, y: 120 },
+  { id: "n36", step: 9, tier: "наследие", title: "Рататоск", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Хугин, Мунин", children: [], x: 1210, y: 120 },
+  { id: "n37", step: 6, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n38", "n39"], x: 1300, y: 387 },
+  { id: "n38", step: 9, tier: "наследие", title: "Фенрир", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Ёрмунганд, Сурт · также из Сумерки", children: [], x: 1270, y: 120 },
+  { id: "n39", step: 9, tier: "наследие", title: "Ёрмунганд", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Фенрир", children: [], x: 1330, y: 120 },
+  { id: "z40", step: 1, tier: "зов", title: "Зов: Сумерки", bon: { type: "Открытие", effect: "" }, fork: "real", dest: null, children: ["n41", "n46"], x: 1532, y: 920 },
+  { id: "n41", step: 4, tier: "грань", title: "сужение", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n42", "n45"], x: 1465, y: 653 },
+  { id: "n42", step: 6, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n43", "n44"], x: 1420, y: 387 },
+  { id: "n43", step: 9, tier: "наследие", title: "Хель", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Нидхёгг", children: [], x: 1390, y: 120 },
+  { id: "n44", step: 9, tier: "наследие", title: "Нидхёгг", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Хель", children: [], x: 1450, y: 120 },
+  { id: "n45", step: 9, tier: "наследие", title: "Сурт", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Фенрир", children: [], x: 1510, y: 120 },
+  { id: "n46", step: 6, tier: "лик", title: "пара", bon: { type: "Аспект", effect: "" }, fork: "real", dest: null, children: ["n47", "n48"], x: 1600, y: 387 },
+  { id: "n47", step: 9, tier: "наследие", title: "Сигюн", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Эйр", children: [], x: 1570, y: 120 },
+  { id: "n48", step: 9, tier: "наследие", title: "Бальдр", bon: { type: "Осколок", effect: "" }, fork: null, dest: "твин: Хёд, Соль · также из Семя", children: [], x: 1630, y: 120 },
+];
+let _seq = 0;
+const uid = (p) => `${p}-${Date.now()}-${_seq++}`;
+const FONT_DISPLAY = "'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif";
+const FONT_UI = "system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+
+/* ============================ Компонент ============================ */
+function DivineTree() {
+  const [nodes, setNodes] = useState(initialNodes);
+  const __ROLE__ = (new URLSearchParams(location.search).get("role") === "gm") ? "gm" : "player";
+  const [gm, _setGm] = useState(__ROLE__ === "gm");
+  const setGm = (v) => { if (__ROLE__ === "gm") _setGm(v); };
+  const [selected, setSelected] = useState(null);
+  const [playerAt, setPlayerAt] = useState("r");
+  const [released, setReleased] = useState(false); // ведущая выдала развилку?
+  const [showData, setShowData] = useState(false);
+
+  const nodeMap = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
+  const current = selected ? nodeMap[selected] : null;
+  const svgRef = useRef(null);
+  const dragRef = useRef(null);
+  const panRef = useRef(null);
+  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  const [collapsed, setCollapsed] = useState(() => new Set(initialNodes.filter((n) => n.tier === "зов").map((n) => n.id)));
+  const toggleCollapse = (id) => setCollapsed((st) => { const m = new Set(st); m.has(id) ? m.delete(id) : m.add(id); return m; });
+
+  const patchNode = (id, patch) => setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+  const addChild = (pid) => {
+    const p = nodeMap[pid];
+    const c = M(uid("n"), p.step + 1, p.tier === "зов" ? "грань" : p.tier, "Новый узел",
+      { type: "Аспект", effect: "" }, null, null, [], p.x + 40, p.y - 130);
+    setNodes((ns) => ns.map((n) => (n.id === pid
+      ? { ...n, children: [...n.children, c.id], fork: n.children.length >= 1 ? (n.fork || "real") : n.fork }
+      : n)).concat(c));
+    setSelected(c.id);
+  };
+  const delNode = (id) => {
+    if (id === "r") return;
+    setNodes((ns) => ns.filter((n) => n.id !== id).map((n) => ({ ...n, children: n.children.filter((c) => c !== id) })));
+    setSelected(null);
+  };
+
+  /* zoom / pan / drag */
+  const svgPoint = (evt) => {
+    const p = svgRef.current.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY;
+    return p.matrixTransform(svgRef.current.getScreenCTM().inverse());
+  };
+  const toContent = (q) => ({ x: (q.x - view.x) / view.k, y: (q.y - view.y) / view.k });
+  const onDown = (evt, id) => { evt.stopPropagation(); const q = toContent(svgPoint(evt)); const n = nodeMap[id]; dragRef.current = { id, ox: n.x - q.x, oy: n.y - q.y, moved: false }; };
+  const onBgDown = (evt) => { const sp = svgPoint(evt); panRef.current = { sx: sp.x, sy: sp.y }; };
+  const onMove = (evt) => {
+    if (dragRef.current) { if (!gm) return; const d = dragRef.current; const q = toContent(svgPoint(evt)); d.moved = true; patchNode(d.id, { x: Math.round(q.x + d.ox), y: Math.round(q.y + d.oy) }); return; }
+    if (panRef.current) { const sp = svgPoint(evt); const dx = sp.x - panRef.current.sx, dy = sp.y - panRef.current.sy; panRef.current = { sx: sp.x, sy: sp.y }; setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy })); }
+  };
+  const onUp = () => { const d = dragRef.current; if (d && !d.moved) setSelected(d.id); dragRef.current = null; panRef.current = null; };
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const zoomAt = (sx, sy, f) => setView((v) => { const k2 = clamp(v.k * f, 0.3, 3); return { k: k2, x: sx - ((sx - v.x) / v.k) * k2, y: sy - ((sy - v.y) / v.k) * k2 }; });
+  const onWheel = (evt) => { if (evt.cancelable) evt.preventDefault(); const sp = svgPoint(evt); zoomAt(sp.x, sp.y, evt.deltaY < 0 ? 1.12 : 1 / 1.12); };
+  const zoomBy = (f) => zoomAt(VBW / 2, VBH / 2, f);
+  const resetView = () => setView({ x: 0, y: 0, k: 1 });
+
+  /* плуг развилки */
+  const playerNode = nodeMap[playerAt] || nodeMap["r"];
+  const playerHasNext = playerNode.children.length > 0;
+  const issueFork = () => setReleased(true);
+  const retractFork = () => setReleased(false);
+  const playerPick = (childId) => { setPlayerAt(childId); setReleased(false); };
+  const resetPlayer = () => { setPlayerAt("r"); setReleased(false); };
+
+  return (
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "#e8edf5", minHeight: "100%" }} className="w-full">
+      <style>{`
+        @keyframes tSlide { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
+        .t-slide{ animation:tSlide .3s ease-out both; }
+        .t-node{ cursor:${gm ? "grab" : "default"}; }
+        .t-btn{ border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.04); color:#e8edf5; }
+        .t-btn:hover{ background:rgba(255,255,255,.1); }
+        .t-input{ background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:8px; color:#e8edf5; padding:6px 10px; outline:none; font-size:13px; }
+        .t-input:focus{ border-color:${GOLD}; }
+        @media (prefers-reduced-motion: reduce){ .t-slide{animation:none} }
+      `}</style>
+
+      <header className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+        <div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD }}>Древо наследий</div>
+          <div style={{ fontSize: 12, color: "#8b95a7" }}>9 шагов · живые и фейковые развилки · бог скрыт</div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,.14)" }}>
+            {[["gm", "Ведущая"], ["player", "Игрок"]].map(([v, label]) => {
+              const active = (gm ? "gm" : "player") === v;
+              return <button key={v} onClick={() => { setGm(v === "gm"); setSelected(null); }}
+                style={{ background: active ? GOLD : "transparent", color: active ? INK : "#cdd5e2", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
+            })}
+          </div>
+          {gm && <button className="t-btn flex items-center gap-1" onClick={() => setShowData(true)}><Database size={14} /> Данные</button>}
+        </div>
+      </header>
+
+      {gm ? (
+        <GMView nodes={nodes} nodeMap={nodeMap} selected={selected} svgRef={svgRef} view={view} onDown={onDown} onMove={onMove} onUp={onUp} onWheel={onWheel} onBgDown={onBgDown}
+          collapsed={collapsed} toggleCollapse={toggleCollapse} zoomBy={zoomBy} resetView={resetView}
+          playerNode={playerNode} released={released} playerHasNext={playerHasNext}
+          issueFork={issueFork} retractFork={retractFork} resetPlayer={resetPlayer} />
+      ) : (
+        <PlayerCard nodes={nodes} nodeMap={nodeMap} at={playerAt} released={released} onPick={playerPick} />
+      )}
+
+      {gm && current && (
+        <NodeDrawer node={current} nodeMap={nodeMap} onClose={() => setSelected(null)} patchNode={patchNode} addChild={addChild} delNode={delNode} />
+      )}
+
+      {showData && <DataModal nodes={nodes} onClose={() => setShowData(false)} onApply={(d) => { setNodes(d.nodes); setSelected(null); setShowData(false); }} />}
+      {gm && window._fbdb && <FirestoreIssue node={playerNode} nodeMap={nodeMap} />}
+    </div>
+  );
+}
+
+/* ============================ Мастерский вид ============================ */
+function GMView({ nodes, nodeMap, selected, svgRef, view, onDown, onMove, onUp, onWheel, onBgDown, collapsed, toggleCollapse, zoomBy, resetView, playerNode, released, playerHasNext, issueFork, retractFork, resetPlayer }) {
+  const vis = new Set();
+  const walk = (id) => { if (vis.has(id)) return; vis.add(id); if (!collapsed.has(id)) (nodeMap[id]?.children || []).forEach(walk); };
+  walk("r");
+  const visNodes = nodes.filter((n) => vis.has(n.id));
+  const edges = [];
+  visNodes.forEach((n) => { if (!collapsed.has(n.id)) n.children.forEach((c) => { if (vis.has(c) && nodeMap[c]) edges.push([n, nodeMap[c]]); }); });
+  const countDesc = (id) => (nodeMap[id]?.children || []).reduce((acc, c) => acc + 1 + countDesc(c), 0);
+  return (
+    <div className="relative">
+      <svg ref={svgRef} viewBox="0 0 1770 1120" onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp} onWheel={onWheel}
+        style={{ width: "100%", display: "block", background: "radial-gradient(120% 100% at 20% 40%, #121a30 0%, #0a0e1a 75%)", touchAction: "none" }}>
+        <rect x="0" y="0" width="1770" height="1120" fill="transparent" onPointerDown={onBgDown} />
+        <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
+          {edges.map(([a, b], i) => { const my = (a.y + b.y) / 2; return <path key={i} d={`M ${a.x} ${a.y - R} C ${a.x} ${my} ${b.x} ${my} ${b.x} ${b.y + R}`} fill="none" stroke="rgba(255,255,255,.25)" strokeWidth="2" />; })}
+          {visNodes.map((n) => {
+            const col = TIERS[n.tier] || "#888";
+            const isFork = n.children.length > 1;
+            const hasKids = n.children.length > 0;
+            const isCol = collapsed.has(n.id);
+            const onPath = n.id === playerNode.id;
+            return (
+              <g key={n.id} className="t-node" onPointerDown={(e) => onDown(e, n.id)}>
+                {onPath && <circle cx={n.x} cy={n.y} r={R + 10} fill="none" stroke="#6bbf59" strokeWidth="2" strokeDasharray="3 3" />}
+                {selected === n.id && <circle cx={n.x} cy={n.y} r={R + 6} fill="none" stroke={GOLD} strokeWidth="2" />}
+                {isCol && hasKids && <circle cx={n.x} cy={n.y} r={R + 5} fill="none" stroke="#9aa7b8" strokeWidth="1.5" strokeDasharray="3 3" />}
+                <circle cx={n.x} cy={n.y} r={R} fill={col} stroke="#0a0e1a" strokeWidth="2.5" />
+                {n.bon && <circle cx={n.x} cy={n.y} r="7" fill={BONS[n.bon.type] || "#fff"} stroke="#0a0e1a" strokeWidth="1.5" />}
+                {isFork && (
+                  <g>
+                    <circle cx={n.x + R - 4} cy={n.y - R + 4} r="9" fill="#0a0e1a" stroke={n.fork === "fake" ? "#9aa7b8" : GOLD} strokeWidth="1.5" />
+                    <text x={n.x + R - 4} y={n.y - R + 8} textAnchor="middle" style={{ fontSize: 11, fill: n.fork === "fake" ? "#9aa7b8" : GOLD }}>{n.fork === "fake" ? "↺" : "✦"}</text>
+                  </g>
+                )}
+                {hasKids && (
+                  <g onPointerDown={(e) => { e.stopPropagation(); toggleCollapse(n.id); }} style={{ cursor: "pointer" }}>
+                    <circle cx={n.x - R + 4} cy={n.y - R + 4} r="9" fill="#0a0e1a" stroke="#cdd5e2" strokeWidth="1.5" />
+                    <text x={n.x - R + 4} y={n.y - R + 8} textAnchor="middle" style={{ fontSize: 12, fill: "#cdd5e2" }}>{isCol ? "+" : "–"}</text>
+                  </g>
+                )}
+                <text x={n.x} y={n.y + R + 14} textAnchor="middle" style={{ fontSize: 12, fill: "#e8edf5" }}>{n.title}</text>
+                {isCol && hasKids
+                  ? <text x={n.x} y={n.y + R + 28} textAnchor="middle" style={{ fontSize: 10, fill: "#8b95a7" }}>{`свёрнуто · +${countDesc(n.id)}`}</text>
+                  : (n.dest && <text x={n.x} y={n.y + R + 28} textAnchor="middle" style={{ fontSize: 10, fill: "#8b95a7", fontStyle: "italic" }}>{n.dest}</text>)}
+              </g>
+            );
+          })}
+        </g>
+      </svg>
+      <div className="absolute left-4 top-4 flex flex-col gap-1">
+        <button className="t-btn" style={{ padding: "6px" }} onClick={() => zoomBy(1.2)}><Plus size={14} /></button>
+        <button className="t-btn" style={{ padding: "6px" }} onClick={() => zoomBy(1 / 1.2)}><Minus size={14} /></button>
+        <button className="t-btn" style={{ padding: "6px" }} onClick={resetView}><Maximize2 size={14} /></button>
+      </div>
+
+      {/* Плуг развилки — ведущая выдаёт шаг игроку */}
+      <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: "1px solid rgba(255,255,255,.16)", borderRadius: 12, padding: "10px 14px", backdropFilter: "blur(6px)", width: "min(420px,94%)" }}>
+        <div className="flex items-center justify-between gap-2">
+          <div style={{ fontSize: 12, color: "#cdd5e2" }}>
+            <span style={{ color: "#8b95a7" }}>Игрок на:</span> {playerNode.title}
+            <span style={{ marginLeft: 8, color: released ? "#6bbf59" : "#8b95a7" }}>· {released ? "развилка выдана" : "ждёт"}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {!playerHasNext ? (
+              <span style={{ fontSize: 12, color: "#8b95a7" }}>конец ветки</span>
+            ) : released ? (
+              <button className="t-btn flex items-center gap-1" onClick={retractFork}><Lock size={13} /> Забрать</button>
+            ) : (
+              <button className="t-btn flex items-center gap-1" onClick={issueFork} style={{ borderColor: GOLD, color: GOLD }}><Send size={13} /> Выдать развилку</button>
+            )}
+            <button className="t-btn flex items-center gap-1" onClick={resetPlayer}><RotateCcw size={13} /></button>
+          </div>
+        </div>
+      </div>
+
+      {/* легенда */}
+      <div className="absolute left-4 bottom-4" style={{ background: "rgba(10,14,26,.84)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: 12, fontSize: 12, backdropFilter: "blur(6px)" }}>
+        <div className="flex flex-wrap gap-3 mb-2">
+          {TIER_LIST.map((t) => <span key={t} className="flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: "50%", background: TIERS[t], display: "inline-block" }} />{t}</span>)}
+        </div>
+        <div className="flex flex-wrap gap-3" style={{ color: "#cdd5e2" }}>
+          <span style={{ color: GOLD }}>✦ живая</span>
+          <span style={{ color: "#9aa7b8" }}>↺ фейк (сходится назад)</span>
+          {BON_LIST.map((b) => <span key={b} className="flex items-center gap-1"><span style={{ width: 8, height: 8, borderRadius: "50%", background: BONS[b], display: "inline-block" }} />{b}</span>)}
+        </div>
+      </div>
+
+      <div className="absolute right-4 bottom-4" style={{ fontSize: 12, color: "#8b95a7", maxWidth: 200, textAlign: "right" }}>
+        Снизу вверх. Колесо или ±/⤢ — зум, тащи пустоту — двигать. +/− на узле — свернуть ветку. Тащи узел — переставить, клик — правка.
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Карточка игрока (гейт ведущей) ============================ */
+function PlayerCard({ nodes, nodeMap, at, released, onPick }) {
+  const node = nodeMap[at] || nodeMap["r"];
+  const parentOf = (id) => nodes.find((n) => n.children.includes(id));
+  const path = []; let cur = node;
+  while (cur && cur.id !== "r") { path.unshift(cur); cur = parentOf(cur.id); }
+  const options = node.children.map((c) => nodeMap[c]).filter(Boolean);
+
+  return (
+    <div className="t-slide" style={{ maxWidth: 560, margin: "0 auto", padding: "24px 18px" }}>
+      <div className="flex flex-wrap items-center gap-1 mb-5" style={{ fontSize: 12, color: "#8b95a7" }}>
+        <span>Смертный</span>
+        {path.map((p) => <span key={p.id} className="flex items-center gap-1"><span>→</span><span style={{ color: BONS[p.bon?.type] || "#cdd5e2" }}>{p.title}</span></span>)}
+      </div>
+
+      {node.bon && (
+        <div className="mb-6" style={{ background: "rgba(255,255,255,.04)", border: `1px solid ${BONS[node.bon.type]}55`, borderRadius: 16, padding: 18 }}>
+          <div className="flex items-center gap-2 mb-1">
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: BONS[node.bon.type], display: "inline-block" }} />
+            <span style={{ fontSize: 12, color: BONS[node.bon.type], textTransform: "uppercase", letterSpacing: ".5px" }}>{node.bon.type}</span>
+          </div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: GOLD, marginBottom: 4 }}>{node.title}</div>
+          <div style={{ fontSize: 14, color: "#cdd5e2" }}>{node.bon.effect || "—"}</div>
+        </div>
+      )}
+
+      {options.length === 0 ? (
+        <div style={{ color: "#8b95a7", fontSize: 14 }}>Тропа здесь обрывается — ведущая ещё не наполнила этот узел.</div>
+      ) : !released ? (
+        <div style={{ background: "rgba(255,255,255,.03)", border: "1px dashed rgba(255,255,255,.16)", borderRadius: 14, padding: 18, textAlign: "center" }}>
+          <Lock size={18} style={{ opacity: 0.6, marginBottom: 6 }} />
+          <div style={{ fontSize: 14, color: "#9aa7b8" }}>Жди пробуждения.</div>
+          <div style={{ fontSize: 12, color: "#5a6473", marginTop: 4 }}>Ведущая откроет следующую развилку, когда придёт срок.</div>
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 12, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 10 }}>
+            {options.length > 1 ? "Развилка — сделай выбор" : "Шаг открыт"}
+          </div>
+          <div className="grid gap-3" style={{ gridTemplateColumns: "1fr" }}>
+            {options.map((o) => (
+              <button key={o.id} onClick={() => onPick(o.id)} className="text-left"
+                style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 14, padding: 14, cursor: "pointer", color: "#e8edf5" }}>
+                <div className="flex items-center gap-2 mb-1">
+                  {o.bon && <span style={{ width: 8, height: 8, borderRadius: "50%", background: BONS[o.bon.type], display: "inline-block" }} />}
+                  <span style={{ fontWeight: 600 }}>{o.title}</span>
+                </div>
+                {o.bon && <div style={{ fontSize: 13, color: "#9aa7b8" }}>{o.bon.type}{o.bon.effect ? ` · ${o.bon.effect}` : ""}</div>}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div style={{ fontSize: 11, color: "#5a6473", marginTop: 16 }}>Выбор делается, только когда ведущая выдаёт развилку. Куда ведёт путь и где фейк — скрыто.</div>
+    </div>
+  );
+}
+
+/* ============================ Сайдбар узла ============================ */
+function NodeDrawer({ node, nodeMap, onClose, patchNode, addChild, delNode }) {
+  const col = TIERS[node.tier] || "#888";
+  const isFork = node.children.length > 1;
+  return (
+    <div className="t-slide" style={{ position: "fixed", top: 64, right: 0, bottom: 0, width: "min(360px, 92vw)", zIndex: 30,
+      background: `linear-gradient(180deg, ${col}1f 0%, #0c1120 22%, #0a0e1a 100%)`, borderLeft: "1px solid rgba(255,255,255,.12)",
+      boxShadow: "-18px 0 40px rgba(0,0,0,.45)", overflowY: "auto", padding: 16 }}>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <input className="t-input" value={node.title} onChange={(e) => patchNode(node.id, { title: e.target.value })}
+          style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: GOLD, background: "none", border: "none", padding: 0, width: "100%" }} />
+        <button onClick={onClose} className="t-btn" style={{ padding: "4px 8px" }}><X size={16} /></button>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4" style={{ fontSize: 12, color: "#8b95a7" }}>
+        <span style={{ background: col, color: "#0a0e1a", borderRadius: 10, padding: "2px 9px" }}>{node.tier}</span>
+        <span>шаг {node.step}</span>
+      </div>
+
+      <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", marginBottom: 4 }}>Ярус</div>
+      <select className="t-input" value={node.tier} onChange={(e) => patchNode(node.id, { tier: e.target.value })} style={{ marginBottom: 14, width: "100%" }}>
+        {TIER_LIST.map((t) => <option key={t} value={t} style={{ color: "#000" }}>{t}</option>)}
+      </select>
+
+      {node.bon && (
+        <>
+          <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", marginBottom: 6 }}>Бон</div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {BON_LIST.map((b) => (
+              <button key={b} onClick={() => patchNode(node.id, { bon: { ...node.bon, type: b } })}
+                style={{ fontSize: 12, padding: "3px 9px", borderRadius: 14, cursor: "pointer",
+                  border: node.bon.type === b ? `1px solid ${BONS[b]}` : "1px solid rgba(255,255,255,.14)",
+                  background: node.bon.type === b ? `${BONS[b]}26` : "transparent", color: "#e8edf5" }}>{b}</button>
+            ))}
+          </div>
+          <textarea className="t-input" value={node.bon.effect} onChange={(e) => patchNode(node.id, { bon: { ...node.bon, effect: e.target.value } })}
+            placeholder="эффект бона" style={{ width: "100%", height: 48, resize: "vertical", marginBottom: 14 }} />
+        </>
+      )}
+
+      {isFork && (
+        <>
+          <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", marginBottom: 6 }}>Тип развилки</div>
+          <div className="flex gap-2 mb-4">
+            {[["real", "✦ Живая (к разным богам)"], ["fake", "↺ Фейк (сходится назад)"]].map(([v, label]) => (
+              <button key={v} onClick={() => patchNode(node.id, { fork: v })}
+                style={{ flex: 1, fontSize: 12, padding: "6px", borderRadius: 10, cursor: "pointer",
+                  border: node.fork === v ? `1px solid ${v === "fake" ? "#9aa7b8" : GOLD}` : "1px solid rgba(255,255,255,.14)",
+                  background: node.fork === v ? "rgba(255,255,255,.06)" : "transparent", color: "#e8edf5" }}>{label}</button>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", marginBottom: 4 }}>Куда ведёт (скрыто от игрока)</div>
+      <input className="t-input" value={node.dest || ""} onChange={(e) => patchNode(node.id, { dest: e.target.value })}
+        placeholder="бог / пара / кластер" style={{ width: "100%", marginBottom: 16 }} />
+
+      <div className="flex gap-2">
+        <button className="t-btn flex items-center gap-1" onClick={() => addChild(node.id)}><Plus size={14} /> Развилка / шаг</button>
+        {node.id !== "r" && <button className="t-btn flex items-center gap-1" onClick={() => delNode(node.id)} style={{ color: "#ef6b4a" }}><Trash2 size={14} /> Удалить</button>}
+      </div>
+      {node.children.length > 0 && (
+        <div style={{ fontSize: 11, color: "#5a6473", marginTop: 10 }}>Дети: {node.children.map((c) => nodeMap[c]?.title).filter(Boolean).join(", ") || "—"}</div>
+      )}
+    </div>
+  );
+}
+
+/* ============================ Данные ============================ */
+function DataModal({ nodes, onClose, onApply }) {
+  const [text, setText] = useState(JSON.stringify({ nodes }, null, 2));
+  const [err, setErr] = useState("");
+  const apply = () => { try { const d = JSON.parse(text); if (!d.nodes) throw new Error("нужно поле nodes"); setErr(""); onApply(d); } catch (e) { setErr("Не разобрал JSON: " + e.message); } };
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 50 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#11162a", border: "1px solid rgba(255,255,255,.14)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
+        <div className="flex items-center justify-between mb-3">
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Данные древа</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer" }}><X size={18} /></button>
+        </div>
+        <div style={{ fontSize: 12, color: "#8b95a7", marginBottom: 8 }}>Скопируй, чтобы сохранить. Вставь свой JSON и нажми «Применить».</div>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
+          style={{ width: "100%", height: 300, background: "#0a0e1a", color: "#cdd5e2", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: 12, fontFamily: "ui-monospace,monospace", fontSize: 12 }} />
+        {err && <div style={{ color: "#ef6b4a", fontSize: 12, marginTop: 6 }}>{err}</div>}
+        <div className="flex justify-end gap-2 mt-3">
+          <button className="t-btn" onClick={onClose}>Закрыть</button>
+          <button onClick={apply} style={{ background: GOLD, color: INK, border: "none", borderRadius: 8, padding: "6px 16px", fontWeight: 600, cursor: "pointer" }}>Применить</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FirestoreIssue({ node, nodeMap }) {
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [joined, setJoined] = useState(false);
+  const [players, setPlayers] = useState([]);
+  const [pid, setPid] = useState("");
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    if (!joined || !window._fbdb) return;
+    const ref = window._fbdb.collection("campaigns").doc(code).collection("characters");
+    const un = ref.onSnapshot((qs) => { const a = []; qs.forEach((d) => a.push({ id: d.id, ...d.data() })); a.sort((x, y) => (x.name || "").localeCompare(y.name || "")); setPlayers(a); }, (e) => setMsg("Ошибка чтения: " + e.message));
+    return () => un();
+  }, [joined, code]);
+  const join = async () => {
+    if (!window._fbdb) { setMsg("Firebase не настроен"); return; }
+    const c = code.trim().toLowerCase().replace(/[^a-zа-я0-9_-]/gi, "");
+    if (!c) { setMsg("Введи код кампании"); return; }
+    try { await window._fbauth.signInAnonymously(); } catch (e) { setMsg("Включи Anonymous Auth"); return; }
+    setCode(c); setJoined(true); setMsg("");
+  };
+  const options = (node.children || []).map((cid) => nodeMap[cid]).filter(Boolean).map((c) => ({
+    type: (c.bon && c.bon.type) || "Аспект",
+    title: c.tier === "наследие" ? "" : c.title,   // имена богов игроку не утекают
+    effect: (c.bon && c.bon.effect) || "",
+  }));
+  const issue = async () => {
+    if (!pid) { setMsg("Выбери игрока"); return; }
+    if (!options.length) { setMsg("У этого узла нет развилок"); return; }
+    try {
+      await window._fbdb.collection("campaigns").doc(code).collection("characters").doc(pid)
+        .set({ nextFork: { options, chosen: null }, node: node.title }, { merge: true });
+      setMsg("Выдано игроку ✓"); setTimeout(() => setMsg(""), 2000);
+    } catch (e) { setMsg("Ошибка: " + e.message); }
+  };
+  return (
+    <div style={{ position: "fixed", right: 16, bottom: 16, zIndex: 40, width: "min(320px,92vw)", background: "rgba(10,14,26,.95)", border: "1px solid rgba(230,195,77,.4)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)" }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: open ? 10 : 0 }}>
+        <div style={{ fontSize: 12, color: GOLD, letterSpacing: ".4px" }}>Выдать развилку игроку</div>
+        <button onClick={() => setOpen((o) => !o)} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer", fontSize: 13 }}>{open ? "свернуть" : "открыть"}</button>
+      </div>
+      {open && (
+        <div>
+          {!joined ? (
+            <div className="flex gap-2">
+              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="код кампании" onKeyDown={(e) => e.key === "Enter" && join()}
+                style={{ flex: 1, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, color: "#e8edf5", padding: "6px 10px", fontSize: 13, outline: "none" }} />
+              <button onClick={join} style={{ background: GOLD, color: INK, border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>Войти</button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 11, color: "#8b95a7", marginBottom: 6 }}>Кампания «{code}». Узел: <span style={{ color: "#cdd5e2" }}>{node.title}</span> · вариантов: {options.length}</div>
+              <select value={pid} onChange={(e) => setPid(e.target.value)}
+                style={{ width: "100%", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, color: "#e8edf5", padding: "6px 10px", fontSize: 13, marginBottom: 8 }}>
+                <option value="" style={{ color: "#000" }}>— выбери игрока —</option>
+                {players.map((p) => <option key={p.id} value={p.id} style={{ color: "#000" }}>{p.name || "без имени"}</option>)}
+              </select>
+              <button onClick={issue} className="flex items-center justify-center gap-1" style={{ width: "100%", background: GOLD, color: INK, border: "none", borderRadius: 8, padding: "7px", fontWeight: 600, cursor: "pointer", fontSize: 13 }}><Send size={13} /> Выдать из текущего узла</button>
+              <div style={{ fontSize: 10.5, color: "#8b95a7", marginTop: 6, lineHeight: 1.4 }}>Передвинь фишку игрока плугом сверху, затем выдай — варианты текущего узла придут в его карту. Имена богов на ярусе «наследие» не отправляются.</div>
+            </div>
+          )}
+          {msg && <div style={{ fontSize: 12, color: msg.indexOf("✓") >= 0 ? "#6bbf59" : "#ef6b4a", marginTop: 6 }}>{msg}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const _treeRole = (new URLSearchParams(location.search).get("role") === "gm") ? "gm" : "player";
+if (_treeRole === "gm") {
+  ReactDOM.createRoot(document.getElementById("root")).render(<DivineTree />);
+} else {
+  ReactDOM.createRoot(document.getElementById("root")).render(
+    <div style={{ maxWidth: 460, margin: "12vh auto", textAlign: "center", color: "#cdd5e2", fontFamily: "system-ui,sans-serif", padding: 24 }}>
+      <div style={{ fontSize: 40, marginBottom: 10 }}>🔒</div>
+      <div style={{ fontFamily: "Georgia,serif", fontSize: 22, color: "#e6c34d", marginBottom: 8 }}>Древо судеб — только для ведущей</div>
+      <div style={{ fontSize: 14, color: "#8b95a7" }}>Полное древо с наследиями и твинами скрыто от игроков. Твоя ближайшая развилка приходит в «Карту героя».</div>
+    </div>
+  );
+}
+</script>
+<script src="app-shell.js" defer></script>
+
+<script>
+/* у игрока прячем переключатель «Ведущая | Игрок» — роль задаётся ссылкой.
+   Ждём, пока React дорисует кнопки (наблюдатель), затем прячем и отключаемся. */
+(function(){
+  var role = new URLSearchParams(location.search).get("role")==="gm" ? "gm" : "player";
+  if (role === "gm") return;
+  function tryHide(){
+    var hit = false;
+    document.querySelectorAll("button").forEach(function(b){
+      if (b.textContent.trim()==="Ведущая" && b.parentElement){ b.parentElement.style.display="none"; hit = true; }
+    });
+    return hit;
+  }
+  if (tryHide()) return;
+  var obs = new MutationObserver(function(){ if (tryHide()) obs.disconnect(); });
+  obs.observe(document.documentElement, { childList:true, subtree:true });
+  setTimeout(function(){ obs.disconnect(); }, 5000);
+})();
+</script>
+</body>
+</html>
