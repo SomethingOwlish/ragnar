@@ -187,6 +187,18 @@ button{font-family:inherit; cursor:pointer;}
   .print-sheet .p-empty{font-size:11px; color:#aaa;}
   .print-sheet .p-text{font-size:11.5px; color:#333; white-space:pre-wrap;}
   .print-sheet .p-cols, .print-sheet .p-skills{break-inside:avoid;}
+  .print-sheet .p-combat{display:flex; flex-direction:column; gap:6px; margin-bottom:4px; break-inside:avoid;}
+  .print-sheet .p-track{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .print-sheet .p-tl{font-size:11px; font-weight:600; width:74px; flex:none; color:#333;}
+  .print-sheet .p-box{border:1px solid #999; border-radius:4px; padding:3px 8px; font-size:11px; color:#333;}
+  .print-sheet .p-bn{display:inline-block; width:16px; height:16px; border:1.5px solid #999; border-radius:50%;}
+  .print-sheet .p-cond{font-size:11px; color:#444;}
+  .print-sheet .p-weap{width:100%; border-collapse:collapse; margin-top:4px; font-size:11px; break-inside:avoid;}
+  .print-sheet .p-weap th{text-align:left; font-weight:600; color:#555; border-bottom:1px solid #999; padding:3px 6px; font-size:10.5px;}
+  .print-sheet .p-weap td{border:1px solid #ddd; height:20px; padding:2px 6px;}
+  .print-sheet .p-weap th:first-child, .print-sheet .p-weap td:first-child{width:42%;}
+  .print-sheet .p-armor{font-size:11px; color:#444; margin-top:6px;}
+  .print-sheet .p-notes{border:1px solid #ddd; min-height:70px; border-radius:4px; margin-top:2px;}
 }
 </style>
 </head>
@@ -560,6 +572,16 @@ function PrintSheet({ data }) {
         {CORE.map((s) => <div className="p-sk" key={s.n}><span>{s.n}</span><span className="d">{fmt(skills[s.n], 0)}</span></div>)}
         {trained.map((s) => <div className="p-sk" key={s.n}><span>{s.n}</span><span className="d">{fmt(skills[s.n], 0)}</span></div>)}
       </div>
+      <div className="p-sec">Бой</div>
+      <div className="p-combat">
+        <div className="p-track"><span className="p-tl">Раны</span><span className="p-box">Контужен</span><span className="p-box">−1</span><span className="p-box">−2</span><span className="p-box">−3</span><span className="p-box">Выведен</span></div>
+        <div className="p-track"><span className="p-tl">Усталость</span><span className="p-box">−1</span><span className="p-box">−2</span><span className="p-box">Выведен</span></div>
+        <div className="p-track"><span className="p-tl">Бенни</span><span className="p-bn"></span><span className="p-bn"></span><span className="p-bn"></span><span className="p-bn"></span><span className="p-bn"></span></div>
+        <div className="p-track"><span className="p-tl">Состояния</span><span className="p-cond">Отвлечён · Уязвим · Оглушён · Горит · Обморожен · Перегрев · ________________</span></div>
+      </div>
+      <div className="p-sec">Оружие и броня</div>
+      <table className="p-weap"><thead><tr><th>Оружие</th><th>Урон</th><th>Дальн.</th><th>Прим.</th></tr></thead><tbody><tr><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td></tr></tbody></table>
+      <div className="p-armor">Броня: ____________________ · Защита: ______</div>
       <div className="p-cols">
         <div><div className="p-sec">Эджи</div>{renderList(data.edges)}</div>
         <div><div className="p-sec">Хиндрансы</div>{renderList(data.hindrances)}</div>
@@ -572,6 +594,8 @@ function PrintSheet({ data }) {
       {data.bio ? <div><div className="p-sec">Биография</div><div className="p-text">{data.bio}</div></div> : null}
       <div className="p-sec">Божественное</div>
       <div className="p-text">Текущий узел: {data.node || "—"}. Осколков {data.shards}/9. Наследие запечатано до конца девятого мира.</div>
+      <div className="p-sec">Заметки</div>
+      <div className="p-notes"></div>
     </div>
   );
 }
