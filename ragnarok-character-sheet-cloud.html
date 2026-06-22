@@ -161,6 +161,52 @@ button{font-family:inherit; cursor:pointer;}
 .gate .go:hover{background:var(--bronze-deep);}
 .gate .gerr{color:var(--red); font-size:13px; margin-top:12px; text-align:center;}
 .gate .gnote{color:var(--faint); font-size:12px; margin-top:16px; text-align:center; line-height:1.6;}
+/* chargen wizard */
+.wiz-wrap{max-width:780px; margin:24px auto; padding:0 18px 50px;}
+.wiz-card{background:var(--surf); border:1px solid var(--line); border-radius:14px; padding:24px;}
+.wiz-top{display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.wiz-skip{background:none; border:none; color:var(--faint); font-size:12px; text-decoration:underline; cursor:pointer;}
+.wiz-steps{display:flex; gap:6px; margin:12px 0 18px;}
+.wiz-dot{flex:1; height:5px; border-radius:3px; background:var(--inset);}
+.wiz-dot.on{background:var(--steel);}
+.wiz-dot.done{background:var(--steel-soft);}
+.wiz-h{font-family:var(--disp); font-weight:600; font-size:23px; margin:0;}
+.wiz-sub{color:var(--muted); font-size:13px; margin:6px 0 16px; line-height:1.55;}
+.wiz-budget{display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600; padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:var(--surf2); margin-bottom:14px;}
+.wiz-budget.over{color:var(--red); border-color:var(--red);}
+.wiz-budget.ok{color:var(--steel);}
+.wiz-budget b{font-family:var(--mono);}
+.wiz-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-top:1px solid var(--line-soft);}
+.wiz-row:first-of-type{border-top:none;}
+.track .pip.x2:not(.on){border-style:dashed; border-color:var(--line-warm);}
+.choice{display:block; width:100%; text-align:left; background:var(--surf2); border:1px solid var(--line); border-radius:9px; padding:10px 12px; margin-bottom:8px; cursor:pointer; font:inherit; color:inherit;}
+.choice:hover{border-color:var(--steel-soft);}
+.choice.on{border-color:var(--steel); background:#EAF1F8; box-shadow:inset 3px 0 0 var(--steel);}
+.choice .cn{font-size:14px; font-weight:600;}
+.choice .csev{font-size:10px; letter-spacing:.08em; text-transform:uppercase; margin-left:8px; padding:1px 6px; border-radius:5px; border:1px solid var(--line);}
+.choice .csev.major{color:var(--red); border-color:var(--red);}
+.choice .csev.minor{color:var(--steel); border-color:var(--steel-soft);}
+.choice .cd{font-size:12px; color:var(--muted); margin-top:3px;}
+.choice .creq{font-size:11px; color:var(--faint); margin-top:2px;}
+.conv{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;}
+.conv-card{flex:1; min-width:150px; background:var(--surf2); border:1px solid var(--line); border-radius:9px; padding:11px;}
+.conv-card .ct{font-size:13px; font-weight:600;}
+.conv-card .cc2{font-size:11px; color:var(--faint); margin:2px 0 9px;}
+.conv-ctl{display:flex; align-items:center; gap:10px;}
+.conv-ctl button{width:28px; height:28px; border-radius:6px; border:1px solid var(--line); background:var(--surf); font-size:16px; line-height:1;}
+.conv-ctl button:hover{border-color:var(--steel-soft);}
+.conv-ctl .cv{font-family:var(--mono); font-weight:700; min-width:14px; text-align:center;}
+.custom-add{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+.custom-add input{flex:1; min-width:120px; background:var(--surf); border:1px solid var(--line); border-radius:8px; padding:8px 11px; font-size:13px; outline:none;}
+.custom-add input:focus{border-color:var(--steel-soft);}
+.wiz-nav{display:flex; justify-content:space-between; align-items:center; margin-top:22px; gap:10px;}
+.wiz-back{background:var(--surf2); border:1px solid var(--line); color:var(--ink); border-radius:9px; padding:10px 18px; font-size:14px;}
+.wiz-back:hover{border-color:var(--steel-soft);}
+.wiz-next{background:var(--steel); border:none; color:#fff; border-radius:9px; padding:10px 24px; font-size:14px; font-weight:600;}
+.wiz-next:hover{background:#27527c;}
+.wiz-next:disabled{opacity:.4; cursor:not-allowed;}
+.wiz-finish{background:var(--bronze);}
+.wiz-finish:hover{background:var(--bronze-deep);}
 .print-sheet{display:none;}
 @media print{
   @page{ margin:12mm; }
@@ -300,13 +346,55 @@ function makeDefaults() {
   OPEN.forEach((k) => (skills[k.n] = null));
   return {
     name: "", concept: "", bio: "", img: null, gear: "", advances: 0,
-    attrs: { agility: { die: 6, plus: 0 }, smarts: { die: 6, plus: 0 }, spirit: { die: 6, plus: 0 }, strength: { die: 6, plus: 0 }, vigor: { die: 6, plus: 0 } },
-    skills, shards: 0, edges: [], hindrances: [], geasa: [], prophecies: [], node: "", nextFork: null,
+    attrs: { agility: { die: 4, plus: 0 }, smarts: { die: 4, plus: 0 }, spirit: { die: 4, plus: 0 }, strength: { die: 4, plus: 0 }, vigor: { die: 4, plus: 0 } },
+    skills, shards: 0, edges: [], hindrances: [], geasa: [], prophecies: [], node: "", nextFork: null, created: false,
   };
 }
 function loadLocal() {
-  try { const r = localStorage.getItem(KEY); return r ? { ...makeDefaults(), ...JSON.parse(r) } : null; } catch (e) { return null; }
+  try { const r = localStorage.getItem(KEY); if (!r) return null; const saved = JSON.parse(r); const merged = { ...makeDefaults(), ...saved }; if (saved.created === undefined) merged.created = true; return merged; } catch (e) { return null; }
 }
+
+const ATTR_OF = { "ЛОВ": "agility", "СМЕ": "smarts", "ДУХ": "spirit" };
+const DLEVEL = { 4: 1, 6: 2, 8: 3, 10: 4, 12: 5 };
+const ATTR_POINTS = 5, SKILL_POINTS = 15;
+const attrCost = (die) => (DLEVEL[die] || 1) - 1;
+function skillCost(val, isCore, attrDie) {
+  const tl = val == null ? 0 : DLEVEL[val];
+  const base = isCore ? 1 : 0;
+  const al = DLEVEL[attrDie] || 1;
+  let c = 0; for (let l = base + 1; l <= tl; l++) c += (l <= al ? 1 : 2);
+  return c;
+}
+const HINDRANCES = [
+  { n: "Упрямство", s: "minor", d: "делаешь по-своему даже во вред" },
+  { n: "Любопытство", s: "major", d: "лезешь в каждую тайну" },
+  { n: "Кодекс чести", s: "major", d: "держишь слово и честь любой ценой" },
+  { n: "Верность", s: "minor", d: "не бросаешь своих" },
+  { n: "Самоуверенность", s: "major", d: "уверен, что справишься с чем угодно" },
+  { n: "Болтливость", s: "minor", d: "не умеешь держать язык за зубами" },
+  { n: "Невезучий", s: "major", d: "−1 бенни на сессию" },
+  { n: "Фобия", s: "minor", d: "страх перед чем-то конкретным" },
+  { n: "Зарок", s: "minor", d: "связан обетом или долгом" },
+  { n: "Тайна", s: "minor", d: "скрываешь нечто опасное" },
+  { n: "Хилый", s: "minor", d: "−1 к проверкам на стойкость" },
+  { n: "Вспыльчивость", s: "minor", d: "легко выходишь из себя" },
+  { n: "Пацифизм", s: "minor", d: "не бьёшь первым" },
+  { n: "Обязательство", s: "minor", d: "работа или семья требуют времени" },
+];
+const EDGES = [
+  { n: "Шустрый", r: "Ловкость d6+", d: "+2 к Скорости, бег d10" },
+  { n: "Атлет", r: "Ловкость d8+", d: "+1 к Атлетике и связанным проверкам" },
+  { n: "Крепыш", r: "Сила d6+, Вын. d6+", d: "+1 Стойкость, легче носишь груз" },
+  { n: "Внимательный", r: "—", d: "+2 к Вниманию" },
+  { n: "Смелый", r: "Дух d6+", d: "+2 против страха" },
+  { n: "Везучий", r: "—", d: "+1 бенни на сессию" },
+  { n: "Сильная воля", r: "—", d: "+1 к Запугиванию/Подначке и сопротивлению им" },
+  { n: "Целитель", r: "Дух d6+", d: "+2 к Лечению" },
+  { n: "Привлекательный", r: "Дух d6+", d: "бонус к социалке на внешности" },
+  { n: "Лингвист", r: "Смекалка d6+", d: "знаешь множество языков" },
+  { n: "Знаток", r: "Смекалка d8+", d: "+2 к Исследованию" },
+  { n: "Богатый", r: "—", d: "стартуешь с большими средствами" },
+];
 
 function App() {
   const cloud = HAS_FB && !!db;
@@ -314,6 +402,7 @@ function App() {
   const [campaign, setCampaign] = useState("");
   const [charId, setCharId] = useState(null);
   const [data, setData] = useState(() => loadLocal() || makeDefaults());
+  const [creating, setCreating] = useState(() => !cloud && ((loadLocal() || makeDefaults()).created === false));
   const [saved, setSaved] = useState(false);
   const skipSave = useRef(true);
 
@@ -339,22 +428,24 @@ function App() {
   const setSkill = (k, v) => setData((d) => ({ ...d, skills: { ...d.skills, [k]: v } }));
 
   async function joinCampaign(code, charName) {
+    const name = (charName || "").trim();
+    if (!name) throw new Error("Введи имя персонажа.");
+    try { await auth.signInAnonymously(); }
+    catch (e) { throw new Error("Анонимный вход выключен. Ведущей: включи Anonymous в Firebase → Authentication."); }
+    const col = db.collection("campaigns").doc(code).collection("characters");
+    let id = null, d = null;
     try {
-      await auth.signInAnonymously();
-    } catch (e) {
-      throw new Error("Анонимный вход выключен. Ведущей: включи Anonymous в Firebase → Authentication.");
+      const q = await col.where("name", "==", name).limit(1).get();
+      if (!q.empty) { const doc = q.docs[0]; id = doc.id; d = { ...makeDefaults(), ...doc.data() }; if (doc.data().created === undefined) d.created = true; }
+    } catch (e) { console.error("Поиск по имени:", e); }
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+      d = { ...makeDefaults(), name: name, created: false };
+      await col.doc(id).set(d);
     }
-    const idKey = "ragnarok-charid-" + code;
-    let id = null;
-    try { id = localStorage.getItem(idKey); } catch (e) {}
-    if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)); try { localStorage.setItem(idKey, id); } catch (e) {} }
-    const ref = db.collection("campaigns").doc(code).collection("characters").doc(id);
-    const snap = await ref.get();
-    let d;
-    if (snap.exists) { d = { ...makeDefaults(), ...snap.data() }; }
-    else { d = { ...makeDefaults(), name: charName || "" }; await ref.set(d); }
+    try { localStorage.setItem("ragnarok-charid-" + code + "-" + name.toLowerCase(), id); } catch (e) {}
     skipSave.current = true;
-    setCampaign(code); setCharId(id); setData(d); setJoined(true);
+    setCampaign(code); setCharId(id); setData(d); setJoined(true); setCreating(d.created === false);
   }
 
   const { attrs, skills } = data;
@@ -378,6 +469,7 @@ function App() {
   const resetAll = () => { if (confirm("Стереть карту начисто? Сделай сначала Экспорт, если жаль.")) { skipSave.current = false; setData(makeDefaults()); } };
 
   if (cloud && !joined) return <JoinGate onJoin={joinCampaign} />;
+  if (creating) return <CreationWizard data={data} set={set} setAttrDie={setAttrDie} setSkill={setSkill} onDone={() => { skipSave.current = false; set({ created: true }); setCreating(false); }} />;
 
   return (
     <React.Fragment>
@@ -596,6 +688,160 @@ function PrintSheet({ data }) {
       <div className="p-text">Текущий узел: {data.node || "—"}. Осколков {data.shards}/9. Наследие запечатано до конца девятого мира.</div>
       <div className="p-sec">Заметки</div>
       <div className="p-notes"></div>
+    </div>
+  );
+}
+
+function WizSkill({ sk, core, data, setSkill }) {
+  const attrDie = data.attrs[ATTR_OF[sk.a]].die;
+  const val = data.skills[sk.n];
+  return (
+    <div className="wiz-row">
+      <div className="trait-name" style={{ paddingTop: 0 }}><span>{sk.n}</span><span className="attr-chip" style={{ color: ATTR_TINT[sk.a], borderColor: ATTR_TINT[sk.a] }}>{sk.a}</span></div>
+      <div className="track">
+        {!core && <button className={"pip untr" + (val == null ? " on" : "")} onClick={() => setSkill(sk.n, null)} title="не обучен">—</button>}
+        {DICE.map((d) => <button key={d} className={"pip" + (val === d ? " on" : "") + (DLEVEL[d] > (DLEVEL[attrDie] || 1) ? " x2" : "")} onClick={() => setSkill(sk.n, d)} title={DLEVEL[d] > (DLEVEL[attrDie] || 1) ? "выше атрибута — 2 очка за шаг" : ""}>d{d}</button>)}
+      </div>
+    </div>
+  );
+}
+
+function CreationWizard({ data, set, setAttrDie, setSkill, onDone }) {
+  const [step, setStep] = useState(0);
+  const [hind, setHind] = useState([]);
+  const [conv, setConv] = useState({ attr: 0, edge: 0, skill: 0 });
+  const [custH, setCustH] = useState("");
+  const [custE, setCustE] = useState("");
+
+  const allSkills = [...CORE.map((c) => ({ ...c, core: true })), ...OPEN.map((o) => ({ ...o, core: false }))];
+  const attrSpent = ATTRS.reduce((s, a) => s + attrCost(data.attrs[a.key].die), 0);
+  const attrBudget = ATTR_POINTS + conv.attr;
+  const skillSpent = allSkills.reduce((s, sk) => s + skillCost(data.skills[sk.n], sk.core, data.attrs[ATTR_OF[sk.a]].die), 0);
+  const skillBudget = SKILL_POINTS + conv.skill;
+  const majors = hind.filter((h) => h.s === "major").length;
+  const minors = hind.filter((h) => h.s === "minor").length;
+  const hp = Math.min(majors, 1) * 2 + Math.min(minors, 2);
+  const hpUsed = conv.attr * 2 + conv.edge * 2 + conv.skill;
+  const hpLeft = hp - hpUsed;
+  const edgeSlots = 1 + conv.edge;
+
+  const hindNames = (arr) => arr.map((x) => x.n + (x.s === "major" ? " (большой)" : " (малый)"));
+  const toggleHind = (h) => { const next = hind.find((x) => x.n === h.n) ? hind.filter((x) => x.n !== h.n) : [...hind, h]; setHind(next); set({ hindrances: hindNames(next) }); };
+  const addCustH = (sev) => { const v = custH.trim(); if (!v) return; const next = [...hind, { n: v, s: sev }]; setHind(next); set({ hindrances: hindNames(next) }); setCustH(""); };
+  const setConvK = (k, dir) => setConv((c) => {
+    const v = c[k] + dir; if (v < 0) return c;
+    const use = (k === "attr" ? v : c.attr) * 2 + (k === "edge" ? v : c.edge) * 2 + (k === "skill" ? v : c.skill);
+    if (dir > 0 && use > hp) return c;
+    return { ...c, [k]: v };
+  });
+  const toggleEdge = (name) => {
+    const has = data.edges.includes(name);
+    if (!has && data.edges.length >= edgeSlots) { alert("Нет свободных слотов эджей — возьми ещё слот за очки изъянов или убери эдж."); return; }
+    set({ edges: has ? data.edges.filter((e) => e !== name) : [...data.edges, name] });
+  };
+  const addCustE = () => { const v = custE.trim(); if (!v) return; if (data.edges.length >= edgeSlots) { alert("Нет свободных слотов эджей."); return; } set({ edges: [...data.edges, v] }); setCustE(""); };
+
+  const overBudget = attrSpent > attrBudget || skillSpent > skillBudget || hpUsed > hp || data.edges.length > edgeSlots;
+  const STEPS = ["Кто ты", "Атрибуты", "Навыки", "Изъяны", "Эджи", "Снаряжение"];
+
+  return (
+    <div className="wiz-wrap">
+      <div className="wiz-card">
+        <div className="wiz-top">
+          <div className="wordmark"><span className="rune">ᛈ</span> Создание героя</div>
+          <button className="wiz-skip" onClick={onDone}>заполню сам →</button>
+        </div>
+        <div className="wiz-steps">{STEPS.map((s, i) => <span key={i} className={"wiz-dot" + (i === step ? " on" : i < step ? " done" : "")} />)}</div>
+
+        {step === 0 && (
+          <div>
+            <h2 className="wiz-h">Кто ты сейчас</h2>
+            <p className="wiz-sub">Обычный современный скандинав. Имя — по нему ты будешь входить в кампанию, так что запомни его.</p>
+            <div className="field" style={{ marginBottom: 14 }}><label>Имя героя</label><input className="t-input big" value={data.name} onChange={(e) => set({ name: e.target.value })} placeholder="как тебя зовут" /></div>
+            <div className="field"><label>Концепт</label><input className="t-input" value={data.concept} onChange={(e) => set({ concept: e.target.value })} placeholder="рыбак, студентка-медик, бывший военный…" /></div>
+          </div>
+        )}
+
+        {step === 1 && (
+          <div>
+            <h2 className="wiz-h">Атрибуты</h2>
+            <p className="wiz-sub">Все стартуют с d4. Подними кубики — всего {ATTR_POINTS} очка{conv.attr ? " + " + conv.attr + " от изъянов" : ""}, шаг = 1 очко.</p>
+            <div className={"wiz-budget " + (attrSpent > attrBudget ? "over" : "ok")}>Очки атрибутов: <b>{attrSpent}/{attrBudget}</b></div>
+            {ATTRS.map((at) => { const a = data.attrs[at.key]; return (
+              <div className="wiz-row" key={at.key}>
+                <div className="trait-name" style={{ paddingTop: 0 }}>{at.label}<span className="val-chip">{fmt(a.die, a.plus)}</span></div>
+                <div className="track">{DICE.map((d) => <button key={d} className={"pip" + (a.die === d ? " on" : "")} onClick={() => setAttrDie(at.key, d)}>d{d}</button>)}</div>
+              </div>
+            ); })}
+          </div>
+        )}
+
+        {step === 2 && (
+          <div>
+            <h2 className="wiz-h">Навыки</h2>
+            <p className="wiz-sub">{SKILL_POINTS} очков{conv.skill ? " + " + conv.skill + " от изъянов" : ""}. Пять основных уже на d4 даром. Поднять навык выше его атрибута — <b>2 очка</b> за шаг (помечены штрихом).</p>
+            <div className={"wiz-budget " + (skillSpent > skillBudget ? "over" : "ok")}>Очки навыков: <b>{skillSpent}/{skillBudget}</b></div>
+            <div className="skgroup-label">Ядро · у всех с d4</div>
+            {CORE.map((sk) => <WizSkill key={sk.n} sk={sk} core data={data} setSkill={setSkill} />)}
+            <div className="skgroup-label">Прочие навыки</div>
+            {OPEN.map((sk) => <WizSkill key={sk.n} sk={sk} data={data} setSkill={setSkill} />)}
+          </div>
+        )}
+
+        {step === 3 && (
+          <div>
+            <h2 className="wiz-h">Изъяны</h2>
+            <p className="wiz-sub">Слабости дают очки: большой = 2, малый = 1, всего до 4. Ниже обменяй их на атрибуты, эджи или навыки.</p>
+            <div className={"wiz-budget " + (hpUsed > hp ? "over" : "ok")}>Очки изъянов: <b>{hp}</b> · потрачено <b>{hpUsed}</b></div>
+            {HINDRANCES.map((h) => { const on = hind.find((x) => x.n === h.n); return (
+              <button key={h.n} className={"choice" + (on ? " on" : "")} onClick={() => toggleHind(h)}>
+                <span className="cn">{h.n}</span><span className={"csev " + h.s}>{h.s === "major" ? "большой" : "малый"}</span>
+                <div className="cd">{h.d}</div>
+              </button>
+            ); })}
+            <div className="custom-add"><input value={custH} onChange={(e) => setCustH(e.target.value)} placeholder="свой изъян" /><button className="addbtn" onClick={() => addCustH("minor")}>+ малый</button><button className="addbtn" onClick={() => addCustH("major")}>+ большой</button></div>
+            <div className="conv">
+              <div className="conv-card"><div className="ct">+1 атрибут</div><div className="cc2">2 очка</div><div className="conv-ctl"><button onClick={() => setConvK("attr", -1)}>−</button><span className="cv">{conv.attr}</span><button onClick={() => setConvK("attr", 1)}>+</button></div></div>
+              <div className="conv-card"><div className="ct">+1 эдж</div><div className="cc2">2 очка</div><div className="conv-ctl"><button onClick={() => setConvK("edge", -1)}>−</button><span className="cv">{conv.edge}</span><button onClick={() => setConvK("edge", 1)}>+</button></div></div>
+              <div className="conv-card"><div className="ct">+1 навык</div><div className="cc2">1 очко</div><div className="conv-ctl"><button onClick={() => setConvK("skill", -1)}>−</button><span className="cv">{conv.skill}</span><button onClick={() => setConvK("skill", 1)}>+</button></div></div>
+            </div>
+            {hpLeft > 0 && <p className="wiz-sub" style={{ marginTop: 10 }}>Нераспределённых очков: {hpLeft}.</p>}
+          </div>
+        )}
+
+        {step === 4 && (
+          <div>
+            <h2 className="wiz-h">Эджи</h2>
+            <p className="wiz-sub">Один эдж — даром (ты человек), плюс по эджу за каждые 2 очка изъянов. Требования автоматически не проверяются — свериться с ведущей.</p>
+            <div className={"wiz-budget " + (data.edges.length > edgeSlots ? "over" : "ok")}>Слоты эджей: <b>{data.edges.length}/{edgeSlots}</b></div>
+            {EDGES.map((e) => { const on = data.edges.includes(e.n); return (
+              <button key={e.n} className={"choice" + (on ? " on" : "")} onClick={() => toggleEdge(e.n)}>
+                <span className="cn">{e.n}</span>
+                <div className="cd">{e.d}</div><div className="creq">требование: {e.r}</div>
+              </button>
+            ); })}
+            <div className="custom-add"><input value={custE} onChange={(e) => setCustE(e.target.value)} placeholder="свой эдж" /><button className="addbtn" onClick={addCustE}>+</button></div>
+          </div>
+        )}
+
+        {step === 5 && (
+          <div>
+            <h2 className="wiz-h">Снаряжение и финал</h2>
+            <p className="wiz-sub">Стартовые средства — на усмотрение ведущей. Опиши, что при тебе.</p>
+            <textarea className="ta" style={{ minHeight: 80 }} value={data.gear} onChange={(e) => set({ gear: e.target.value })} placeholder="телефон, нож, машина, тёплая куртка…" />
+            <div style={{ marginTop: 16, fontSize: 13, color: "var(--muted)" }}>
+              <div>Атрибуты {attrSpent}/{attrBudget} · Навыки {skillSpent}/{skillBudget} · Изъянов {hind.length} · Эджей {data.edges.length}/{edgeSlots}</div>
+              {overBudget && <div style={{ color: "var(--red)", marginTop: 6 }}>Где-то перебор очков — вернись и поправь, иначе лист нелегальный.</div>}
+            </div>
+          </div>
+        )}
+
+        <div className="wiz-nav">
+          {step > 0 ? <button className="wiz-back" onClick={() => setStep(step - 1)}>Назад</button> : <span />}
+          {step < 5 ? <button className="wiz-next" onClick={() => setStep(step + 1)}>Далее</button>
+            : <button className="wiz-next wiz-finish" onClick={onDone} disabled={overBudget}>Готово</button>}
+        </div>
+      </div>
     </div>
   );
 }
