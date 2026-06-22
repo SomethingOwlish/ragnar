@@ -207,6 +207,8 @@ button{font-family:inherit; cursor:pointer;}
 .wiz-next:disabled{opacity:.4; cursor:not-allowed;}
 .wiz-finish{background:var(--bronze);}
 .wiz-finish:hover{background:var(--bronze-deep);}
+.wiz-navright{display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end;}
+.wiz-err{color:var(--red); font-size:12.5px; max-width:330px; text-align:right; line-height:1.4;}
 .print-sheet{display:none;}
 @media print{
   @page{ margin:12mm; }
@@ -367,34 +369,46 @@ function skillCost(val, isCore, attrDie) {
 }
 const HINDRANCES = [
   { n: "Упрямство", s: "minor", d: "делаешь по-своему даже во вред" },
-  { n: "Любопытство", s: "major", d: "лезешь в каждую тайну" },
-  { n: "Кодекс чести", s: "major", d: "держишь слово и честь любой ценой" },
+  { n: "Любопытство", s: "major", d: "не можешь пройти мимо тайны" },
+  { n: "Кодекс чести", s: "major", d: "держишь слово и принципы любой ценой" },
   { n: "Верность", s: "minor", d: "не бросаешь своих" },
   { n: "Самоуверенность", s: "major", d: "уверен, что справишься с чем угодно" },
+  { n: "Осторожность", s: "minor", d: "семь раз отмеришь, лишний раз не рискнёшь" },
+  { n: "Героизм", s: "major", d: "не можешь не помочь попавшему в беду" },
+  { n: "Эгоист", s: "minor", d: "своя шкура дороже чужой" },
   { n: "Болтливость", s: "minor", d: "не умеешь держать язык за зубами" },
   { n: "Невезучий", s: "major", d: "−1 бенни на сессию" },
-  { n: "Фобия", s: "minor", d: "страх перед чем-то конкретным" },
-  { n: "Зарок", s: "minor", d: "связан обетом или долгом" },
-  { n: "Тайна", s: "minor", d: "скрываешь нечто опасное" },
-  { n: "Хилый", s: "minor", d: "−1 к проверкам на стойкость" },
-  { n: "Вспыльчивость", s: "minor", d: "легко выходишь из себя" },
-  { n: "Пацифизм", s: "minor", d: "не бьёшь первым" },
-  { n: "Обязательство", s: "minor", d: "работа или семья требуют времени" },
+  { n: "Фобия", s: "minor", d: "панический страх: высота, толпа, темнота…" },
+  { n: "Зависимость", s: "minor", d: "тянет к выпивке, никотину или азарту" },
+  { n: "В долгах", s: "minor", d: "кредиты и счета висят над тобой" },
+  { n: "Тайна", s: "minor", d: "скрываешь то, что может всё разрушить" },
+  { n: "Старая травма", s: "minor", d: "колено или спина подводят под нагрузкой" },
+  { n: "Вспыльчивость", s: "minor", d: "быстро вскипаешь" },
+  { n: "Пацифизм", s: "minor", d: "не поднимешь руку первым" },
+  { n: "Обязательство", s: "minor", d: "работа или семья постоянно требуют тебя" },
 ];
 const EDGES = [
   { n: "Шустрый", r: "Ловкость d6+", d: "+2 к Скорости, бег d10" },
-  { n: "Атлет", r: "Ловкость d8+", d: "+1 к Атлетике и связанным проверкам" },
+  { n: "Атлет", r: "Ловкость d8+", d: "+1 к Атлетике и физическим проверкам" },
   { n: "Крепыш", r: "Сила d6+, Вын. d6+", d: "+1 Стойкость, легче носишь груз" },
   { n: "Внимательный", r: "—", d: "+2 к Вниманию" },
   { n: "Смелый", r: "Дух d6+", d: "+2 против страха" },
   { n: "Везучий", r: "—", d: "+1 бенни на сессию" },
   { n: "Сильная воля", r: "—", d: "+1 к Запугиванию/Подначке и сопротивлению им" },
-  { n: "Целитель", r: "Дух d6+", d: "+2 к Лечению" },
-  { n: "Привлекательный", r: "Дух d6+", d: "бонус к социалке на внешности" },
-  { n: "Лингвист", r: "Смекалка d6+", d: "знаешь множество языков" },
-  { n: "Знаток", r: "Смекалка d8+", d: "+2 к Исследованию" },
-  { n: "Богатый", r: "—", d: "стартуешь с большими средствами" },
+  { n: "Целитель", r: "Дух d6+", d: "+2 к Лечению — медик, спасатель" },
+  { n: "Привлекательный", r: "Дух d6+", d: "располагаешь людей внешностью" },
+  { n: "Лингвист", r: "Смекалка d6+", d: "родной + английский + ещё пара языков" },
+  { n: "Знаток", r: "Смекалка d8+", d: "+2 к Исследованию: архивы, поиск, базы" },
+  { n: "Связи", r: "—", d: "есть полезные знакомства, которые выручают" },
+  { n: "Водила", r: "Ловкость d6+", d: "+2 к Вождению и Лодкам" },
+  { n: "Обеспеченный", r: "—", d: "стартуешь с хорошими средствами" },
 ];
+const CONFLICTS = {
+  "Самоуверенность": ["Осторожность"], "Осторожность": ["Самоуверенность"],
+  "Героизм": ["Эгоист"], "Эгоист": ["Героизм"],
+  "Пацифизм": ["Вспыльчивость"], "Вспыльчивость": ["Пацифизм"],
+  "Невезучий": ["Везучий"], "Везучий": ["Невезучий"],
+};
 
 function App() {
   const cloud = HAS_FB && !!db;
@@ -726,7 +740,13 @@ function CreationWizard({ data, set, setAttrDie, setSkill, onDone }) {
   const edgeSlots = 1 + conv.edge;
 
   const hindNames = (arr) => arr.map((x) => x.n + (x.s === "major" ? " (большой)" : " (малый)"));
-  const toggleHind = (h) => { const next = hind.find((x) => x.n === h.n) ? hind.filter((x) => x.n !== h.n) : [...hind, h]; setHind(next); set({ hindrances: hindNames(next) }); };
+  const conflictWith = (name) => { const taken = [...hind.map((x) => x.n), ...data.edges]; return (CONFLICTS[name] || []).find((c) => taken.includes(c)); };
+  const toggleHind = (h) => {
+    const has = hind.find((x) => x.n === h.n);
+    if (!has) { const c = conflictWith(h.n); if (c) { alert("«" + h.n + "» не сочетается с «" + c + "» — выбери что-то одно."); return; } }
+    const next = has ? hind.filter((x) => x.n !== h.n) : [...hind, h];
+    setHind(next); set({ hindrances: hindNames(next) });
+  };
   const addCustH = (sev) => { const v = custH.trim(); if (!v) return; const next = [...hind, { n: v, s: sev }]; setHind(next); set({ hindrances: hindNames(next) }); setCustH(""); };
   const setConvK = (k, dir) => setConv((c) => {
     const v = c[k] + dir; if (v < 0) return c;
@@ -736,12 +756,20 @@ function CreationWizard({ data, set, setAttrDie, setSkill, onDone }) {
   });
   const toggleEdge = (name) => {
     const has = data.edges.includes(name);
-    if (!has && data.edges.length >= edgeSlots) { alert("Нет свободных слотов эджей — возьми ещё слот за очки изъянов или убери эдж."); return; }
+    if (!has) {
+      const c = conflictWith(name); if (c) { alert("«" + name + "» не сочетается с «" + c + "» — выбери что-то одно."); return; }
+      if (data.edges.length >= edgeSlots) { alert("Нет свободных слотов эджей — возьми ещё слот за очки изъянов или убери эдж."); return; }
+    }
     set({ edges: has ? data.edges.filter((e) => e !== name) : [...data.edges, name] });
   };
   const addCustE = () => { const v = custE.trim(); if (!v) return; if (data.edges.length >= edgeSlots) { alert("Нет свободных слотов эджей."); return; } set({ edges: [...data.edges, v] }); setCustE(""); };
 
   const overBudget = attrSpent > attrBudget || skillSpent > skillBudget || hpUsed > hp || data.edges.length > edgeSlots;
+  const stepErr =
+    step === 1 && attrSpent > attrBudget ? "Перебор очков атрибутов — опусти какой-нибудь кубик." :
+    step === 2 && skillSpent > skillBudget ? "Перебор очков навыков — опусти навык или подними его атрибут." :
+    step === 3 && hpUsed > hp ? "Обменяно больше очков, чем дают изъяны — убери обмен или добавь изъян." :
+    step === 4 && data.edges.length > edgeSlots ? "Эджей больше, чем слотов — убери эдж или возьми слот за очки изъянов." : "";
   const STEPS = ["Кто ты", "Атрибуты", "Навыки", "Изъяны", "Эджи", "Снаряжение"];
 
   return (
@@ -838,8 +866,11 @@ function CreationWizard({ data, set, setAttrDie, setSkill, onDone }) {
 
         <div className="wiz-nav">
           {step > 0 ? <button className="wiz-back" onClick={() => setStep(step - 1)}>Назад</button> : <span />}
-          {step < 5 ? <button className="wiz-next" onClick={() => setStep(step + 1)}>Далее</button>
-            : <button className="wiz-next wiz-finish" onClick={onDone} disabled={overBudget}>Готово</button>}
+          <div className="wiz-navright">
+            {stepErr && <span className="wiz-err">{stepErr}</span>}
+            {step < 5 ? <button className="wiz-next" onClick={() => setStep(step + 1)} disabled={!!stepErr}>Далее</button>
+              : <button className="wiz-next wiz-finish" onClick={onDone} disabled={overBudget}>Готово</button>}
+          </div>
         </div>
       </div>
     </div>
