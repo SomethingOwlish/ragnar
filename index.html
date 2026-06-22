@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Noto+Sans+Runic&display=swap');
+:root{
+  --bg:#0F1216; --surf:#171D24; --surf2:#1F262F; --line:#2A333D;
+  --ink:#E8ECF2; --muted:#93A1B0; --faint:#5E6B78;
+  --steel:#7FA8CE; --steel-deep:#3A5773; --bronze:#CE9A4C; --bronze-deep:#6E4A14; --ember:#E5AE62;
+  --disp:'Spectral',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --rune:'Noto Sans Runic','Segoe UI Historic',serif;
+}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.6; -webkit-font-smoothing:antialiased; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:40px 20px;}
+.rune{font-family:var(--rune); line-height:1;}
+.portal{width:100%; max-width:720px;}
+.wordmark{font-family:var(--disp); font-weight:700; font-size:13px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); display:flex; align-items:center; gap:10px; justify-content:center;}
+.wordmark .rune{color:var(--bronze); font-size:16px;}
+.hero{text-align:center; margin:18px 0 6px;}
+.hero h1{font-family:var(--disp); font-weight:700; font-size:46px; letter-spacing:.01em; margin:0;}
+.hero p{color:var(--muted); font-size:15px; margin:10px 0 0;}
+.band{display:flex; justify-content:center; gap:14px; margin:22px 0 30px; color:var(--steel-deep); font-size:20px; opacity:.7;}
+.doors{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+.door{display:block; text-decoration:none; background:var(--surf); border:1px solid var(--line); border-radius:14px; padding:24px 22px; transition:transform .15s, border-color .15s; position:relative; overflow:hidden;}
+.door::before{content:''; position:absolute; left:0; top:0; bottom:0; width:3px;}
+.door.player::before{background:var(--steel-deep);}
+.door.gm::before{background:var(--bronze-deep);}
+.door:hover{transform:translateY(-3px);}
+.door.player:hover{border-color:var(--steel-deep);}
+.door.gm:hover{border-color:var(--bronze-deep);}
+.door .ico{font-size:30px; margin-bottom:14px;}
+.door.player .ico{color:var(--steel);}
+.door.gm .ico{color:var(--bronze);}
+.door h2{font-family:var(--disp); font-weight:600; font-size:21px; margin:0 0 6px; color:var(--ink);}
+.door p{color:var(--muted); font-size:13px; margin:0 0 16px; min-height:34px;}
+.door .open{font-size:12px; letter-spacing:.12em; text-transform:uppercase; font-weight:600; display:inline-flex; align-items:center; gap:7px;}
+.door.player .open{color:var(--steel);}
+.door.gm .open{color:var(--bronze);}
+.note{text-align:center; color:var(--faint); font-size:12.5px; margin-top:28px; line-height:1.7;}
+@media (max-width:560px){ .doors{grid-template-columns:1fr;} .hero h1{font-size:36px;} }
+</style>
+</head>
+<body>
+<div class="portal">
+  <div class="wordmark"><span class="rune">ᛈ</span> модерн-AU · скандинавский миф · SWADE</div>
+  <div class="hero">
+    <h1>Рагнарёк-AU</h1>
+    <p>Современная Скандинавия, в которую прорастает миф.</p>
+  </div>
+  <div class="band"><span class="rune">ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ ᚷ ᚹ ᚺ</span></div>
+
+  <div class="doors">
+    <a class="door player" href="ragnarok-character-sheet-cloud.html">
+      <div class="ico rune">ᛗ</div>
+      <h2>Карта героя</h2>
+      <p>Лист персонажа. Войди по коду кампании от ведущей.</p>
+      <span class="open">Открыть <span class="rune">→</span></span>
+    </a>
+    <a class="door gm" href="ragnarok-gm-panel.html">
+      <div class="ico rune">ᛟ</div>
+      <h2>Панель ведущей</h2>
+      <p>Все герои кампании, обновляется вживую.</p>
+      <span class="open">Открыть <span class="rune">→</span></span>
+    </a>
+  </div>
+
+  <div class="note">
+    Игрокам — открыть «Карту героя» и ввести код кампании.<br />
+    Для надёжного сохранения лучше открывать карту прямой ссылкой в отдельной вкладке.
+  </div>
+</div>
+</body>
+</html>
