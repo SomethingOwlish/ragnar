@@ -52,20 +52,20 @@
     portal: { label: "Портал",          rune: "ᛈ", href: "index.html" },
     sheet:  { label: "Карта героя",      rune: "ᛗ", href: "ragnarok-character-sheet-cloud.html" },
     panel:  { label: "Панель ведущей",   rune: "ᛟ", href: "ragnarok-gm-panel.html", gm: true },
-    tree:   { label: "Древо судеб",       rune: "ᛏ", href: "divine-tree.html", gm: true },
+    tree:   { label: "Древо судеб",       rune: "ᛏ", href: "divine-tree.html" },
     worlds: { label: "Девять миров",      rune: "ᛃ" },
     chars:  { label: "Граф богов",        rune: "ᚷ" },
   };
 
   var NAV = {
-    player: ["portal", "sheet", "worlds", "chars"],
+    player: ["portal", "sheet", "tree", "worlds", "chars"],
     gm:     ["portal", "panel", "tree", "worlds", "chars"],
     portal: [],
   };
 
   function hrefFor(key, role) {
     var it = ITEMS[key];
-    if (key === "tree")   return "divine-tree.html?role=gm";
+    if (key === "tree")   return "divine-tree.html?role=" + role;
     if (key === "worlds") return "nine-worlds.html?role=" + role;
     if (key === "chars")  return "characters.html?role=" + role;
     return it.href;

@@ -197,6 +197,7 @@ function App() {
     const c = code.trim().toLowerCase().replace(/[^a-zа-я0-9_-]/gi, "");
     if (!c) { setErr("Введи код кампании."); return; }
     try { await auth.signInAnonymously(); } catch (e) { setErr("Включи Anonymous в Firebase → Authentication."); return; }
+    try { localStorage.setItem("ragnarok-campaign", c); } catch (e) {}
     setCampaign(c); setJoined(true); setErr("");
   }
 
@@ -227,24 +228,11 @@ function PCard({ c, campaign, danger }) {
   const tier = tierOf(c.advances || 0);
   const arch = dominantArch(c.attrs);
   const shards = c.shards || 0;
-  const [open, setOpen] = useState(false);
   const openHref = "ragnarok-character-sheet-cloud.html?gmview=1&campaign=" + encodeURIComponent(campaign) + "&char=" + encodeURIComponent(c.id);
   const delChar = async () => {
     if (!confirm("Удалить героя «" + (c.name || "без имени") + "» из кампании? Это необратимо.")) return;
     try { await db.collection("campaigns").doc(campaign).collection("characters").doc(c.id).delete(); }
     catch (e) { alert("Не удалось удалить: " + e.message); }
-  };
-  const [opts, setOpts] = useState([{ type: "Открытие", title: "", effect: "" }, { type: "Аспект", title: "", effect: "" }]);
-  const setOpt = (i, k, v) => setOpts((os) => os.map((o, j) => (j === i ? { ...o, [k]: v } : o)));
-  const addRow = () => setOpts((os) => os.length < 4 ? [...os, { type: "Мощь", title: "", effect: "" }] : os);
-  const push = async () => {
-    const clean = opts.filter((o) => o.effect.trim()).map((o) => ({ type: o.type, title: o.title.trim(), effect: o.effect.trim() }));
-    if (!clean.length) { alert("Заполни хотя бы один эффект."); return; }
-    try {
-      await db.collection("campaigns").doc(campaign).collection("characters").doc(c.id).set({ nextFork: { options: clean, chosen: null } }, { merge: true });
-      setOpen(false);
-      setOpts([{ type: "Открытие", title: "", effect: "" }, { type: "Аспект", title: "", effect: "" }]);
-    } catch (e) { alert("Не удалось выдать: " + e.message); }
   };
   const clearFork = async () => {
     try { await db.collection("campaigns").doc(campaign).collection("characters").doc(c.id).set({ nextFork: null }, { merge: true }); } catch (e) { alert(e.message); }
@@ -280,22 +268,7 @@ function PCard({ c, campaign, danger }) {
             <button className="fork-clear" onClick={clearFork} title="убрать развилку">×</button>
           </div>
         ) : <div className="fork-state none">развилка не выдана</div>}
-        <button className="fork-btn" onClick={() => setOpen((o) => !o)}>{open ? "скрыть" : "выдать развилку"}</button>
-        {open && (
-          <div className="fork-editor">
-            {opts.map((o, i) => (
-              <div className="fork-row" key={i}>
-                <select value={o.type} onChange={(e) => setOpt(i, "type", e.target.value)}>{["Открытие", "Аспект", "Мощь", "Осколок"].map((t) => <option key={t} value={t}>{t}</option>)}</select>
-                <input className="ti" placeholder="титул" value={o.title} onChange={(e) => setOpt(i, "title", e.target.value)} />
-                <input className="ef" placeholder="эффект" value={o.effect} onChange={(e) => setOpt(i, "effect", e.target.value)} />
-              </div>
-            ))}
-            <div className="fork-actions">
-              {opts.length < 4 && <button className="fork-add" onClick={addRow}>+ вариант</button>}
-              <button className="fork-send" onClick={push}>Выдать игроку</button>
-            </div>
-          </div>
-        )}
+        <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 6 }}>Развилки выдаёт «Древо судеб».</div>
       </div>
     </div>
   );
@@ -383,7 +356,7 @@ function ListsEditor({ campaign, onClose }) {
 }
 
 function Gate({ err, onEnter }) {
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(() => { try { return localStorage.getItem("ragnarok-campaign") || ""; } catch (e) { return ""; } });
   return (
     <div className="gate-wrap">
       <div className="gate">

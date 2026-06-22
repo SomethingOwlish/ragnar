@@ -477,6 +477,7 @@ function App() {
       await col.doc(id).set(d);
     }
     try { localStorage.setItem("ragnarok-charid-" + code + "-" + name.toLowerCase(), id); } catch (e) {}
+    try { localStorage.setItem("ragnarok-current", JSON.stringify({ campaign: code, charId: id })); } catch (e) {}
     skipSave.current = true;
     setCampaign(code); setCharId(id); setData(d); setJoined(true); setCreating(d.created === false);
   }

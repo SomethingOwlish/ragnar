@@ -19,7 +19,7 @@
 <script>
 /* роль для верхней полосы — из адреса (или фиксированная для древа) */
 (function(){
-  var fixed = "gm";
+  var fixed = null;
   var r = fixed || (new URLSearchParams(location.search).get("role")==="gm" ? "gm" : "player");
   var h = document.querySelector("[data-shell]");
   if (h) h.setAttribute("data-role", r);
@@ -224,7 +224,7 @@ function DivineTree() {
       )}
 
       {showData && <DataModal nodes={nodes} onClose={() => setShowData(false)} onApply={(d) => { setNodes(d.nodes); setSelected(null); setShowData(false); }} />}
-      {gm && window._fbdb && <FirestoreIssue node={playerNode} nodeMap={nodeMap} />}
+      {gm && window._fbdb && <FirestoreIssue node={current} nodeMap={nodeMap} />}
     </div>
   );
 }
@@ -285,26 +285,7 @@ function GMView({ nodes, nodeMap, selected, svgRef, view, onDown, onMove, onUp, 
         <button className="t-btn" style={{ padding: "6px" }} onClick={resetView}><Maximize2 size={14} /></button>
       </div>
 
-      {/* Плуг развилки — ведущая выдаёт шаг игроку */}
-      <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: "1px solid rgba(255,255,255,.16)", borderRadius: 12, padding: "10px 14px", backdropFilter: "blur(6px)", width: "min(420px,94%)" }}>
-        <div className="flex items-center justify-between gap-2">
-          <div style={{ fontSize: 12, color: "#cdd5e2" }}>
-            <span style={{ color: "#8b95a7" }}>Игрок на:</span> {playerNode.title}
-            <span style={{ marginLeft: 8, color: released ? "#6bbf59" : "#8b95a7" }}>· {released ? "развилка выдана" : "ждёт"}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            {!playerHasNext ? (
-              <span style={{ fontSize: 12, color: "#8b95a7" }}>конец ветки</span>
-            ) : released ? (
-              <button className="t-btn flex items-center gap-1" onClick={retractFork}><Lock size={13} /> Забрать</button>
-            ) : (
-              <button className="t-btn flex items-center gap-1" onClick={issueFork} style={{ borderColor: GOLD, color: GOLD }}><Send size={13} /> Выдать развилку</button>
-            )}
-            <button className="t-btn flex items-center gap-1" onClick={resetPlayer}><RotateCcw size={13} /></button>
-          </div>
-        </div>
-      </div>
-
+      
       {/* легенда */}
       <div className="absolute left-4 bottom-4" style={{ background: "rgba(10,14,26,.84)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: 12, fontSize: 12, backdropFilter: "blur(6px)" }}>
         <div className="flex flex-wrap gap-3 mb-2">
@@ -478,8 +459,8 @@ function DataModal({ nodes, onClose, onApply }) {
 }
 
 function FirestoreIssue({ node, nodeMap }) {
-  const [open, setOpen] = useState(false);
-  const [code, setCode] = useState("");
+  const [open, setOpen] = useState(true);
+  const [code, setCode] = useState(() => { try { return localStorage.getItem("ragnarok-campaign") || ""; } catch (e) { return ""; } });
   const [joined, setJoined] = useState(false);
   const [players, setPlayers] = useState([]);
   const [pid, setPid] = useState("");
@@ -495,14 +476,16 @@ function FirestoreIssue({ node, nodeMap }) {
     const c = code.trim().toLowerCase().replace(/[^a-zа-я0-9_-]/gi, "");
     if (!c) { setMsg("Введи код кампании"); return; }
     try { await window._fbauth.signInAnonymously(); } catch (e) { setMsg("Включи Anonymous Auth"); return; }
+    try { localStorage.setItem("ragnarok-campaign", c); } catch (e) {}
     setCode(c); setJoined(true); setMsg("");
   };
-  const options = (node.children || []).map((cid) => nodeMap[cid]).filter(Boolean).map((c) => ({
+  const options = !node ? [] : (node.children || []).map((cid) => nodeMap[cid]).filter(Boolean).map((c) => ({
     type: (c.bon && c.bon.type) || "Аспект",
     title: c.tier === "наследие" ? "" : c.title,   // имена богов игроку не утекают
     effect: (c.bon && c.bon.effect) || "",
   }));
   const issue = async () => {
+    if (!node) { setMsg("Выбери узел на древе"); return; }
     if (!pid) { setMsg("Выбери игрока"); return; }
     if (!options.length) { setMsg("У этого узла нет развилок"); return; }
     try {
@@ -512,7 +495,7 @@ function FirestoreIssue({ node, nodeMap }) {
     } catch (e) { setMsg("Ошибка: " + e.message); }
   };
   return (
-    <div style={{ position: "fixed", right: 16, bottom: 16, zIndex: 40, width: "min(320px,92vw)", background: "rgba(10,14,26,.95)", border: "1px solid rgba(230,195,77,.4)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)" }}>
+    <div style={{ position: "fixed", left: "50%", bottom: 16, transform: "translateX(-50%)", zIndex: 40, width: "min(360px,94vw)", background: "rgba(10,14,26,.96)", border: "1px solid rgba(230,195,77,.4)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)" }}>
       <div className="flex items-center justify-between" style={{ marginBottom: open ? 10 : 0 }}>
         <div style={{ fontSize: 12, color: GOLD, letterSpacing: ".4px" }}>Выдать развилку игроку</div>
         <button onClick={() => setOpen((o) => !o)} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer", fontSize: 13 }}>{open ? "свернуть" : "открыть"}</button>
@@ -527,14 +510,14 @@ function FirestoreIssue({ node, nodeMap }) {
             </div>
           ) : (
             <div>
-              <div style={{ fontSize: 11, color: "#8b95a7", marginBottom: 6 }}>Кампания «{code}». Узел: <span style={{ color: "#cdd5e2" }}>{node.title}</span> · вариантов: {options.length}</div>
+              <div style={{ fontSize: 11, color: "#8b95a7", marginBottom: 6 }}>Кампания «{code}». Узел: <span style={{ color: node ? "#e6c34d" : "#ef6b4a" }}>{node ? node.title : "не выбран — кликни узел"}</span>{node ? " · вариантов: " + options.length : ""}</div>
               <select value={pid} onChange={(e) => setPid(e.target.value)}
                 style={{ width: "100%", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, color: "#e8edf5", padding: "6px 10px", fontSize: 13, marginBottom: 8 }}>
                 <option value="" style={{ color: "#000" }}>— выбери игрока —</option>
                 {players.map((p) => <option key={p.id} value={p.id} style={{ color: "#000" }}>{p.name || "без имени"}</option>)}
               </select>
-              <button onClick={issue} className="flex items-center justify-center gap-1" style={{ width: "100%", background: GOLD, color: INK, border: "none", borderRadius: 8, padding: "7px", fontWeight: 600, cursor: "pointer", fontSize: 13 }}><Send size={13} /> Выдать из текущего узла</button>
-              <div style={{ fontSize: 10.5, color: "#8b95a7", marginTop: 6, lineHeight: 1.4 }}>Передвинь фишку игрока плугом сверху, затем выдай — варианты текущего узла придут в его карту. Имена богов на ярусе «наследие» не отправляются.</div>
+              <button onClick={issue} disabled={!node} className="flex items-center justify-center gap-1" style={{ width: "100%", background: node ? GOLD : "rgba(255,255,255,.1)", color: node ? INK : "#8b95a7", border: "none", borderRadius: 8, padding: "7px", fontWeight: 600, cursor: node ? "pointer" : "not-allowed", fontSize: 13 }}><Send size={13} /> Выдать развилку из узла</button>
+              <div style={{ fontSize: 10.5, color: "#8b95a7", marginTop: 6, lineHeight: 1.4 }}>Кликни узел на древе, выбери игрока — варианты этого узла придут на его вкладку «Древо» и в карту. Имена богов на ярусе «наследие» не отправляются.</div>
             </div>
           )}
           {msg && <div style={{ fontSize: 12, color: msg.indexOf("✓") >= 0 ? "#6bbf59" : "#ef6b4a", marginTop: 6 }}>{msg}</div>}
@@ -544,18 +527,71 @@ function FirestoreIssue({ node, nodeMap }) {
   );
 }
 
-const _treeRole = (new URLSearchParams(location.search).get("role") === "gm") ? "gm" : "player";
-if (_treeRole === "gm") {
-  ReactDOM.createRoot(document.getElementById("root")).render(<DivineTree />);
-} else {
-  ReactDOM.createRoot(document.getElementById("root")).render(
-    <div style={{ maxWidth: 460, margin: "12vh auto", textAlign: "center", color: "#cdd5e2", fontFamily: "system-ui,sans-serif", padding: 24 }}>
-      <div style={{ fontSize: 40, marginBottom: 10 }}>🔒</div>
-      <div style={{ fontFamily: "Georgia,serif", fontSize: 22, color: "#e6c34d", marginBottom: 8 }}>Древо судеб — только для ведущей</div>
-      <div style={{ fontSize: 14, color: "#8b95a7" }}>Полное древо с наследиями и твинами скрыто от игроков. Твоя ближайшая развилка приходит в «Карту героя».</div>
+/* Вкладка игрока: его ближайшая развилка из его записи (без полного древа) */
+function PlayerStep() {
+  const ident = (() => { try { return JSON.parse(localStorage.getItem("ragnarok-current") || "null"); } catch (e) { return null; } })();
+  const [doc, setDoc] = useState(null);
+  const [status, setStatus] = useState(window._fbdb ? (ident ? "Загрузка…" : "no-ident") : "no-fb");
+  useEffect(() => {
+    if (!window._fbdb || !ident) return;
+    (async () => { try { await window._fbauth.signInAnonymously(); } catch (e) {} })();
+    const ref = window._fbdb.collection("campaigns").doc(ident.campaign).collection("characters").doc(ident.charId);
+    const un = ref.onSnapshot((d) => { setDoc(d.exists ? { id: d.id, ...d.data() } : null); setStatus(""); }, (e) => setStatus("Ошибка: " + e.message));
+    return () => un();
+  }, []);
+  const pick = async (i) => {
+    if (!doc || !doc.nextFork) return;
+    try { await window._fbdb.collection("campaigns").doc(ident.campaign).collection("characters").doc(doc.id).set({ nextFork: { ...doc.nextFork, chosen: doc.nextFork.chosen === i ? null : i } }, { merge: true }); } catch (e) { setStatus("Ошибка: " + e.message); }
+  };
+  const wrap = (inner) => (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "28px 18px", color: "#e8edf5" }}>
+      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, color: GOLD, marginBottom: 4 }}>Твой путь</div>
+      <div style={{ fontSize: 13, color: "#8b95a7", marginBottom: 22 }}>Ближайшая развилка. Куда ведёт и где фейк — знает только ведущая.</div>
+      {inner}
+    </div>
+  );
+  if (status === "no-fb") return wrap(<div style={{ color: "#8b95a7" }}>Облако не настроено — развилки приходят только в облачном режиме.</div>);
+  if (status === "no-ident") return wrap(<div style={{ background: "rgba(255,255,255,.04)", border: "1px dashed rgba(255,255,255,.16)", borderRadius: 14, padding: 18 }}><div style={{ fontSize: 15, marginBottom: 4 }}>Сначала открой свою «Карту героя»</div><div style={{ fontSize: 13, color: "#8b95a7" }}>Войди в кампанию на карте — тогда здесь появится твоя развилка. <a href="ragnarok-character-sheet-cloud.html" style={{ color: GOLD }}>Открыть карту →</a></div></div>);
+  if (status) return wrap(<div style={{ color: "#8b95a7" }}>{status}</div>);
+  const nf = doc && doc.nextFork;
+  return wrap(
+    <div>
+      {doc && doc.node && <div style={{ fontSize: 13, color: "#8b95a7", marginBottom: 16 }}>Ты на: <span style={{ color: "#cdd5e2" }}>{doc.node}</span></div>}
+      {!nf || !nf.options || !nf.options.length ? (
+        <div style={{ background: "rgba(255,255,255,.03)", border: "1px dashed rgba(255,255,255,.16)", borderRadius: 14, padding: 22, textAlign: "center" }}>
+          <Lock size={18} style={{ opacity: 0.6, marginBottom: 6 }} />
+          <div style={{ fontSize: 15, color: "#9aa7b8" }}>Жди пробуждения.</div>
+          <div style={{ fontSize: 12, color: "#5a6473", marginTop: 4 }}>Ведущая откроет следующую развилку, когда придёт срок.</div>
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 12, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 10 }}>{nf.options.length > 1 ? "Развилка — сделай выбор" : "Шаг открыт"}</div>
+          <div className="grid gap-3" style={{ gridTemplateColumns: "1fr" }}>
+            {nf.options.map((o, i) => {
+              const chosen = nf.chosen === i;
+              return (
+                <button key={i} onClick={() => pick(i)} className="text-left"
+                  style={{ background: chosen ? "rgba(230,195,77,.12)" : "rgba(255,255,255,.04)", border: "1px solid " + (chosen ? GOLD : (BONS[o.type] || "#888") + "55"), borderRadius: 14, padding: 14, cursor: "pointer", color: "#e8edf5" }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: BONS[o.type] || "#888", display: "inline-block" }} />
+                    <span style={{ fontSize: 12, color: BONS[o.type] || "#cdd5e2", textTransform: "uppercase", letterSpacing: ".5px" }}>{o.type}</span>
+                    {o.title ? <span style={{ fontWeight: 600 }}>· {o.title}</span> : null}
+                  </div>
+                  <div style={{ fontSize: 14, color: "#cdd5e2" }}>{o.effect || "—"}</div>
+                  {chosen && <div style={{ fontSize: 11, color: GOLD, marginTop: 6 }}>✓ выбрано</div>}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 11, color: "#5a6473", marginTop: 16 }}>Выбор сохраняется сам и виден ведущей. Можно переcделать, пока ведущая не закрыла развилку.</div>
+        </>
+      )}
     </div>
   );
 }
+
+const _treeRole = (new URLSearchParams(location.search).get("role") === "gm") ? "gm" : "player";
+ReactDOM.createRoot(document.getElementById("root")).render(_treeRole === "gm" ? <DivineTree /> : <PlayerStep />);
 </script>
 <script src="app-shell.js" defer></script>
 
