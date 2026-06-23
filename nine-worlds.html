@@ -184,18 +184,19 @@ function NineWorlds() {
   const [campaign, setCampaign] = useState(readCampaign);
   const [status, setStatus] = useState(HAS_FB && readCampaign() ? "loading" : "local");
   const [playerTags, setPlayerTags] = useState({});   // id места → [теги игроков] (отдельное поле, не затирается ГМом)
+  const [loaded, setLoaded] = useState(!(HAS_FB && readCampaign()));
   const _skip = useRef(true);
-  const _skipPT = useRef(true);
+  const _skipPT = useRef(false);
   const _ready = useRef(false);
   const hydrate = (d) => {
-    _skip.current = true; _skipPT.current = true;
+    _skip.current = true;
     if (Array.isArray(d.worlds)) setWorlds(d.worlds);
     if (Array.isArray(d.edges)) setEdges(d.edges);
     if (Array.isArray(d.legend)) setLegend(d.legend);
-    if (d.playerTags && typeof d.playerTags === "object") setPlayerTags(d.playerTags);
+    if (d.playerTags && typeof d.playerTags === "object") { _skipPT.current = true; setPlayerTags(d.playerTags); }
   };
   useEffect(() => {
-    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); return; }
+    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); setLoaded(true); return; }
     let unsub = null, alive = true; setStatus("loading");
     (async () => {
       try { await auth.signInAnonymously(); } catch (e) { console.error("auth:", e); }
@@ -205,7 +206,7 @@ function NineWorlds() {
         if (alive && snap.exists) hydrate(snap.data());
         else if (ROLE === "gm") { try { await ref.set({ worlds, edges, legend, updatedAt: Date.now() }); } catch (e) { console.error("seed:", e); } }
       } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
-      _ready.current = true; if (alive) setStatus("cloud");
+      _ready.current = true; if (alive) { setStatus("cloud"); setLoaded(true); }
       unsub = ref.onSnapshot((snap) => { if (!snap.exists || snap.metadata.hasPendingWrites) return; hydrate(snap.data()); }, (e) => console.error("snapshot:", e));
     })();
     return () => { alive = false; if (unsub) unsub(); };
@@ -221,7 +222,7 @@ function NineWorlds() {
     }, 700);
     return () => clearTimeout(t);
   }, [worlds, edges, legend, campaign]);
-  const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} _ready.current = false; _skip.current = true; _skipPT.current = true; setCampaign(c); } };
+  const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} _ready.current = false; _skip.current = true; _skipPT.current = false; setLoaded(false); setCampaign(c); } };
 
   // автосейв тегов игрока — отдельное поле playerTags, пишут обе роли (игрок добавляет свои)
   useEffect(() => {
@@ -288,6 +289,8 @@ function NineWorlds() {
     setLegend((ls) => ls.filter((l) => l.id !== lid));
     setEdges((es) => es.map((e) => (e.type === lid ? { ...e, type: fallback } : e)));
   };
+
+  if (!loaded) return <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--muted)", minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }} className="w-full">Загрузка из облака…</div>;
 
   return (
     <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
