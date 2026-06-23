@@ -166,7 +166,11 @@ const DEFAULT_EDGES = [
   { n: "Водила", r: "Ловкость d6+", d: "+2 к Вождению и Лодкам" },
   { n: "Обеспеченный", r: "—", d: "стартуешь с хорошими средствами" },
 ];
-const tierOf = (n) => (n >= 16 ? "Бог" : n >= 10 ? "Полубог" : n >= 4 ? "Герой" : "Смертный");
+const RANKS = [
+  { name: "Смертный", min: 0 }, { name: "Пробуждённый", min: 4 }, { name: "Герой", min: 8 },
+  { name: "Витязь", min: 13 }, { name: "Полубог", min: 18 }, { name: "Ас", min: 23 }, { name: "Бог", min: 28 },
+];
+const tierOf = (n) => { let r = RANKS[0]; for (const k of RANKS) if (n >= k.min) r = k; return r.name; };
 function dominantArch(a) {
   if (!a) return null; let best = null, bv = -1, tie = false;
   for (const k of Object.keys(ARCH)) { const v = a[k].die + a[k].plus * 2; if (v > bv) { bv = v; best = k; tie = false; } else if (v === bv) tie = true; }

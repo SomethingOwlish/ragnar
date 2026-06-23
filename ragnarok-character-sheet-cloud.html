@@ -12,8 +12,11 @@ body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); 
 input,textarea{font-family:inherit; color:inherit;}
 button{font-family:inherit; cursor:pointer;}
 .stele{max-width:1120px; margin:0 auto; padding:28px 22px 60px;}
-.stele.view-locked > *:not(.top){ pointer-events:none; }
+.stele.view-locked > *:not(.top) input, .stele.view-locked > *:not(.top) textarea, .stele.view-locked > *:not(.top) button{ pointer-events:none; }
 .stele.view-locked > *:not(.top) input, .stele.view-locked > *:not(.top) textarea{ opacity:.92; }
+.stele.view-locked .niche{ pointer-events:auto; }
+.stele.view-locked .adv-open{ pointer-events:auto; }
+.stele.view-locked .combat.live button, .stele.view-locked .combat.live input{ pointer-events:auto !important; opacity:1 !important; }
 .sec-title{font-family:var(--disp); font-weight:600; font-size:19px; display:flex; align-items:center; gap:10px; color:var(--ink);}
 .rune{font-family:var(--rune); line-height:1;}
 .card{background:var(--surf); border:1px solid var(--line); border-radius:11px; padding:18px;}
@@ -111,10 +114,10 @@ button{font-family:inherit; cursor:pointer;}
 .divine .sec-title .rune{color:var(--bronze);}
 .shard-cap{font-size:12px; color:var(--muted);}
 .shard-cap b{color:var(--ember); font-family:var(--mono);}
-.shards{display:flex; gap:11px; flex-wrap:wrap; margin:14px 0 6px;}
-.niche{width:56px; height:70px; border:1px solid var(--line-warm); border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:var(--warm-inset); color:var(--niche-idle); transition:.18s;}
-.niche .rune{font-size:25px;}
-.niche .n{font-family:var(--mono); font-size:10px;}
+.shards{display:flex; gap:13px; flex-wrap:wrap; margin:14px 0 6px;}
+.niche{position:relative; width:78px; height:96px; border:1px solid var(--line-warm); border-radius:11px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; background:var(--warm-inset); background-size:cover; background-position:center; color:var(--niche-idle); transition:.18s; overflow:hidden;}
+.niche .rune{font-size:34px;}
+.niche .n{font-family:var(--mono); font-size:11px; letter-spacing:.04em;}
 .niche:hover{border-color:var(--bronze);}
 .niche.lit{background:radial-gradient(circle at 50% 36%, #F6CE85, #E3A848); border-color:var(--bronze-deep); color:#4A3208; box-shadow:0 2px 12px -4px rgba(188,126,42,.6);}
 .dz-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(258px,1fr)); gap:16px; margin-top:18px;}
@@ -165,6 +168,58 @@ button{font-family:inherit; cursor:pointer;}
 .hint.joker .ht{color:var(--bronze);}
 .hint .rune{font-size:14px;}
 .footnote{font-size:11px; color:var(--faint); margin-top:22px; line-height:1.7;}
+/* боевой блок (DEV-9) */
+.combat .cmb-head{display:flex; gap:18px; flex-wrap:wrap; align-items:center; margin:2px 0 14px;}
+.cmb-stat{font-size:12px; letter-spacing:.04em; color:var(--muted);}
+.cmb-stat b{color:var(--steel); font-family:var(--mono); font-size:16px; margin-left:5px;}
+.cmb-live{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); border:1px solid var(--steel-soft); border-radius:999px; padding:3px 9px;}
+.cmb-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px 26px;}
+.cmb-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:5px 0;}
+.cmb-label{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); font-weight:600; width:88px; flex:none;}
+.cmb-box{min-width:40px; text-align:center; padding:7px 9px; border:1px solid var(--line); border-radius:7px; background:var(--surf); color:var(--muted); font-size:12.5px; transition:.12s;}
+.cmb-box:hover{border-color:var(--steel-soft); color:var(--ink);}
+.cmb-box.on{background:var(--steel); border-color:var(--steel); color:var(--on-steel); font-weight:700;}
+.cmb-box.wound.on{background:var(--red); border-color:var(--red); color:#fff;}
+.cmb-box.out.on{background:#641d1d; border-color:#641d1d; color:#fff;}
+.cmb-pen{font-size:12px; color:var(--red); font-weight:600; margin-left:4px;}
+.benny-tok{display:flex; gap:5px; align-items:center; margin-left:6px; flex-wrap:wrap;}
+.benny-tok .bt{width:17px; height:17px; border-radius:50%; border:1.5px solid var(--bronze); background:radial-gradient(circle at 50% 38%, #F6CE85, #E3A848);}
+.cmb-conds{display:flex; flex-wrap:wrap; gap:7px; margin-top:2px;}
+.cond{font-size:12.5px; padding:5px 11px; border:1px solid var(--line); border-radius:999px; background:var(--surf2); color:var(--muted); transition:.12s;}
+.cond:hover{border-color:var(--ember);}
+.cond.on{border-color:var(--ember); color:var(--ember); background:var(--warm-chip); font-weight:600;}
+.weap-table{width:100%; border-collapse:collapse; margin-top:4px;}
+.weap-table th{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); text-align:left; padding:2px 6px; font-weight:600;}
+.weap-table td{padding:3px 4px; vertical-align:middle;}
+.weap-table input{width:100%; background:var(--surf); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:13px; outline:none;}
+.weap-table input:focus{border-color:var(--steel-soft);}
+.weap-del{background:none; border:none; color:var(--faint); font-size:17px; line-height:1; padding:0 4px;}
+.weap-del:hover{color:var(--red);}
+.cmb-add{background:var(--surf2); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:7px 13px; font-size:13px; margin-top:8px;}
+.cmb-add:hover{border-color:var(--steel-soft);}
+.cmb-armor{display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;}
+.cmb-armor input{background:var(--surf); border:1px solid var(--line); border-radius:7px; padding:8px 10px; font-size:13px; outline:none;}
+.cmb-armor input:focus{border-color:var(--steel-soft);}
+.cmb-reset{background:none; border:none; color:var(--faint); font-size:12px; text-decoration:underline; padding:0;}
+.cmb-reset:hover{color:var(--steel);}
+/* прокачка — модалка адванса (DEV-1) */
+.adv-open .rune{font-size:14px;}
+.adv-next{font-size:11px; color:var(--faint); letter-spacing:.04em;}
+.adv-back{position:fixed; inset:0; background:rgba(20,26,32,.55); display:flex; align-items:center; justify-content:center; z-index:60; padding:18px;}
+.adv-modal{background:var(--surf); border:1px solid var(--line); border-radius:14px; padding:22px; width:100%; max-width:540px; max-height:88vh; overflow:auto;}
+.adv-modal h3{font-family:var(--disp); font-weight:600; font-size:20px; margin:0 0 4px; display:flex; align-items:center; gap:9px;}
+.adv-modal h3 .rune{color:var(--bronze);}
+.adv-modal .asub{font-size:13px; color:var(--muted); margin-bottom:16px; line-height:1.5;}
+.adv-seg-label{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); font-weight:600; margin:14px 0 7px;}
+.adv-pick{display:flex; gap:8px; flex-wrap:wrap;}
+.adv-chip{padding:8px 13px; border:1px solid var(--line); border-radius:8px; background:var(--surf2); font-size:13px; color:inherit;}
+.adv-chip:hover{border-color:var(--steel-soft);}
+.adv-chip.on{border-color:var(--steel); background:var(--choice-on); box-shadow:inset 3px 0 0 var(--steel); font-weight:600;}
+.adv-chip.dis{opacity:.38; cursor:not-allowed;}
+.adv-chip .dn{font-family:var(--mono); font-size:11px; color:var(--faint); margin-left:6px;}
+.adv-note{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5;}
+.adv-note.warn{color:var(--ember);}
+.adv-foot{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:20px;}
 /* join gate */
 .gate-wrap{display:flex; min-height:80vh; align-items:center; justify-content:center; padding:20px;}
 .gate{width:100%; max-width:420px; background:var(--surf); border:1px solid var(--line); border-radius:14px; padding:30px;}
@@ -357,7 +412,19 @@ const PATH_TIERS = [
   { name: "Наследие", from: 9, to: 9, hint: "Финальный шаг — в конце девятого мира раскроется, кем ты стал." },
 ];
 const tierOfStep = (step) => PATH_TIERS.find((t) => step >= t.from && step <= t.to) || PATH_TIERS[PATH_TIERS.length - 1];
-const tierOf = (n) => (n >= 16 ? "Бог" : n >= 10 ? "Полубог" : n >= 4 ? "Герой" : "Смертный");
+const RANKS = [
+  { name: "Смертный", min: 0 },
+  { name: "Пробуждённый", min: 4 },
+  { name: "Герой", min: 8 },
+  { name: "Витязь", min: 13 },
+  { name: "Полубог", min: 18 },
+  { name: "Ас", min: 23 },
+  { name: "Бог", min: 28 },
+];
+const rankIndex = (n) => { let i = 0; for (let k = 0; k < RANKS.length; k++) if (n >= RANKS[k].min) i = k; return i; };
+const tierOf = (n) => RANKS[rankIndex(n)].name;
+const nextRankAt = (n) => { const i = rankIndex(n); return i < RANKS.length - 1 ? RANKS[i + 1].min : null; };
+const nextDie = (d) => DICE[Math.min(DICE.indexOf(d) + 1, DICE.length - 1)];
 function dominantArch(attrs) {
   let best = null, bestv = -1, tie = false;
   for (const k of Object.keys(ARCH)) {
@@ -374,6 +441,8 @@ function makeDefaults() {
     name: "", concept: "", bio: "", img: null, gear: "", advances: 0,
     attrs: { agility: { die: 4, plus: 0 }, smarts: { die: 4, plus: 0 }, spirit: { die: 4, plus: 0 }, strength: { die: 4, plus: 0 }, vigor: { die: 4, plus: 0 } },
     skills, shards: 0, edges: [], hindrances: [], geasa: [], prophecies: [], node: "", nextFork: null, created: false,
+    shaken: false, wounds: 0, fatigue: 0, incap: false, bennies: 3, conditions: [], weapons: [], armor: "", armorVal: "",
+    attrRanks: [],
   };
 }
 function loadLocal() {
@@ -447,6 +516,7 @@ function App() {
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);              // есть правки, не отправленные в облако
   const [applying, setApplying] = useState(false);        // идёт отправка в облако
+  const [advOpen, setAdvOpen] = useState(false);          // открыта модалка прокачки (DEV-1)
   const [editing, setEditing] = useState(false);          // правка карточки — за кнопкой
   const canEdit = !gmview && editing;                     // в режиме ведущей правка запрещена
   const skipSave = useRef(true);
@@ -533,6 +603,7 @@ function App() {
   const setAttrDie = (k, die) => setData((d) => ({ ...d, attrs: { ...d.attrs, [k]: { die, plus: die === 12 ? d.attrs[k].plus : 0 } } }));
   const setAttrPlus = (k, p) => setData((d) => ({ ...d, attrs: { ...d.attrs, [k]: { die: 12, plus: d.attrs[k].plus === p ? 0 : p } } }));
   const setSkill = (k, v) => setData((d) => ({ ...d, skills: { ...d.skills, [k]: v } }));
+  const applyAdvance = (patch) => { setData((d) => ({ ...d, ...patch, advances: d.advances + 1 })); setAdvOpen(false); };
 
   async function joinCampaign(code, charName) {
     const name = (charName || "").trim();
@@ -645,6 +716,8 @@ function App() {
                 <button onClick={() => set({ advances: data.advances + 1 })} aria-label="больше">+</button>
               </div>
             </div>
+            {!gmview && <button className="iobtn adv-open" onClick={() => setAdvOpen(true)}><span className="rune">ᚦ</span> Потратить адванс</button>}
+            {nextRankAt(data.advances) != null && <span className="adv-next">до «{RANKS[rankIndex(data.advances) + 1].name}» — {nextRankAt(data.advances) - data.advances}</span>}
           </div>
         </div>
       </div>
@@ -686,6 +759,8 @@ function App() {
         </div>
       </div>
 
+      <CombatBlock data={data} set={set} parry={parry} tough={tough} live={!gmview} />
+
       <div className="card" style={{ marginTop: 18 }}>
         <div className="sec-title" style={{ fontSize: 16 }}><span className="rune" style={{ color: "var(--steel)" }}>ᛒ</span> Снаряжение</div>
         <div className="help">Что при тебе: одежда, инструмент, телефон, оружие, машина, всякая всячина.</div>
@@ -726,7 +801,7 @@ function App() {
         <div className="sec-title"><span className="rune">ᛟ</span> Божественное</div>
         <div className="shard-cap" style={{ marginTop: 6 }}>Осколок истинной природы за каждый из девяти миров. Лит — обретён.</div>
         <div className="shards">
-          {SHARD_RUNES.map((r, i) => (<button key={i} className={"niche" + (i < data.shards ? " lit" : "")} onClick={() => set({ shards: data.shards === i + 1 ? i : i + 1 })} title={`мир ${i + 1}`}><span className="rune">{r}</span><span className="n">{i + 1}</span></button>))}
+          {SHARD_RUNES.map((r, i) => (<button key={i} className={"niche" + (i < data.shards ? " lit" : "")} onClick={() => { if (canEdit) set({ shards: data.shards === i + 1 ? i : i + 1 }); }} style={{ cursor: canEdit ? "pointer" : "default" }} title={`Мир ${i + 1} · осколок ${i < data.shards ? "обретён" : "не обретён"}`}><span className="rune">{r}</span><span className="n">{i + 1}</span></button>))}
         </div>
         <div className="shard-cap"><b>{data.shards}</b> из 9 обретено</div>
         <DivinePath completed={data.shards} />
@@ -743,7 +818,7 @@ function App() {
           <div className="mortal">
             <h5><span className="rune">ᛗ</span> Смертный рост · Адванс</h5>
             <p className="lead">Обычная прокачка Саваги. Раз в одну-две сессии ведущая даёт адванс.</p>
-            <ul><li>За адванс — <b>одно</b>: поднять навык; взять эдж; открыть пару навыков с нуля.</li><li>Поднять атрибут — <b>раз в ранг</b>.</li><li>Счётчик только растёт → растёт ранг: <b>Смертный → Герой → Полубог → Бог</b>. Ранг не падает.</li></ul>
+            <ul><li>За адванс — <b>одно</b>: поднять навык; взять эдж; открыть пару навыков с нуля.</li><li>Поднять атрибут — <b>раз в ранг</b>; потолок d12 (выше — только древом).</li><li>Счётчик только растёт → растёт ранг: <b>Смертный → Пробуждённый → Герой → Витязь → Полубог → Ас → Бог</b>. Ранг не падает.</li></ul>
           </div>
           <div className="div-h">
             <h5><span className="rune">ᛟ</span> Божественный рост · Шаг древа</h5>
@@ -761,6 +836,7 @@ function App() {
 
       <div className="footnote">v0.7 · экран игрока. {cloud ? "Облако подключено — карта пишется в Firebase." : "Облако не настроено — карта живёт локально в браузере."} Кубики и руны кидаются вживую. Кнопка «Печать» даёт отдельный компактный лист.</div>
     </div>
+    {advOpen && !gmview && <AdvanceModal data={data} lists={lists} onApply={applyAdvance} onClose={() => setAdvOpen(false)} />}
     <PrintSheet data={data} />
     </React.Fragment>
   );
@@ -1065,6 +1141,190 @@ function SkillRow({ sk, value, core, onChange }) {
         {!core && (<button className={"pip untr" + (value == null ? " on" : "")} onClick={() => onChange(null)} title="не обучен (d4−2)">&mdash;</button>)}
         {DICE.map((d) => (<button key={d} className={"pip" + (value === d ? " on" : "")} onClick={() => onChange(d)}>d{d}</button>))}
       </div>
+    </div>
+  );
+}
+
+function AdvanceModal({ data, lists, onApply, onClose }) {
+  const [mode, setMode] = useState("skill");
+  const [aSel, setASel] = useState(null);
+  const [sSel, setSSel] = useState(null);
+  const [pair, setPair] = useState([]);
+  const [eSel, setESel] = useState(null);
+  const [custE, setCustE] = useState("");
+
+  const rankIdx = rankIndex(data.advances);
+  const canAttr = !(data.attrRanks || []).includes(rankIdx);
+  const trained = [...CORE, ...OPEN].filter((s) => data.skills[s.n] != null && data.skills[s.n] < 12);
+  const untrained = OPEN.filter((s) => data.skills[s.n] == null);
+  const freeEdges = (lists.edges || []).map((e) => e.n).filter((n) => !data.edges.includes(n));
+  const togglePair = (n) => setPair((p) => (p.includes(n) ? p.filter((x) => x !== n) : p.length >= 2 ? p : [...p, n]));
+
+  let valid = false, patch = null;
+  if (mode === "attr" && aSel && canAttr) {
+    const a = data.attrs[aSel]; valid = a.die < 12;
+    patch = { attrs: { ...data.attrs, [aSel]: { die: nextDie(a.die), plus: 0 } }, attrRanks: [...(data.attrRanks || []), rankIdx] };
+  } else if (mode === "skill" && sSel) {
+    valid = true; patch = { skills: { ...data.skills, [sSel]: nextDie(data.skills[sSel]) } };
+  } else if (mode === "newskills" && pair.length === 2) {
+    valid = true; const sk = { ...data.skills }; pair.forEach((n) => (sk[n] = 4)); patch = { skills: sk };
+  } else if (mode === "edge") {
+    const name = eSel || custE.trim();
+    if (name && !data.edges.includes(name)) { valid = true; patch = { edges: [...data.edges, name] }; }
+  }
+  const apply = () => { if (valid && patch) onApply(patch); };
+
+  return (
+    <div className="adv-back" onClick={onClose}>
+      <div className="adv-modal" onClick={(e) => e.stopPropagation()}>
+        <h3><span className="rune">ᚦ</span> Потратить адванс</h3>
+        <div className="asub">Ранг <b>{tierOf(data.advances)}</b> · адвансов {data.advances}. Выбери одно улучшение — счётчик вырастет на 1.</div>
+
+        <div className="adv-seg-label">Что улучшаем</div>
+        <div className="adv-pick">
+          <button className={"adv-chip" + (mode === "skill" ? " on" : "")} onClick={() => setMode("skill")}>Навык +1</button>
+          <button className={"adv-chip" + (mode === "newskills" ? " on" : "")} onClick={() => setMode("newskills")}>Два новых навыка</button>
+          <button className={"adv-chip" + (mode === "edge" ? " on" : "")} onClick={() => setMode("edge")}>Новый эдж</button>
+          <button className={"adv-chip" + (mode === "attr" ? " on" : "") + (canAttr ? "" : " dis")} onClick={() => canAttr && setMode("attr")}>Атрибут +1</button>
+        </div>
+
+        {mode === "attr" && (
+          <div>
+            <div className="adv-seg-label">Какой атрибут</div>
+            {canAttr && (
+              <div className="adv-pick">
+                {ATTRS.map((at) => { const a = data.attrs[at.key]; const max = a.die >= 12; return (
+                  <button key={at.key} className={"adv-chip" + (aSel === at.key ? " on" : "") + (max ? " dis" : "")} onClick={() => !max && setASel(at.key)}>{at.label}<span className="dn">{fmt(a.die, a.plus)}{max ? " · потолок" : " → " + fmt(nextDie(a.die), 0)}</span></button>
+                ); })}
+              </div>
+            )}
+            <div className={"adv-note" + (canAttr ? "" : " warn")}>{canAttr ? "Раз в ранг. Потолок d12 — выше только через древо." : "В этом ранге атрибут уже поднимался — следующий подъём с нового ранга. Сверх d12 ломается только древом."}</div>
+          </div>
+        )}
+
+        {mode === "skill" && (
+          <div>
+            <div className="adv-seg-label">Какой навык поднять</div>
+            <div className="adv-pick">
+              {trained.map((s) => <button key={s.n} className={"adv-chip" + (sSel === s.n ? " on" : "")} onClick={() => setSSel(s.n)}>{s.n}<span className="dn">{fmt(data.skills[s.n], 0)} → {fmt(nextDie(data.skills[s.n]), 0)}</span></button>)}
+            </div>
+            {trained.length === 0 && <div className="adv-note">Нет навыков для подъёма — открой новые.</div>}
+          </div>
+        )}
+
+        {mode === "newskills" && (
+          <div>
+            <div className="adv-seg-label">Открой два навыка с d4{pair.length ? " · выбрано " + pair.length + "/2" : ""}</div>
+            <div className="adv-pick">
+              {untrained.map((s) => <button key={s.n} className={"adv-chip" + (pair.includes(s.n) ? " on" : "")} onClick={() => togglePair(s.n)}>{s.n}</button>)}
+            </div>
+            {untrained.length === 0 && <div className="adv-note">Все доступные навыки уже открыты.</div>}
+          </div>
+        )}
+
+        {mode === "edge" && (
+          <div>
+            <div className="adv-seg-label">Какой эдж</div>
+            <div className="adv-pick">
+              {freeEdges.map((n) => <button key={n} className={"adv-chip" + (eSel === n ? " on" : "")} onClick={() => { setESel(n); setCustE(""); }}>{n}</button>)}
+            </div>
+            <div className="custom-add"><input value={custE} onChange={(e) => { setCustE(e.target.value); setESel(null); }} placeholder="свой эдж" /></div>
+            <div className="adv-note">Требования эджей сверяй с ведущей — автоматически не проверяются.</div>
+          </div>
+        )}
+
+        <div className="adv-foot">
+          <button className="wiz-back" onClick={onClose}>Отмена</button>
+          <button className="wiz-next" onClick={apply} disabled={!valid}>Применить улучшение</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CombatBlock({ data, set, parry, tough, live }) {
+  const [cc, setCc] = useState("");
+  const CONDS = ["Отвлечён", "Уязвим", "Оглушён", "Горит", "Обморожен", "Перегрев"];
+  const conds = data.conditions || [];
+  const weapons = data.weapons || [];
+  const guard = (fn) => (...a) => { if (live) fn(...a); };
+  const toggleShaken = guard(() => set({ shaken: !data.shaken }));
+  const setWound = guard((n) => set({ wounds: data.wounds === n ? n - 1 : n }));
+  const toggleIncap = guard(() => set({ incap: !data.incap }));
+  const setFatigue = guard((n) => set({ fatigue: data.fatigue === n ? n - 1 : n }));
+  const bumpBenny = guard((d) => set({ bennies: Math.max(0, (data.bennies || 0) + d) }));
+  const toggleCond = guard((c) => set({ conditions: conds.includes(c) ? conds.filter((x) => x !== c) : [...conds, c] }));
+  const addCond = guard(() => { const v = cc.trim(); if (!v) return; if (!conds.includes(v)) set({ conditions: [...conds, v] }); setCc(""); });
+  const addWeapon = guard(() => set({ weapons: [...weapons, { name: "", dmg: "", range: "", notes: "" }] }));
+  const setWeap = guard((i, k, v) => set({ weapons: weapons.map((w, j) => (j === i ? { ...w, [k]: v } : w)) }));
+  const delWeap = guard((i) => set({ weapons: weapons.filter((_, j) => j !== i) }));
+  const newFight = guard(() => { if (window.confirm("Новый бой: обнулить раны, усталость, состояния и вернуть 3 бенни?")) set({ shaken: false, wounds: 0, fatigue: 0, incap: false, conditions: [], bennies: 3 }); });
+  const customConds = conds.filter((c) => !CONDS.includes(c));
+
+  return (
+    <div className={"card combat" + (live ? " live" : "")} style={{ marginTop: 18 }}>
+      <div className="sec-title" style={{ fontSize: 16 }}><span className="rune" style={{ color: "var(--steel)" }}>ᛏ</span> Бой</div>
+      <div className="cmb-head">
+        <span className="cmb-stat">Парирование<b>{parry}</b></span>
+        <span className="cmb-stat">Стойкость<b>{tough}{data.armorVal ? " (" + data.armorVal + ")" : ""}</b></span>
+        {live && <span className="cmb-live">живой трекинг</span>}
+      </div>
+      <div className="divider" />
+      <div className="cmb-grid">
+        <div>
+          <div className="cmb-row">
+            <span className="cmb-label">Раны</span>
+            <button className={"cmb-box" + (data.shaken ? " on" : "")} onClick={toggleShaken}>Контужен</button>
+            {[1, 2, 3].map((n) => <button key={n} className={"cmb-box wound" + (data.wounds >= n ? " on" : "")} onClick={() => setWound(n)}>−{n}</button>)}
+            <button className={"cmb-box out" + (data.incap ? " on" : "")} onClick={toggleIncap}>Выведен</button>
+            {data.wounds > 0 && <span className="cmb-pen">−{data.wounds} к броскам</span>}
+          </div>
+          <div className="cmb-row">
+            <span className="cmb-label">Усталость</span>
+            {[1, 2].map((n) => <button key={n} className={"cmb-box" + (data.fatigue >= n ? " on" : "")} onClick={() => setFatigue(n)}>−{n}</button>)}
+            {data.fatigue > 0 && <span className="cmb-pen">−{data.fatigue} к броскам</span>}
+          </div>
+          <div className="cmb-row">
+            <span className="cmb-label">Бенни</span>
+            <div className="stepper"><button onClick={() => bumpBenny(-1)} aria-label="меньше">−</button><span className="num">{data.bennies || 0}</span><button onClick={() => bumpBenny(1)} aria-label="больше">+</button></div>
+            <div className="benny-tok">{Array.from({ length: Math.min(data.bennies || 0, 10) }, (_, i) => <span key={i} className="bt" />)}</div>
+          </div>
+        </div>
+        <div>
+          <span className="cmb-label" style={{ width: "auto", display: "block", marginBottom: 6 }}>Состояния</span>
+          <div className="cmb-conds">
+            {CONDS.map((c) => <button key={c} className={"cond" + (conds.includes(c) ? " on" : "")} onClick={() => toggleCond(c)}>{c}</button>)}
+            {customConds.map((c) => <button key={c} className="cond on" onClick={() => toggleCond(c)} title="убрать">{c} ×</button>)}
+          </div>
+          <div className="cmb-armor" style={{ marginTop: 10 }}>
+            <input value={cc} onChange={(e) => setCc(e.target.value)} placeholder="своё состояние" onKeyDown={(e) => e.key === "Enter" && addCond()} style={{ flex: 1, minWidth: 120 }} />
+            <button className="cmb-add" style={{ marginTop: 0 }} onClick={addCond}>+</button>
+          </div>
+        </div>
+      </div>
+      <div className="divider" />
+      <span className="cmb-label" style={{ width: "auto", display: "block", marginBottom: 4 }}>Оружие</span>
+      <table className="weap-table">
+        <thead><tr><th style={{ width: "34%" }}>Оружие</th><th style={{ width: "16%" }}>Урон</th><th style={{ width: "16%" }}>Дальн.</th><th>Примечание</th><th style={{ width: 28 }} /></tr></thead>
+        <tbody>
+          {weapons.length === 0 && <tr><td colSpan={5} style={{ color: "var(--faint)", fontSize: 13, padding: "6px" }}>оружие не добавлено</td></tr>}
+          {weapons.map((w, i) => (
+            <tr key={i}>
+              <td><input value={w.name || ""} onChange={(e) => setWeap(i, "name", e.target.value)} placeholder="нож, ружьё…" /></td>
+              <td><input value={w.dmg || ""} onChange={(e) => setWeap(i, "dmg", e.target.value)} placeholder="Сил+d4" /></td>
+              <td><input value={w.range || ""} onChange={(e) => setWeap(i, "range", e.target.value)} placeholder="—" /></td>
+              <td><input value={w.notes || ""} onChange={(e) => setWeap(i, "notes", e.target.value)} placeholder="ББ, АП 2…" /></td>
+              <td>{live && <button className="weap-del" onClick={() => delWeap(i)}>×</button>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {live && <button className="cmb-add" onClick={addWeapon}>+ оружие</button>}
+      <div className="cmb-armor" style={{ marginTop: 12 }}>
+        <input value={data.armor || ""} onChange={(e) => set({ armor: e.target.value })} placeholder="броня — куртка, бронежилет…" style={{ flex: 1, minWidth: 180 }} />
+        <input value={data.armorVal || ""} onChange={(e) => set({ armorVal: e.target.value })} placeholder="защита +" style={{ width: 110 }} />
+      </div>
+      {live && <div style={{ marginTop: 12 }}><button className="cmb-reset" onClick={newFight}>сбросить бой · новая сессия</button></div>}
     </div>
   );
 }
