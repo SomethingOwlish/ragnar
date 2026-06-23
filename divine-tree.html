@@ -59,6 +59,13 @@ const BON_LIST = Object.keys(BONS);
 // мифические навыки — имена ДОЛЖНЫ совпадать с LOCKED в карте героя (иначе «Открытие» не откроет)
 const MYTH_SKILLS = ["Сейд", "Гальдр", "Провидение", "Боевое мастерство", "Лучное искусство", "Оборот", "Власть стихий", "Зов мёртвых", "Жизнедар", "Всечувствие", "Ярость", "Тропы меж мирами"];
 const ATTR_LIST = [["strength", "Сила"], ["vigor", "Выносливость"], ["spirit", "Дух"], ["smarts", "Смекалка"], ["agility", "Ловкость"]];
+const RUNE_FONT = "'Noto Sans Runic','Segoe UI Historic','Segoe UI Symbol','Apple Symbols',serif";
+const RUNES = [
+  ["fehu", "ᚠ", "Феху"], ["uruz", "ᚢ", "Уруз"], ["thurisaz", "ᚦ", "Турисаз"], ["ansuz", "ᚨ", "Ансуз"], ["raido", "ᚱ", "Райдо"], ["kenaz", "ᚲ", "Кеназ"], ["gebo", "ᚷ", "Гебо"], ["wunjo", "ᚹ", "Вуньо"],
+  ["hagalaz", "ᚺ", "Хагалаз"], ["nautiz", "ᚾ", "Наутиз"], ["isa", "ᛁ", "Иса"], ["jera", "ᛃ", "Йера"], ["eihwaz", "ᛇ", "Эйваз"], ["perthro", "ᛈ", "Перто"], ["algiz", "ᛉ", "Альгиз"], ["sowilo", "ᛊ", "Соулу"],
+  ["tiwaz", "ᛏ", "Тейваз"], ["berkano", "ᛒ", "Беркана"], ["ehwaz", "ᛖ", "Эваз"], ["mannaz", "ᛗ", "Манназ"], ["laguz", "ᛚ", "Лагуз"], ["ingwaz", "ᛜ", "Ингваз"], ["dagaz", "ᛞ", "Дагаз"], ["othala", "ᛟ", "Отала"],
+];
+const RUNE_MAP = Object.fromEntries(RUNES.map(([id, g, n]) => [id, { glyph: g, name: n }]));
 
 /* ============================ Сид ============================ */
 const M = (id, step, tier, title, bon, fork, dest, children, x, y) =>
@@ -571,6 +578,22 @@ function IssuePanel({ node, nodeMap, campaign, players, onBind }) {
   const [msg, setMsg] = useState("");
   const [confirmFor, setConfirmFor] = useState(null);
   const [sh, setSh] = useState({ rune: "", title: "", text: "", give: true });
+  const [defaultRune, setDefaultRune] = useState("");
+  useEffect(() => {
+    if (!campaign || !window._fbdb) { setDefaultRune(""); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const snap = await window._fbdb.collection("campaigns").doc(campaign).collection("boards").doc("chronology").get();
+        if (!alive || !snap.exists) return;
+        const d = snap.data() || {}; const periods = d.periods || [], sessions = d.sessions || [];
+        const idxOf = {}; periods.forEach((p, i) => { idxOf[p.id] = i; });
+        let cur = 0; sessions.forEach((s) => { const i = idxOf[s.periodId]; if (i != null && i > cur) cur = i; });
+        const per = periods[cur]; setDefaultRune(per && per.rune && RUNE_MAP[per.rune] ? RUNE_MAP[per.rune].glyph : "");
+      } catch (e) {}
+    })();
+    return () => { alive = false; };
+  }, [campaign]);
   const charRef = (id) => window._fbdb.collection("campaigns").doc(campaign).collection("characters").doc(id);
 
   const buildOptions = (n) => !n ? [] : (n.children || []).map((cid) => nodeMap[cid]).filter(Boolean).map((c) => ({
@@ -593,7 +616,7 @@ function IssuePanel({ node, nodeMap, campaign, players, onBind }) {
     } catch (e) { setMsg("Ошибка: " + e.message); }
   };
 
-  const openConfirm = (p) => { setConfirmFor(p.id); setSh({ rune: "", title: "", text: "", give: true }); };
+  const openConfirm = (p) => { setConfirmFor(p.id); setSh({ rune: defaultRune || "", title: "", text: "", give: true }); };
 
   const confirmStep = async (p) => {
     const nf = p.nextFork; if (!nf || typeof nf.chosen !== "number") return;
@@ -602,17 +625,26 @@ function IssuePanel({ node, nodeMap, campaign, players, onBind }) {
     const childIds = parent ? (parent.children || []).filter((c) => nodeMap[c]) : [];
     const childId = childIds[nf.chosen] || null;
     const childNode = childId ? nodeMap[childId] : null;
+    const live = childNode && childNode.bon ? childNode.bon : null;
+    const isLeg = childNode && childNode.tier === "наследие";
+    const eff = {
+      type: (live && live.type) || opt.type,
+      title: childNode ? (isLeg ? "" : childNode.title) : (opt.title || ""),
+      effect: (live && live.effect) || opt.effect || "",
+      skill: (live && live.skill) || opt.skill || null,
+      attr: (live && live.attr) || opt.attr || null,
+    };
     const patch = {
-      boons: [...(p.boons || []), { type: opt.type, title: opt.title || "", effect: opt.effect || "", step: childNode ? childNode.step : (p.shards || 0) + 1 }],
+      boons: [...(p.boons || []), { type: eff.type, title: eff.title, effect: eff.effect, step: childNode ? childNode.step : (p.shards || 0) + 1 }],
       nextFork: null,
     };
-    if (childId) { patch.treeNode = childId; patch.node = childNode && childNode.tier === "наследие" ? "Наследие \u00b7 сокрыто" : (childNode ? childNode.title : (p.node || "")); }
-    if (opt.type === "Открытие" && opt.skill) {
-      const sk = { ...(p.skills || {}) }; if (sk[opt.skill] == null) sk[opt.skill] = 4; patch.skills = sk;
+    if (childId) { patch.treeNode = childId; patch.node = isLeg ? "Наследие \u00b7 сокрыто" : (childNode ? childNode.title : (p.node || "")); }
+    if (eff.type === "Открытие" && eff.skill) {
+      const sk = { ...(p.skills || {}) }; if (sk[eff.skill] == null) sk[eff.skill] = 4; patch.skills = sk;
     }
-    if (opt.type === "Мощь" && opt.attr) {
-      const at = { ...(p.attrs || {}) }; const a = at[opt.attr] || { die: 4, plus: 0 };
-      if (a.die >= 12) { at[opt.attr] = { die: 12, plus: Math.min(3, (a.plus || 0) + 1) }; patch.attrs = at; }
+    if (eff.type === "Мощь" && eff.attr) {
+      const at = { ...(p.attrs || {}) }; const a = at[eff.attr] || { die: 4, plus: 0 };
+      if (a.die >= 12) { at[eff.attr] = { die: 12, plus: Math.min(3, (a.plus || 0) + 1) }; patch.attrs = at; }
     }
     if (sh.give) {
       const shards = (p.shards || 0) + 1;
@@ -624,6 +656,12 @@ function IssuePanel({ node, nodeMap, campaign, players, onBind }) {
   };
 
   const clearFork = async (p) => { try { await charRef(p.id).set({ nextFork: null }, { merge: true }); } catch (e) { setMsg(e.message); } };
+  const liveChild = (p) => {
+    const nf = p.nextFork; if (!nf || typeof nf.chosen !== "number") return null;
+    const parent = p.treeNode ? nodeMap[p.treeNode] : null;
+    const ids = parent ? (parent.children || []).filter((c) => nodeMap[c]) : [];
+    return nodeMap[ids[nf.chosen]] || null;
+  };
 
   return (
     <div style={{ position: "fixed", left: "50%", bottom: 16, transform: "translateX(-50%)", zIndex: 40, width: "min(440px,96vw)", maxHeight: "60vh", overflowY: "auto", background: "rgba(10,14,26,.96)", border: "1px solid rgba(230,195,77,.4)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)" }}>
@@ -666,19 +704,27 @@ function IssuePanel({ node, nodeMap, campaign, players, onBind }) {
                       {chosen && confirmFor !== p.id && (
                         <button onClick={() => openConfirm(p)} style={{ marginTop: 6, background: "var(--surf2)", border: "1px solid " + GOLD, color: GOLD, borderRadius: 7, padding: "5px 10px", fontSize: 12, cursor: "pointer" }}>Подтвердить шаг \u2192</button>
                       )}
-                      {chosen && confirmFor === p.id && (
+                      {chosen && confirmFor === p.id && (() => {
+                        const cn = liveChild(p); const lb = cn && cn.bon ? cn.bon : null;
+                        const effType = (lb && lb.type) || chOpt.type;
+                        const effSkill = (lb && lb.skill) || chOpt.skill;
+                        const effAttr = (lb && lb.attr) || chOpt.attr;
+                        return (
                         <div style={{ marginTop: 7, borderTop: "1px solid var(--line-soft)", paddingTop: 7 }}>
-                          <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6 }}>Дар \u00ab{chOpt.type}{chOpt.title ? " \u00b7 " + chOpt.title : ""}\u00bb уйдёт в карту{chOpt.type === "Открытие" && chOpt.skill ? ", откроется навык \u00ab" + chOpt.skill + "\u00bb" : ""}{chOpt.type === "Мощь" && chOpt.attr ? ", +1 сверх d12" : ""}.</div>
+                          <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6 }}>Дар уйдёт в карту{effType === "Открытие" && effSkill ? ", откроется навык \u00ab" + effSkill + "\u00bb" : (effType === "Открытие" ? " (навык у узла не привязан — задай в редакторе)" : "")}{effType === "Мощь" && effAttr ? ", +1 сверх d12" : ""}.</div>
                           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--ink)", marginBottom: 6 }}>
                             <input type="checkbox" checked={sh.give} onChange={(e) => setSh((s) => ({ ...s, give: e.target.checked }))} /> выдать осколок этого мира
                           </label>
                           {sh.give && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 7 }}>
-                              <div className="flex gap-2">
-                                <input value={sh.rune} onChange={(e) => setSh((s) => ({ ...s, rune: e.target.value }))} placeholder="руна" maxLength={2} style={{ width: 64, background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 7, color: "var(--ink)", padding: "5px 8px", fontSize: 14, textAlign: "center" }} />
-                                <input value={sh.title} onChange={(e) => setSh((s) => ({ ...s, title: e.target.value }))} placeholder="заголовок осколка" style={{ flex: 1, background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 7, color: "var(--ink)", padding: "5px 8px", fontSize: 12 }} />
-                              </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 7 }}>
+                              <input value={sh.title} onChange={(e) => setSh((s) => ({ ...s, title: e.target.value }))} placeholder="заголовок осколка" style={{ background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 7, color: "var(--ink)", padding: "6px 8px", fontSize: 12 }} />
                               <textarea value={sh.text} onChange={(e) => setSh((s) => ({ ...s, text: e.target.value }))} placeholder="лор осколка — что игрок узнаёт о своей природе" style={{ background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 7, color: "var(--ink)", padding: "6px 8px", fontSize: 12, height: 44, resize: "vertical" }} />
+                              <div style={{ fontSize: 11, color: "var(--muted)" }}>Руна осколка{defaultRune ? " \u00b7 по умолчанию — мир последней сессии" : ""}:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {RUNES.map(([rid, g, rn]) => (
+                                  <button key={rid} title={rn} onClick={() => setSh((s) => ({ ...s, rune: g }))} style={{ fontFamily: RUNE_FONT, fontSize: 16, width: 28, height: 28, borderRadius: 7, cursor: "pointer", border: sh.rune === g ? "1px solid " + GOLD : "1px solid var(--line)", background: sh.rune === g ? "rgba(230,195,77,.15)" : "transparent", color: sh.rune === g ? GOLD : "var(--ink)" }}>{g}</button>
+                                ))}
+                              </div>
                             </div>
                           )}
                           <div className="flex gap-2">
@@ -686,7 +732,7 @@ function IssuePanel({ node, nodeMap, campaign, players, onBind }) {
                             <button onClick={() => confirmStep(p)} style={{ flex: 1, background: GOLD, color: INK, border: "none", borderRadius: 7, padding: "6px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Подтвердить шаг</button>
                           </div>
                         </div>
-                      )}
+                        ); })()}
                     </div>
                   );
                 })}
