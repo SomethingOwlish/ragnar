@@ -16,6 +16,8 @@ button{font-family:inherit; cursor:pointer;}
 .stele.view-locked > *:not(.top) input, .stele.view-locked > *:not(.top) textarea{ opacity:.92; }
 .stele.view-locked .niche{ pointer-events:auto; }
 .stele.view-locked .adv-open{ pointer-events:auto; }
+.stele.prog-locked .prog input, .stele.prog-locked .prog textarea, .stele.prog-locked .prog button{ pointer-events:none; opacity:.9; }
+.iobtn:disabled{ opacity:.45; cursor:default; }
 .stele.view-locked .combat.live button, .stele.view-locked .combat.live input{ pointer-events:auto !important; opacity:1 !important; }
 .sec-title{font-family:var(--disp); font-weight:600; font-size:19px; display:flex; align-items:center; gap:10px; color:var(--ink);}
 .rune{font-family:var(--rune); line-height:1;}
@@ -443,6 +445,7 @@ function makeDefaults() {
     skills, shards: 0, edges: [], hindrances: [], geasa: [], prophecies: [], node: "", nextFork: null, created: false,
     shaken: false, wounds: 0, fatigue: 0, incap: false, bennies: 3, conditions: [], weapons: [], armor: "", armorVal: "",
     attrRanks: [],
+    spent: 0,
   };
 }
 function loadLocal() {
@@ -518,7 +521,11 @@ function App() {
   const [applying, setApplying] = useState(false);        // идёт отправка в облако
   const [advOpen, setAdvOpen] = useState(false);          // открыта модалка прокачки (DEV-1)
   const [editing, setEditing] = useState(false);          // правка карточки — за кнопкой
-  const canEdit = !gmview && editing;                     // в режиме ведущей правка запрещена
+  const [gmEditing, setGmEditing] = useState(false);      // ведущая правит карту игрока
+  const canEdit = !gmview && editing;                     // игрок правит обычные поля
+  const gmCanEdit = gmview && gmEditing;                  // ведущая правит всё, включая прокачку
+  const fieldEdit = canEdit || gmCanEdit;                 // можно править обычные поля
+  const progEdit = gmCanEdit || (!cloud && editing);      // прокачку (атрибуты/навыки/эджи/начисление) — только ведущая; в локальном режиме сам игрок
   const skipSave = useRef(true);
 
   // авто-перевход: если игрок уже входил в эту сессию, не спрашиваем заново
@@ -564,23 +571,22 @@ function App() {
   // BUG-9: локальная копия пишется сразу на каждое изменение; в облако — только по «Применить».
   // Гидрация (вход / чтение из облака) не считается правкой — её отсекаем по skipSave.
   useEffect(() => {
-    if (gmview) return;                                    // в просмотре ведущей ничего не пишем
-    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
+    if (!gmview) { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} }   // чужую карту в свою локалку не пишем
     if (skipSave.current) { skipSave.current = false; return; }
-    if (joined && cloud && campaign && charId) setDirty(true);
+    if (joined && cloud && campaign && charId && (!gmview || gmEditing)) setDirty(true);
   }, [data, joined, campaign, charId, cloud, gmview]);
 
   // предупреждаем, если уходишь с несохранёнными в облако правками
   useEffect(() => {
-    if (!cloud || gmview) return;
+    if (!cloud) return;
     const h = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
     window.addEventListener("beforeunload", h);
     return () => window.removeEventListener("beforeunload", h);
-  }, [cloud, gmview, dirty]);
+  }, [cloud, dirty]);
 
   // запись данных в облако (общая для «Применить» и финала визарда)
   const saveNow = async (d) => {
-    try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {}
+    if (!gmview) { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {} }
     if (cloud && campaign && charId) {
       await db.collection("campaigns").doc(campaign).collection("characters").doc(charId).set(d);
     }
@@ -603,7 +609,7 @@ function App() {
   const setAttrDie = (k, die) => setData((d) => ({ ...d, attrs: { ...d.attrs, [k]: { die, plus: die === 12 ? d.attrs[k].plus : 0 } } }));
   const setAttrPlus = (k, p) => setData((d) => ({ ...d, attrs: { ...d.attrs, [k]: { die: 12, plus: d.attrs[k].plus === p ? 0 : p } } }));
   const setSkill = (k, v) => setData((d) => ({ ...d, skills: { ...d.skills, [k]: v } }));
-  const applyAdvance = (patch) => { setData((d) => ({ ...d, ...patch, advances: d.advances + 1 })); setAdvOpen(false); };
+  const applyAdvance = (patch) => { setData((d) => ({ ...d, ...patch, spent: (d.spent || 0) + 1 })); setAdvOpen(false); };
 
   async function joinCampaign(code, charName) {
     const name = (charName || "").trim();
@@ -641,6 +647,7 @@ function App() {
   const tier = tierOf(data.advances);
   const arch = dominantArch(attrs);
   const nextStep = Math.min(data.shards + 1, 9);           // ближайший шаг древа (BUG-7)
+  const availAdv = Math.max(0, (data.advances || 0) - (data.spent || 0));   // начислено минус потрачено
   // подписи-подсказки для эджей/изъянов на листе (BUG-6) — по имени из списков кампании
   const baseName = (s) => String(s).replace(/\s*\((?:большой|малый)\)\s*$/i, "").trim();
   const edgeMeta = {}; (lists.edges || []).forEach((e) => { edgeMeta[e.n] = e; });
@@ -669,19 +676,21 @@ function App() {
 
   return (
     <React.Fragment>
-    <div className={"stele" + (canEdit ? "" : " view-locked")}>
+    <div className={"stele" + (fieldEdit ? "" : " view-locked") + (canEdit && !progEdit ? " prog-locked" : "")}>
       <div className="top">
         <div className="wordmark"><span className="rune">ᛈ</span> Рагнарёк-AU</div>
         <div className="tools no-print">
           {gmview ? (
-            <span className="mode" style={{ color: "var(--bronze)", borderColor: "var(--line-warm)" }}>просмотр ведущей · только чтение</span>
+            <button className="iobtn" onClick={async () => { if (gmEditing && cloud && dirty) await applyToCloud(); setGmEditing((e) => !e); }} style={gmEditing ? { borderColor: "var(--bronze)", color: "var(--bronze)" } : { borderColor: "var(--line-warm)", color: "var(--bronze)" }}>
+              {gmEditing ? "✓ Готово · ведущая" : "✎ Править как ведущая"}
+            </button>
           ) : (
             <button className="iobtn" onClick={async () => { if (editing && cloud && dirty) await applyToCloud(); setEditing((e) => !e); }} style={editing ? { borderColor: "var(--steel)", color: "var(--steel)" } : undefined}>
               {editing ? "✓ Готово" : "✎ Редактировать"}
             </button>
           )}
-          {!gmview && cloud && dirty && <span className="unsynced"><span className="dot" /> не сохранено</span>}
-          {!gmview && cloud && dirty && <button className="iobtn apply" onClick={applyToCloud} disabled={applying}><span className="rune">ᛏ</span>{applying ? "Сохраняю…" : "Применить"}</button>}
+          {(!gmview || gmEditing) && cloud && dirty && <span className="unsynced"><span className="dot" /> не сохранено</span>}
+          {(!gmview || gmEditing) && cloud && dirty && <button className="iobtn apply" onClick={applyToCloud} disabled={applying}><span className="rune">ᛏ</span>{applying ? "Сохраняю…" : "Применить"}</button>}
           <span className={"saved" + (saved ? " on" : "")}><span className="rune">ᛊ</span> сохранено</span>
           {cloud ? <span className="mode cloud">облако · {campaign}</span> : <span className="mode local">локально</span>}
           <button className="iobtn" onClick={exportJSON}><span className="rune">ᛟ</span> Экспорт</button>
@@ -709,21 +718,22 @@ function App() {
           <div className="adv no-print">
             <div className="blk"><span className="k">Ранг</span><span className="rk">{tier}</span>{tier !== "Смертный" && arch && <span className="rk-arch">· {arch}</span>}</div>
             <div className="blk">
-              <span className="k tip" data-tip="всего получено адвансов — только растёт; ранг не падает">Продвижения</span>
-              <div className="stepper">
+              <span className="k tip" data-tip="всего начислено адвансов — начисляет ведущая; растит ранг, ранг не падает">Продвижения</span>
+              <div className="stepper prog">
                 <button onClick={() => set({ advances: Math.max(0, data.advances - 1) })} aria-label="меньше">&minus;</button>
                 <span className="num">{data.advances}</span>
                 <button onClick={() => set({ advances: data.advances + 1 })} aria-label="больше">+</button>
               </div>
             </div>
-            {!gmview && <button className="iobtn adv-open" onClick={() => setAdvOpen(true)}><span className="rune">ᚦ</span> Потратить адванс</button>}
+            {!gmview && <div className="blk"><span className="k tip" data-tip="начислено минус потрачено — столько улучшений можно взять">Доступно</span><span className="rk" style={{ color: availAdv > 0 ? "var(--bronze)" : "var(--faint)" }}>{availAdv}</span></div>}
+            {!gmview && <button className="iobtn adv-open" onClick={() => setAdvOpen(true)} disabled={availAdv <= 0}><span className="rune">ᚦ</span> Потратить{availAdv > 0 ? " (" + availAdv + ")" : ""}</button>}
             {nextRankAt(data.advances) != null && <span className="adv-next">до «{RANKS[rankIndex(data.advances) + 1].name}» — {nextRankAt(data.advances) - data.advances}</span>}
           </div>
         </div>
       </div>
 
       <div className="grid2">
-        <div className="card">
+        <div className="card prog">
           <div className="sec-title"><span className="rune" style={{ color: "var(--steel)" }}>ᚨ</span> Атрибуты</div>
           <div className="divider" />
           {ATTRS.map((at) => {
@@ -747,7 +757,7 @@ function App() {
           <div className="auto-note">Считается само: Парирование от Рукопашного, Стойкость и Нагрузка — от Выносливости и Силы.</div>
         </div>
 
-        <div className="card">
+        <div className="card prog">
           <div className="sec-title"><span className="rune" style={{ color: "var(--steel)" }}>ᚱ</span> Навыки</div>
           <div className="divider" />
           <div className="skgroup-label">Ядро · у всех</div>
@@ -759,7 +769,7 @@ function App() {
         </div>
       </div>
 
-      <CombatBlock data={data} set={set} parry={parry} tough={tough} live={!gmview} />
+      <CombatBlock data={data} set={set} parry={parry} tough={tough} live={!gmview || gmEditing} />
 
       <div className="card" style={{ marginTop: 18 }}>
         <div className="sec-title" style={{ fontSize: 16 }}><span className="rune" style={{ color: "var(--steel)" }}>ᛒ</span> Снаряжение</div>
@@ -772,7 +782,7 @@ function App() {
           <div>
             <div className="sec-title" style={{ fontSize: 16 }}>Эджи</div>
             <div className="help">Преимущества — таланты и приёмы сверх кубиков. Берутся за продвижения.</div>
-            <ListField items={data.edges} onChange={(v) => set({ edges: v })} placeholder="добавить эдж" rune="ᚲ" tipFor={edgeTip} />
+            <div className="prog"><ListField items={data.edges} onChange={(v) => set({ edges: v })} placeholder="добавить эдж" rune="ᚲ" tipFor={edgeTip} /></div>
           </div>
           <div>
             <div className="sec-title" style={{ fontSize: 16 }}>Хиндрансы</div>
@@ -801,7 +811,7 @@ function App() {
         <div className="sec-title"><span className="rune">ᛟ</span> Божественное</div>
         <div className="shard-cap" style={{ marginTop: 6 }}>Осколок истинной природы за каждый из девяти миров. Лит — обретён.</div>
         <div className="shards">
-          {SHARD_RUNES.map((r, i) => (<button key={i} className={"niche" + (i < data.shards ? " lit" : "")} onClick={() => { if (canEdit) set({ shards: data.shards === i + 1 ? i : i + 1 }); }} style={{ cursor: canEdit ? "pointer" : "default" }} title={`Мир ${i + 1} · осколок ${i < data.shards ? "обретён" : "не обретён"}`}><span className="rune">{r}</span><span className="n">{i + 1}</span></button>))}
+          {SHARD_RUNES.map((r, i) => (<button key={i} className={"niche" + (i < data.shards ? " lit" : "")} onClick={() => { if (canEdit || gmCanEdit) set({ shards: data.shards === i + 1 ? i : i + 1 }); }} style={{ cursor: canEdit || gmCanEdit ? "pointer" : "default" }} title={`Мир ${i + 1} · осколок ${i < data.shards ? "обретён" : "не обретён"}`}><span className="rune">{r}</span><span className="n">{i + 1}</span></button>))}
         </div>
         <div className="shard-cap"><b>{data.shards}</b> из 9 обретено</div>
         <DivinePath completed={data.shards} />
@@ -818,7 +828,7 @@ function App() {
           <div className="mortal">
             <h5><span className="rune">ᛗ</span> Смертный рост · Адванс</h5>
             <p className="lead">Обычная прокачка Саваги. Раз в одну-две сессии ведущая даёт адванс.</p>
-            <ul><li>За адванс — <b>одно</b>: поднять навык; взять эдж; открыть пару навыков с нуля.</li><li>Поднять атрибут — <b>раз в ранг</b>; потолок d12 (выше — только древом).</li><li>Счётчик только растёт → растёт ранг: <b>Смертный → Пробуждённый → Герой → Витязь → Полубог → Ас → Бог</b>. Ранг не падает.</li></ul>
+            <ul><li>Адвансы начисляет <b>ведущая</b>; ты тратишь их кнопкой «Потратить».</li><li>За адванс — <b>одно</b>: поднять навык; взять эдж; открыть пару навыков с нуля.</li><li>Поднять атрибут — <b>раз в ранг</b>; потолок d12 (выше — только древом).</li><li>Счётчик только растёт → растёт ранг: <b>Смертный → Пробуждённый → Герой → Витязь → Полубог → Ас → Бог</b>. Ранг не падает.</li></ul>
           </div>
           <div className="div-h">
             <h5><span className="rune">ᛟ</span> Божественный рост · Шаг древа</h5>
@@ -1154,6 +1164,7 @@ function AdvanceModal({ data, lists, onApply, onClose }) {
   const [custE, setCustE] = useState("");
 
   const rankIdx = rankIndex(data.advances);
+  const avail = Math.max(0, (data.advances || 0) - (data.spent || 0));
   const canAttr = !(data.attrRanks || []).includes(rankIdx);
   const trained = [...CORE, ...OPEN].filter((s) => data.skills[s.n] != null && data.skills[s.n] < 12);
   const untrained = OPEN.filter((s) => data.skills[s.n] == null);
@@ -1172,13 +1183,13 @@ function AdvanceModal({ data, lists, onApply, onClose }) {
     const name = eSel || custE.trim();
     if (name && !data.edges.includes(name)) { valid = true; patch = { edges: [...data.edges, name] }; }
   }
-  const apply = () => { if (valid && patch) onApply(patch); };
+  const apply = () => { if (valid && patch && avail > 0) onApply(patch); };
 
   return (
     <div className="adv-back" onClick={onClose}>
       <div className="adv-modal" onClick={(e) => e.stopPropagation()}>
         <h3><span className="rune">ᚦ</span> Потратить адванс</h3>
-        <div className="asub">Ранг <b>{tierOf(data.advances)}</b> · адвансов {data.advances}. Выбери одно улучшение — счётчик вырастет на 1.</div>
+        <div className="asub">Ранг <b>{tierOf(data.advances)}</b> · доступно адвансов: <b>{avail}</b>. Выбери одно улучшение — оно потратит один адванс.</div>
 
         <div className="adv-seg-label">Что улучшаем</div>
         <div className="adv-pick">
@@ -1235,7 +1246,7 @@ function AdvanceModal({ data, lists, onApply, onClose }) {
 
         <div className="adv-foot">
           <button className="wiz-back" onClick={onClose}>Отмена</button>
-          <button className="wiz-next" onClick={apply} disabled={!valid}>Применить улучшение</button>
+          <button className="wiz-next" onClick={apply} disabled={!valid || avail <= 0}>Применить улучшение</button>
         </div>
       </div>
     </div>
