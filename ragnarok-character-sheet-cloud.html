@@ -28,6 +28,12 @@ button{font-family:inherit; cursor:pointer;}
 .mode.local{color:var(--bronze); border-color:var(--line-warm);}
 .saved{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--steel); display:flex; align-items:center; gap:5px; opacity:0; transition:opacity .3s;}
 .saved.on{opacity:1;}
+.unsynced{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ember); display:flex; align-items:center; gap:6px; border:1px solid var(--line-warm); border-radius:999px; padding:4px 11px; background:var(--warm-chip);}
+.unsynced .dot{width:7px; height:7px; border-radius:50%; background:var(--ember); animation:pulseDot 1.6s ease-in-out infinite;}
+@keyframes pulseDot{0%,100%{opacity:1;} 50%{opacity:.35;}}
+.iobtn.apply{border-color:var(--bronze); color:var(--on-ink); background:var(--bronze);}
+.iobtn.apply:hover{background:var(--bronze-deep); border-color:var(--bronze-deep); color:var(--on-ink);}
+.iobtn.apply:disabled{opacity:.55; cursor:default;}
 .iobtn{background:var(--surf); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:8px 13px; font-size:12px; letter-spacing:.04em; display:inline-flex; align-items:center; gap:7px;}
 .iobtn:hover{border-color:var(--bronze); color:var(--bronze);}
 .iobtn .rune{font-size:14px;}
@@ -122,6 +128,20 @@ button{font-family:inherit; cursor:pointer;}
 .fork-opt.pick:hover{border-color:var(--bronze);}
 .fork-opt.chosen{border-color:var(--bronze); background:var(--warm-chosen); box-shadow:inset 3px 0 0 var(--bronze);}
 .fork-opt .ftitle{font-size:11px; color:var(--bronze-deep); font-weight:600; letter-spacing:.04em; text-transform:uppercase;}
+.fork-step{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--bronze-deep); font-weight:600; margin-bottom:8px; display:flex; align-items:center; gap:7px;}
+.fork-step .sr{font-family:var(--mono); background:var(--warm-field); border:1px solid var(--line-warm); border-radius:6px; padding:1px 7px; letter-spacing:0;}
+.fork-ahead{font-size:12px; color:var(--muted); margin:10px 0 0; line-height:1.5;}
+.dpath{margin:16px 0 4px;}
+.dpath-tiers{display:flex; gap:8px; align-items:stretch;}
+.dpath-tier{display:flex; flex-direction:column; gap:6px; padding:8px 6px 6px; border:1px solid var(--line-warm); border-radius:9px; background:var(--warm-field); min-width:0;}
+.dpath-tier.cur{border-color:var(--bronze); background:var(--warm-chosen); box-shadow:inset 0 2px 0 var(--bronze);}
+.dpath-tier .dpt-name{font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--bronze-deep); font-weight:600; text-align:center;}
+.dpath-steps{display:flex; gap:5px; justify-content:center;}
+.dstep{width:24px; height:24px; flex:none; border-radius:6px; border:1px solid var(--line-warm); background:var(--warm-inset); color:var(--niche-idle); font-family:var(--mono); font-size:12px; display:flex; align-items:center; justify-content:center;}
+.dstep.done{background:radial-gradient(circle at 50% 36%, #F6CE85, #E3A848); border-color:var(--bronze-deep); color:#4A3208; font-weight:700;}
+.dstep.next{border-color:var(--bronze); color:var(--bronze-deep); font-weight:700; box-shadow:0 0 0 2px var(--warm-chip);}
+.dpath-note{font-size:12.5px; color:var(--muted); margin-top:11px; line-height:1.55;}
+.dpath-note b{color:var(--ember); font-weight:600;}
 .sealed{display:flex; align-items:center; gap:14px;}
 .seal{width:52px; height:52px; flex:none; border-radius:50%; border:2px solid var(--bronze-deep); display:flex; align-items:center; justify-content:center; color:var(--bronze-deep); font-family:var(--disp); font-size:26px; background:var(--warm-field);}
 .sealed .txt{font-size:13px; color:var(--muted);}
@@ -330,6 +350,13 @@ const LOCKED = [
   { name: "Ярость", hint: "берсерк, слом оков" }, { name: "Тропы меж мирами", hint: "хождение по древу" },
 ];
 const SHARD_RUNES = ["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ", "ᚺ"];
+const PATH_TIERS = [
+  { name: "Зов", from: 1, to: 3, hint: "Широкий путь. На первой развилке выберешь одно из шести начал — дальше бог скрыт." },
+  { name: "Грань", from: 4, to: 6, hint: "Путь сужается до нескольких богов-кандидатов." },
+  { name: "Лик", from: 7, to: 8, hint: "Остаётся пара близких ликов." },
+  { name: "Наследие", from: 9, to: 9, hint: "Финальный шаг — в конце девятого мира раскроется, кем ты стал." },
+];
+const tierOfStep = (step) => PATH_TIERS.find((t) => step >= t.from && step <= t.to) || PATH_TIERS[PATH_TIERS.length - 1];
 const tierOf = (n) => (n >= 16 ? "Бог" : n >= 10 ? "Полубог" : n >= 4 ? "Герой" : "Смертный");
 function dominantArch(attrs) {
   let best = null, bestv = -1, tie = false;
@@ -418,6 +445,8 @@ function App() {
   const [creating, setCreating] = useState(() => !cloud && ((loadLocal() || makeDefaults()).created === false));
   const [lists, setLists] = useState({ hindrances: DEFAULT_HINDRANCES, edges: DEFAULT_EDGES });
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);              // есть правки, не отправленные в облако
+  const [applying, setApplying] = useState(false);        // идёт отправка в облако
   const [editing, setEditing] = useState(false);          // правка карточки — за кнопкой
   const canEdit = !gmview && editing;                     // в режиме ведущей правка запрещена
   const skipSave = useRef(true);
@@ -462,20 +491,43 @@ function App() {
   // сообщаем оболочке о входе — чтобы появились вкладки (древо/миры/граф)
   useEffect(() => { if (joined && !gmview) { try { window.dispatchEvent(new Event("ragnarok:auth")); } catch (e) {} } }, [joined]);
 
-  // автосохранение (облако + локальная копия), с дебаунсом
+  // BUG-9: локальная копия пишется сразу на каждое изменение; в облако — только по «Применить».
+  // Гидрация (вход / чтение из облака) не считается правкой — её отсекаем по skipSave.
   useEffect(() => {
-    if (!joined || gmview) return;                         // в просмотре ведущей не сохраняем    if (skipSave.current) { skipSave.current = false; return; }
-    const t = setTimeout(async () => {
-      try {
-        if (cloud && campaign && charId) {
-          await db.collection("campaigns").doc(campaign).collection("characters").doc(charId).set(data);
-        }
-        try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
-        setSaved(true); setTimeout(() => setSaved(false), 1300);
-      } catch (e) { console.error("Сохранение:", e); }
-    }, 700);
-    return () => clearTimeout(t);
-  }, [data, joined, campaign, charId, cloud]);
+    if (gmview) return;                                    // в просмотре ведущей ничего не пишем
+    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
+    if (skipSave.current) { skipSave.current = false; return; }
+    if (joined && cloud && campaign && charId) setDirty(true);
+  }, [data, joined, campaign, charId, cloud, gmview]);
+
+  // предупреждаем, если уходишь с несохранёнными в облако правками
+  useEffect(() => {
+    if (!cloud || gmview) return;
+    const h = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [cloud, gmview, dirty]);
+
+  // запись данных в облако (общая для «Применить» и финала визарда)
+  const saveNow = async (d) => {
+    try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {}
+    if (cloud && campaign && charId) {
+      await db.collection("campaigns").doc(campaign).collection("characters").doc(charId).set(d);
+    }
+    setDirty(false);
+  };
+  const applyToCloud = async () => {
+    if (applying) return;
+    setApplying(true);
+    try {
+      await saveNow(data);
+      setSaved(true); setTimeout(() => setSaved(false), 1600);
+    } catch (e) {
+      console.error("Применить:", e);
+      alert("Не удалось сохранить в облако — проверь связь и попробуй ещё раз. Локальная копия цела.");
+    }
+    setApplying(false);
+  };
 
   const set = (patch) => setData((d) => ({ ...d, ...patch }));
   const setAttrDie = (k, die) => setData((d) => ({ ...d, attrs: { ...d.attrs, [k]: { die, plus: die === 12 ? d.attrs[k].plus : 0 } } }));
@@ -517,6 +569,13 @@ function App() {
   const derived = [{ k: "Скорость", v: "6\u2033" }, { k: "Парирование", v: parry }, { k: "Стойкость", v: tough }, { k: "Размер", v: 0 }, { k: "Нагрузка", v: load }];
   const tier = tierOf(data.advances);
   const arch = dominantArch(attrs);
+  const nextStep = Math.min(data.shards + 1, 9);           // ближайший шаг древа (BUG-7)
+  // подписи-подсказки для эджей/изъянов на листе (BUG-6) — по имени из списков кампании
+  const baseName = (s) => String(s).replace(/\s*\((?:большой|малый)\)\s*$/i, "").trim();
+  const edgeMeta = {}; (lists.edges || []).forEach((e) => { edgeMeta[e.n] = e; });
+  const hindMeta = {}; (lists.hindrances || []).forEach((h) => { hindMeta[h.n] = h; });
+  const edgeTip = (s) => { const m = edgeMeta[baseName(s)]; return m ? (m.d + (m.r && m.r !== "—" ? " · требование: " + m.r : "")) : null; };
+  const hindTip = (s) => { const m = hindMeta[baseName(s)]; return m ? m.d : null; };
 
   const onImg = (e) => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
@@ -529,7 +588,13 @@ function App() {
   const resetAll = () => { if (confirm("Стереть карту начисто? Сделай сначала Экспорт, если жаль.")) { skipSave.current = false; setData(makeDefaults()); } };
 
   if (cloud && !joined) return gmview ? <div className="gate-wrap"><div className="gate"><div className="wordmark"><span className="rune">ᛈ</span> Рагнарёк-AU</div><h2>Загрузка карты…</h2></div></div> : <JoinGate onJoin={joinCampaign} />;
-  if (creating) return <CreationWizard data={data} lists={lists} set={set} setAttrDie={setAttrDie} setSkill={setSkill} onDone={() => { skipSave.current = false; set({ created: true }); setCreating(false); }} />;
+  if (creating) return <CreationWizard data={data} lists={lists} set={set} setAttrDie={setAttrDie} setSkill={setSkill} onDone={async () => {
+    const finalData = { ...data, created: true };
+    skipSave.current = true;                                // мы сами кладём в облако ниже — не помечаем как правку
+    setData(finalData); setCreating(false);
+    try { await saveNow(finalData); setSaved(true); setTimeout(() => setSaved(false), 1600); }
+    catch (e) { console.error("Сохранение после создания:", e); setDirty(true); }
+  }} />;
 
   return (
     <React.Fragment>
@@ -540,10 +605,12 @@ function App() {
           {gmview ? (
             <span className="mode" style={{ color: "var(--bronze)", borderColor: "var(--line-warm)" }}>просмотр ведущей · только чтение</span>
           ) : (
-            <button className="iobtn" onClick={() => setEditing((e) => !e)} style={editing ? { borderColor: "var(--steel)", color: "var(--steel)" } : undefined}>
+            <button className="iobtn" onClick={async () => { if (editing && cloud && dirty) await applyToCloud(); setEditing((e) => !e); }} style={editing ? { borderColor: "var(--steel)", color: "var(--steel)" } : undefined}>
               {editing ? "✓ Готово" : "✎ Редактировать"}
             </button>
           )}
+          {!gmview && cloud && dirty && <span className="unsynced"><span className="dot" /> не сохранено</span>}
+          {!gmview && cloud && dirty && <button className="iobtn apply" onClick={applyToCloud} disabled={applying}><span className="rune">ᛏ</span>{applying ? "Сохраняю…" : "Применить"}</button>}
           <span className={"saved" + (saved ? " on" : "")}><span className="rune">ᛊ</span> сохранено</span>
           {cloud ? <span className="mode cloud">облако · {campaign}</span> : <span className="mode local">локально</span>}
           <button className="iobtn" onClick={exportJSON}><span className="rune">ᛟ</span> Экспорт</button>
@@ -630,12 +697,12 @@ function App() {
           <div>
             <div className="sec-title" style={{ fontSize: 16 }}>Эджи</div>
             <div className="help">Преимущества — таланты и приёмы сверх кубиков. Берутся за продвижения.</div>
-            <ListField items={data.edges} onChange={(v) => set({ edges: v })} placeholder="добавить эдж" rune="ᚲ" />
+            <ListField items={data.edges} onChange={(v) => set({ edges: v })} placeholder="добавить эдж" rune="ᚲ" tipFor={edgeTip} />
           </div>
           <div>
             <div className="sec-title" style={{ fontSize: 16 }}>Хиндрансы</div>
             <div className="help">Изъяны — слабости и зароки. Берутся на старте, дают очки на создание.</div>
-            <ListField items={data.hindrances} onChange={(v) => set({ hindrances: v })} placeholder="добавить хиндранс" rune="ᚾ" />
+            <ListField items={data.hindrances} onChange={(v) => set({ hindrances: v })} placeholder="добавить хиндранс" rune="ᚾ" tipFor={hindTip} />
           </div>
         </div>
       </div>
@@ -662,9 +729,10 @@ function App() {
           {SHARD_RUNES.map((r, i) => (<button key={i} className={"niche" + (i < data.shards ? " lit" : "")} onClick={() => set({ shards: data.shards === i + 1 ? i : i + 1 })} title={`мир ${i + 1}`}><span className="rune">{r}</span><span className="n">{i + 1}</span></button>))}
         </div>
         <div className="shard-cap"><b>{data.shards}</b> из 9 обретено</div>
+        <DivinePath completed={data.shards} />
         <div className="dz-grid">
           <div className="dz-card"><h4>Текущий узел</h4><input className="t-input" value={data.node} onChange={(e) => set({ node: e.target.value })} placeholder="где ты на древе" /><p style={{ fontSize: 12, color: "var(--faint)", margin: "10px 0 0" }}>Куда ведёт — не показывается. Это знает только ведущая.</p></div>
-          <div className="dz-card"><h4>Ближайшая развилка</h4>{data.nextFork && data.nextFork.options && data.nextFork.options.length ? (<React.Fragment>{data.nextFork.options.map((o, i) => (<button key={i} className={"fork-opt pick" + (data.nextFork.chosen === i ? " chosen" : "")} onClick={() => set({ nextFork: { ...data.nextFork, chosen: data.nextFork.chosen === i ? null : i } })}><span className="boon">{o.type}</span>{o.title && o.title !== "—" ? <span className="ftitle"> · {o.title}</span> : null}<div className="eff">{o.effect}</div></button>))}<p style={{ fontSize: 12, color: "var(--faint)", margin: "10px 0 0" }}>Выбери одно. Куда ведёт — знает только ведущая.</p></React.Fragment>) : (<p style={{ fontSize: 13, color: "var(--faint)", margin: "4px 0 0" }}>Развилки пока нет — ждёт ведущую.</p>)}</div>
+          <div className="dz-card"><h4>Ближайшая развилка</h4><div className="fork-step"><span className="sr">шаг {nextStep}</span> {tierOfStep(nextStep).name}</div>{data.nextFork && data.nextFork.options && data.nextFork.options.length ? (<React.Fragment>{data.nextFork.options.map((o, i) => (<button key={i} className={"fork-opt pick" + (data.nextFork.chosen === i ? " chosen" : "")} onClick={() => set({ nextFork: { ...data.nextFork, chosen: data.nextFork.chosen === i ? null : i } })}><span className="boon">{o.type}</span>{o.title && o.title !== "—" ? <span className="ftitle"> · {o.title}</span> : null}<div className="eff">{o.effect}</div></button>))}<p style={{ fontSize: 12, color: "var(--faint)", margin: "10px 0 0" }}>Выбери одно. Куда ведёт — знает только ведущая.</p></React.Fragment>) : (<p className="fork-ahead">{tierOfStep(nextStep).hint}<br />Развилку откроет ведущая, когда подойдёт время.</p>)}</div>
           <div className="dz-card"><h4>Наследие</h4><div className="sealed"><div className="seal">?</div><div className="txt">Запечатано. Раскроется в конце <b>девятого мира</b>.<br />Рагнарёк — десятая арка.</div></div></div>
         </div>
       </div>
@@ -1001,14 +1069,46 @@ function SkillRow({ sk, value, core, onChange }) {
   );
 }
 
-function ListField({ items, onChange, placeholder, rune }) {
+function DivinePath({ completed }) {
+  const reached = completed >= 9;
+  const nextStep = Math.min(completed + 1, 9);
+  return (
+    <div className="dpath">
+      <div className="dpath-tiers">
+        {PATH_TIERS.map((t) => {
+          const span = t.to - t.from + 1;
+          const isCur = !reached && nextStep >= t.from && nextStep <= t.to;
+          return (
+            <div key={t.name} className={"dpath-tier" + (isCur ? " cur" : "")} style={{ flex: span }}>
+              <span className="dpt-name">{t.name}</span>
+              <div className="dpath-steps">
+                {Array.from({ length: span }, (_, i) => t.from + i).map((step) => {
+                  const done = step <= completed;
+                  const isNext = !reached && step === nextStep;
+                  return <span key={step} className={"dstep" + (done ? " done" : "") + (isNext ? " next" : "")}>{step}</span>;
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="dpath-note">
+        {reached
+          ? <span>Все девять осколков собраны — впереди раскрытие наследия в Рагнарёке.</span>
+          : <span><b>Сейчас:</b> шаг {nextStep} · {tierOfStep(nextStep).name}. {tierOfStep(nextStep).hint}</span>}
+      </div>
+    </div>
+  );
+}
+
+function ListField({ items, onChange, placeholder, rune, tipFor }) {
   const [val, setVal] = useState("");
   const add = () => { const v = val.trim(); if (!v) return; onChange([...items, v]); setVal(""); };
   return (
     <div>
       <div className="list">
         {items.length === 0 && <div className="empty">пока пусто</div>}
-        {items.map((it, i) => (<div className="lrow" key={i}><span className="rune lb">{rune}</span><span className="lt">{it}</span><button className="lx no-print" onClick={() => onChange(items.filter((_, j) => j !== i))}>&times;</button></div>))}
+        {items.map((it, i) => { const tip = tipFor ? tipFor(it) : null; return (<div className="lrow" key={i}><span className="rune lb">{rune}</span><span className="lt">{tip ? <span className="tip" data-tip={tip}>{it}</span> : it}</span><button className="lx no-print" onClick={() => onChange(items.filter((_, j) => j !== i))}>&times;</button></div>); })}
       </div>
       <div className="addrow no-print"><input className="t-input" value={val} onChange={(e) => setVal(e.target.value)} placeholder={placeholder} onKeyDown={(e) => e.key === "Enter" && add()} /><button className="addbtn" onClick={add}>+</button></div>
     </div>
