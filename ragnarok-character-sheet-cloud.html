@@ -147,6 +147,16 @@ button{font-family:inherit; cursor:pointer;}
 .dstep.next{border-color:var(--bronze); color:var(--bronze-deep); font-weight:700; box-shadow:0 0 0 2px var(--warm-chip);}
 .dpath-note{font-size:12.5px; color:var(--muted); margin-top:11px; line-height:1.55;}
 .dpath-note b{color:var(--ember); font-weight:600;}
+.boons-box{margin:18px 0 4px;}
+.boons-h{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--bronze-deep); font-weight:600; margin:0 0 10px; display:flex; align-items:center; gap:8px;}
+.boons-h .rune{font-size:14px; color:var(--bronze);}
+.boons-list{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:10px;}
+.boon-card{border:1px solid var(--line-warm); border-radius:10px; background:var(--warm-field); padding:11px 13px;}
+.boon-card .bc-head{display:flex; align-items:baseline; gap:4px; flex-wrap:wrap;}
+.boon-card .bc-type{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--bronze-deep); font-weight:600;}
+.boon-card .bc-title{font-family:var(--disp); font-size:15px; color:var(--ink); font-weight:600;}
+.boon-card .bc-step{margin-left:auto; font-family:var(--mono); font-size:10px; color:var(--faint);}
+.boon-card .bc-eff{font-size:12.5px; color:var(--muted); margin-top:6px; line-height:1.5;}
 .sealed{display:flex; align-items:center; gap:14px;}
 .seal{width:52px; height:52px; flex:none; border-radius:50%; border:2px solid var(--bronze-deep); display:flex; align-items:center; justify-content:center; color:var(--bronze-deep); font-family:var(--disp); font-size:26px; background:var(--warm-field);}
 .sealed .txt{font-size:13px; color:var(--muted);}
@@ -446,6 +456,7 @@ function makeDefaults() {
     shaken: false, wounds: 0, fatigue: 0, incap: false, bennies: 3, conditions: [], weapons: [], armor: "", armorVal: "",
     attrRanks: [],
     spent: 0,
+    boons: [], shardData: [],
   };
 }
 function loadLocal() {
@@ -764,8 +775,12 @@ function App() {
           {CORE.map((k) => <SkillRow key={k.n} sk={k} value={skills[k.n]} core onChange={(v) => setSkill(k.n, v)} />)}
           <div className="skgroup-label">Доступно поднимать</div>
           {OPEN.map((k) => <SkillRow key={k.n} sk={k} value={skills[k.n]} onChange={(v) => setSkill(k.n, v)} />)}
+          {LOCKED.some((l) => skills[l.name] != null) && <React.Fragment>
+            <div className="skgroup-label" style={{ color: "var(--bronze)" }}>Мифическое · открыто древом</div>
+            {LOCKED.filter((l) => skills[l.name] != null).map((l) => <SkillRow key={l.name} sk={{ n: l.name, a: "—", w: l.hint }} value={skills[l.name]} onChange={(v) => setSkill(l.name, v)} />)}
+          </React.Fragment>}
           <div className="skgroup-label">Заблокировано до древа · мифика</div>
-          <div className="locked">{LOCKED.map((l) => (<div className="lock-chip" key={l.name}><span className="rune">ᛉ</span>{l.name}<span className="lh">· {l.hint}</span></div>))}</div>
+          <div className="locked">{LOCKED.filter((l) => skills[l.name] == null).map((l) => (<div className="lock-chip" key={l.name}><span className="rune">ᛉ</span>{l.name}<span className="lh">· {l.hint}</span></div>))}</div>
         </div>
       </div>
 
@@ -811,10 +826,23 @@ function App() {
         <div className="sec-title"><span className="rune">ᛟ</span> Божественное</div>
         <div className="shard-cap" style={{ marginTop: 6 }}>Осколок истинной природы за каждый из девяти миров. Лит — обретён.</div>
         <div className="shards">
-          {SHARD_RUNES.map((r, i) => (<button key={i} className={"niche" + (i < data.shards ? " lit" : "")} onClick={() => { if (canEdit || gmCanEdit) set({ shards: data.shards === i + 1 ? i : i + 1 }); }} style={{ cursor: canEdit || gmCanEdit ? "pointer" : "default" }} title={`Мир ${i + 1} · осколок ${i < data.shards ? "обретён" : "не обретён"}`}><span className="rune">{r}</span><span className="n">{i + 1}</span></button>))}
+          {Array.from({ length: 9 }, (_, i) => i).map((i) => { const got = i < data.shards; const sd = (data.shardData || [])[i] || {}; const rune = got ? (sd.rune || "✦") : "?"; const tip = got ? ((sd.title ? sd.title + " — " : "") + (sd.text || "осколок обретён")) : ("Мир " + (i + 1) + " · ещё не обретён"); return (<button key={i} className={"niche" + (got ? " lit" : "")} onClick={() => { if (canEdit || gmCanEdit) set({ shards: data.shards === i + 1 ? i : i + 1 }); }} style={{ cursor: canEdit || gmCanEdit ? "pointer" : "default" }} data-tip={tip} title={tip}><span className="rune">{rune}</span><span className="n">{i + 1}</span></button>); })}
         </div>
         <div className="shard-cap"><b>{data.shards}</b> из 9 обретено</div>
         <DivinePath completed={data.shards} />
+        {data.boons && data.boons.length > 0 && (
+          <div className="boons-box">
+            <h4 className="boons-h"><span className="rune">ᚷ</span> Дары древа</h4>
+            <div className="boons-list">
+              {data.boons.map((b, i) => (
+                <div className="boon-card" key={i} data-tip={b.effect || undefined} title={b.effect || undefined}>
+                  <div className="bc-head"><span className="bc-type">{b.type}</span>{b.title && b.title !== "—" ? <span className="bc-title"> · {b.title}</span> : null}{b.step ? <span className="bc-step">шаг {b.step}</span> : null}</div>
+                  {b.effect && <div className="bc-eff">{b.effect}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="dz-grid">
           <div className="dz-card"><h4>Текущий узел</h4><input className="t-input" value={data.node} onChange={(e) => set({ node: e.target.value })} placeholder="где ты на древе" /><p style={{ fontSize: 12, color: "var(--faint)", margin: "10px 0 0" }}>Куда ведёт — не показывается. Это знает только ведущая.</p></div>
           <div className="dz-card"><h4>Ближайшая развилка</h4><div className="fork-step"><span className="sr">шаг {nextStep}</span> {tierOfStep(nextStep).name}</div>{data.nextFork && data.nextFork.options && data.nextFork.options.length ? (<React.Fragment>{data.nextFork.options.map((o, i) => (<button key={i} className={"fork-opt pick" + (data.nextFork.chosen === i ? " chosen" : "")} onClick={() => set({ nextFork: { ...data.nextFork, chosen: data.nextFork.chosen === i ? null : i } })}><span className="boon">{o.type}</span>{o.title && o.title !== "—" ? <span className="ftitle"> · {o.title}</span> : null}<div className="eff">{o.effect}</div></button>))}<p style={{ fontSize: 12, color: "var(--faint)", margin: "10px 0 0" }}>Выбери одно. Куда ведёт — знает только ведущая.</p></React.Fragment>) : (<p className="fork-ahead">{tierOfStep(nextStep).hint}<br />Развилку откроет ведущая, когда подойдёт время.</p>)}</div>
@@ -1166,7 +1194,7 @@ function AdvanceModal({ data, lists, onApply, onClose }) {
   const rankIdx = rankIndex(data.advances);
   const avail = Math.max(0, (data.advances || 0) - (data.spent || 0));
   const canAttr = !(data.attrRanks || []).includes(rankIdx);
-  const trained = [...CORE, ...OPEN].filter((s) => data.skills[s.n] != null && data.skills[s.n] < 12);
+  const trained = [...CORE, ...OPEN, ...LOCKED.map((l) => ({ n: l.name }))].filter((s) => data.skills[s.n] != null && data.skills[s.n] < 12);
   const untrained = OPEN.filter((s) => data.skills[s.n] == null);
   const freeEdges = (lists.edges || []).map((e) => e.n).filter((n) => !data.edges.includes(n));
   const togglePair = (n) => setPair((p) => (p.includes(n) ? p.filter((x) => x !== n) : p.length >= 2 ? p : [...p, n]));
