@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Хронология</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+</style>
+</head>
+<body>
+<header data-shell data-here="chrono"></header>
+<script>
+(function(){
+  var r = (new URLSearchParams(location.search).get("role")==="gm") ? "gm" : "player";
+  var h = document.querySelector("[data-shell]");
+  if (h) h.setAttribute("data-role", r);
+})();
+</script>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef } = React;
+const { Plus, X, Eye, EyeOff, Database, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Lock, Users } = window.LI;
+
+
+/* ============================ Токены ============================ */
+const GOLD = "var(--bronze)";
+const INK = "var(--bg)";
+const FONT_DISPLAY = "'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif";
+const FONT_UI = "system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+const RUNE_FONT = "'Noto Sans Runic','Segoe UI Historic','Segoe UI Symbol','Apple Symbols',serif";
+
+const RUNES = [
+  ["fehu","ᚠ","Феху"],["uruz","ᚢ","Уруз"],["thurisaz","ᚦ","Турисаз"],["ansuz","ᚨ","Ансуз"],["raido","ᚱ","Райдо"],["kenaz","ᚲ","Кеназ"],["gebo","ᚷ","Гебо"],["wunjo","ᚹ","Вуньо"],
+  ["hagalaz","ᚺ","Хагалаз"],["nautiz","ᚾ","Наутиз"],["isa","ᛁ","Иса"],["jera","ᛃ","Йера"],["eihwaz","ᛇ","Эйваз"],["perthro","ᛈ","Перто"],["algiz","ᛉ","Альгиз"],["sowilo","ᛊ","Соулу"],
+  ["tiwaz","ᛏ","Тейваз"],["berkano","ᛒ","Беркана"],["ehwaz","ᛖ","Эваз"],["mannaz","ᛗ","Манназ"],["laguz","ᛚ","Лагуз"],["ingwaz","ᛜ","Ингваз"],["dagaz","ᛞ","Дагаз"],["othala","ᛟ","Отала"],
+];
+const RUNE_MAP = Object.fromEntries(RUNES.map(([id, g, n]) => [id, { glyph: g, name: n }]));
+
+/* ============================ Сид ============================ */
+const initialPeriods = [
+  { id: "mid", name: "Мидгард", desc: "Мир людей — здесь искра богов будит смертных.", rune: "othala" },
+  { id: "jot", name: "Йотунхейм", desc: "", rune: "" },
+  { id: "svart", name: "Свартальвхейм", desc: "", rune: "" },
+  { id: "hel", name: "Хельхейм", desc: "", rune: "" },
+  { id: "musp", name: "Муспельхейм", desc: "", rune: "" },
+  { id: "nifl", name: "Нифльхейм", desc: "", rune: "" },
+  { id: "van", name: "Ванахейм", desc: "", rune: "" },
+  { id: "alf", name: "Альвхейм", desc: "", rune: "" },
+  { id: "asg", name: "Асгард", desc: "", rune: "" },
+  { id: "ragn", name: "Рагнарёк", desc: "Конец и семя нового мира.", rune: "" },
+];
+const initialSessions = [
+  { id: "s1", periodId: "mid", name: "Пробуждение", desc: "Первая искра божественного в смертных.", timing: "Сессия 1", tags: ["пролог"], participants: ["Сигрид", "Бьёрн", "Аста"] },
+  { id: "s2", periodId: "mid", name: "Старый фьорд", desc: "Порог между мирами приоткрылся.", timing: "Сессия 2", tags: [], participants: ["Сигрид", "Бьёрн", "Аста"] },
+  { id: "s3", periodId: "jot", name: "Железный лес", desc: "Ангрбода чует новых богов.", timing: "Сессия 3", tags: ["йотуны"], participants: ["Сигрид", "Бьёрн", "Аста"] },
+];
+const initialEvents = [
+  { id: "x1", periodId: "mid", name: "Затмение над Осло", desc: "Город замер на минуту тьмы.", timing: "до Сессии 1", tags: ["знамение"], participants: [], vis: true, kind: "external" },
+  { id: "r1", periodId: "nifl", name: "Фимбульветр", desc: "Три зимы без лета — великанская стужа.", timing: "", tags: ["пророчество"], participants: [], vis: false, kind: "ragnarok" },
+  { id: "r2", periodId: "musp", name: "Сколль глотает Солнце", desc: "Волк настигает Соль; меркнет свет.", timing: "", tags: ["пророчество"], participants: [], vis: false, kind: "ragnarok" },
+  { id: "r3", periodId: "hel", name: "Нагльфар отплывает", desc: "Корабль из ногтей мёртвых выходит в путь.", timing: "", tags: ["пророчество"], participants: [], vis: false, kind: "ragnarok" },
+  { id: "r4", periodId: "asg", name: "Фенрир рвёт оковы", desc: "Глейпнир лопается; волк свободен.", timing: "", tags: ["пророчество"], participants: [], vis: false, kind: "ragnarok" },
+  { id: "r5", periodId: "ragn", name: "Сурт жжёт мир", desc: "Пламя Муспельхейма поглощает девять миров.", timing: "", tags: ["пророчество"], participants: [], vis: false, kind: "ragnarok" },
+];
+const T = (id, name, source, desc) => ({ id, name, source, desc, vis: false, tags: [] });
+const initialTimeless = [
+  T("t1", "Гиннунгагап и Имир", "Младшая", "Из льда Нифльхейма и огня Муспельхейма в бездне рождается первый йотун Имир."),
+  T("t2", "Аудумла и Бури", "Младшая", "Корова Аудумла вылизывает изо льда первого аса Бури."),
+  T("t3", "Творение мира", "Младшая", "Один, Вили и Ве убивают Имира и творят мир из его тела."),
+  T("t4", "Аск и Эмбла", "Младшая", "Боги дают жизнь первым людям из двух древесных стволов."),
+  T("t5", "Стена Асгарда", "Младшая", "Йотун-строитель и конь Свадильфари; Локи рождает Слейпнира."),
+  T("t6", "Похищение Идунн", "Младшая", "Тьяцци уносит Идунн с яблоками молодости; боги стареют."),
+  T("t7", "Мёд поэзии", "Младшая", "Один выманивает у Гуннлёд мёд, дарующий дар скальда."),
+  T("t8", "Утгарда-Локи", "Младшая", "Тор посрамлён иллюзиями в крепости великанов."),
+  T("t9", "Тор и Хрунгнир", "Младшая", "Поединок громовержца с каменным йотуном."),
+  T("t10", "Тор у Гейррёда", "Младшая", "Без молота Тор одолевает йотуна и его дочерей."),
+  T("t11", "Смерть Бальдра", "Младшая", "Слепой Хёд, ведомый Локи, убивает Бальдра побегом омелы."),
+  T("t12", "Хермод в Хель", "Младшая", "Посланник едет вымолить Бальдра; одна слеза всё рушит."),
+  T("t13", "Связывание Локи", "Младшая", "Боги ловят Локи и приковывают под капающим ядом змеи."),
+  T("t14", "Рагнарёк", "Младшая", "Боги и чудовища гибнут, мир сгорает и тонет."),
+  T("t15", "Возрождение", "Младшая", "Земля встаёт из вод, выжившие боги и Бальдр строят новый мир."),
+  T("t16", "Прорицание вёльвы", "Старшая", "Völuspá: вёльва открывает Одину творение и конец мира."),
+  T("t17", "Речи Высокого", "Старшая", "Hávamál: мудрость Одина; он висит на древе и добывает руны."),
+  T("t18", "Речи Вафтруднира", "Старшая", "Один состязается в знаниях с мудрейшим йотуном."),
+  T("t19", "Речи Гримнира", "Старшая", "Скованный Один открывает устройство миров Гейррёду."),
+  T("t20", "Поездка Скирнира", "Старшая", "Слуга сватает йотуншу Герд для тоскующего Фрейра."),
+  T("t21", "Песнь о Харбарде", "Старшая", "Перебранка Тора с переодетым перевозчиком-Одином."),
+  T("t22", "Песнь о Хюмире", "Старшая", "Тор удит Мирового Змея, добывая котёл для пира."),
+  T("t23", "Перебранка Локи", "Старшая", "Lokasenna: Локи поносит богов на пиру Эгира."),
+  T("t24", "Песнь о Трюме", "Старшая", "Тор в наряде невесты возвращает похищенный молот."),
+  T("t25", "Песнь о Вёлунде", "Старшая", "Пленённый кузнец вершит кровавую месть и улетает."),
+  T("t26", "Речи Альвиса", "Старшая", "Тор заговаривает двемера до рассвета, и тот каменеет."),
+  T("t27", "Сигурд и Фафнир", "Старшая", "Регин куёт Грам; Сигурд убивает дракона и пьёт его кровь."),
+  T("t28", "Пробуждение Сигрдривы", "Старшая", "Сигурд будит валькирию на горе в стене огня."),
+  T("t29", "Гибель Сигурда", "Старшая", "Предательство и месть губят величайшего героя."),
+  T("t30", "Песни о Хельги", "Старшая", "Подвиги и перевоплощения героя-воителя и валькирии Сигрун."),
+];
+const initialPlayers = ["Сигрид", "Бьёрн", "Аста"];
+
+let _seq = 0;
+const uid = (p) => `${p}-${Date.now()}-${_seq++}`;
+
+const EV_COLOR = { ragnarok: "#d0455a", external: "#5aa9e6" };
+const SRC_COLOR = { "Старшая": "#9b6fe0", "Младшая": "#4fb3a3" };
+
+/* ============================ Компонент ============================ */
+/* ============================ Облако ============================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCSb7M5IbOql61HIqOUxe3ct4VqdjkhLyE",
+  authDomain: "ragnarau-80866.firebaseapp.com",
+  projectId: "ragnarau-80866",
+  storageBucket: "ragnarau-80866.firebasestorage.app",
+  messagingSenderId: "727752765165",
+  appId: "1:727752765165:web:8c625b7675f022a1b026e4"
+};
+const HAS_FB = !!(window.firebase && firebaseConfig.apiKey);
+let db = null, auth = null;
+if (HAS_FB) {
+  try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); auth = firebase.auth(); }
+  catch (e) { console.error("Firebase init:", e); }
+}
+const BOARD_ID = "chronology";
+const _qs = new URLSearchParams(location.search);
+const ROLE = _qs.get("role") === "gm" ? "gm" : "player";
+function readCampaign() {
+  const u = (_qs.get("c") || _qs.get("campaign") || "").trim();
+  if (u) { try { localStorage.setItem("ragnarok-board-campaign", u); } catch (e) {} return u; }
+  try { const cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null"); if (cur && cur.campaign) return cur.campaign; } catch (e) {}
+  try { return localStorage.getItem("ragnarok-board-campaign") || ""; } catch (e) { return ""; }
+}
+function CloudChip({ status, campaign, onBind }) {
+  const base = { fontSize: 11.5, letterSpacing: ".04em", borderRadius: 999, padding: "5px 11px", border: "1px solid var(--line)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 };
+  if (!HAS_FB) return <span style={{ ...base, color: "var(--faint)" }}>локально</span>;
+  if (!campaign) return <button onClick={onBind} style={{ ...base, color: "var(--bronze)", borderColor: "var(--line-warm)", cursor: "pointer", background: "none" }}>привязать кампанию</button>;
+  const map = {
+    loading: { t: "загрузка…", c: "var(--muted)" },
+    cloud:   { t: "облако · " + campaign, c: "var(--steel)" },
+    saving:  { t: "сохранение…", c: "var(--muted)" },
+    saved:   { t: "сохранено ✓", c: "var(--steel)" },
+    error:   { t: "нет связи", c: "var(--red)" },
+  };
+  const s = map[status] || map.cloud;
+  return <button onClick={onBind} title="сменить код кампании" style={{ ...base, color: s.c, cursor: "pointer", background: "none" }}>{s.t}</button>;
+}
+
+function Chronology() {
+  const [periods, setPeriods] = useState(initialPeriods);
+  const [sessions, setSessions] = useState(initialSessions);
+  const [events, setEvents] = useState(initialEvents);
+  const [timeless, setTimeless] = useState(initialTimeless);
+  const [players, setPlayers] = useState(initialPlayers);
+  const [gm, setGm] = useState(ROLE === "gm");
+  const [selected, setSelected] = useState(null); // {type,id}
+  const [expanded, setExpanded] = useState(() => new Set(initialPeriods.map((p) => p.id)));
+  const [showData, setShowData] = useState(false);
+  const [showPlayers, setShowPlayers] = useState(false);
+
+  // --- облако ---
+  const [campaign, setCampaign] = useState(readCampaign);
+  const [status, setStatus] = useState(HAS_FB && readCampaign() ? "loading" : "local");
+  const skip = useRef(true);
+  const ready = useRef(false);
+  const hydrate = (d) => {
+    skip.current = true;
+    if (Array.isArray(d.periods)) setPeriods(d.periods);
+    if (Array.isArray(d.sessions)) setSessions(d.sessions);
+    if (Array.isArray(d.events)) setEvents(d.events);
+    if (Array.isArray(d.timeless)) setTimeless(d.timeless);
+    if (Array.isArray(d.players)) setPlayers(d.players);
+  };
+  useEffect(() => {
+    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); return; }
+    let unsub = null, alive = true; setStatus("loading");
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) { console.error("auth:", e); }
+      const ref = db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID);
+      try {
+        const snap = await ref.get();
+        if (alive && snap.exists) hydrate(snap.data());
+        else if (ROLE === "gm") { try { await ref.set({ periods, sessions, events, timeless, players, updatedAt: Date.now() }); } catch (e) { console.error("seed:", e); } }
+      } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
+      ready.current = true; if (alive) setStatus("cloud");
+      unsub = ref.onSnapshot((snap) => { if (!snap.exists || snap.metadata.hasPendingWrites) return; hydrate(snap.data()); }, (e) => console.error("snapshot:", e));
+    })();
+    return () => { alive = false; if (unsub) unsub(); };
+  }, [campaign]);
+  useEffect(() => {
+    if (!HAS_FB || !campaign || ROLE !== "gm") return;
+    if (!ready.current) return;
+    if (skip.current) { skip.current = false; return; }
+    setStatus("saving");
+    const t = setTimeout(async () => {
+      try { await db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID).set({ periods, sessions, events, timeless, players, updatedAt: Date.now() }, { merge: true }); setStatus("saved"); setTimeout(() => setStatus("cloud"), 1200); }
+      catch (e) { console.error("save:", e); setStatus("error"); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [periods, sessions, events, timeless, players, campaign]);
+  const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} ready.current = false; skip.current = true; setCampaign(c); } };
+
+  const periodIndex = useMemo(() => Object.fromEntries(periods.map((p, i) => [p.id, i])), [periods]);
+  const currentIndex = useMemo(() => {
+    let idx = 0; sessions.forEach((s) => { const i = periodIndex[s.periodId]; if (i != null && i > idx) idx = i; });
+    return idx;
+  }, [sessions, periodIndex]);
+  const currentId = periods[currentIndex]?.id;
+
+  const switchMode = (toGm) => {
+    setGm(toGm); setSelected(null);
+    setExpanded(toGm ? new Set(periods.map((p) => p.id)) : new Set(currentId ? [currentId] : []));
+  };
+
+  /* мутаторы */
+  const setters = { period: setPeriods, session: setSessions, event: setEvents, timeless: setTimeless };
+  const colOf = { period: periods, session: sessions, event: events, timeless: timeless };
+  const patchItem = (type, id, patch) => setters[type]((arr) => arr.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  const delItem = (type, id) => { setters[type]((arr) => arr.filter((it) => it.id !== id)); setSelected(null); };
+  const current = selected ? (colOf[selected.type] || []).find((it) => it.id === selected.id) : null;
+
+  const addSession = (periodId) => { const s = { id: uid("s"), periodId, name: "Новая сессия", desc: "", timing: "", tags: [], participants: [...players] }; setSessions((a) => [...a, s]); setSelected({ type: "session", id: s.id }); };
+  const addEvent = (periodId) => { const e = { id: uid("x"), periodId, name: "Новое событие", desc: "", timing: "", tags: [], participants: [], vis: true, kind: "external" }; setEvents((a) => [...a, e]); setSelected({ type: "event", id: e.id }); };
+  const addTimeless = () => { const t = { id: uid("t"), name: "Новое событие Эдды", source: "Старшая", desc: "", vis: false, tags: [] }; setTimeless((a) => [...a, t]); setSelected({ type: "timeless", id: t.id }); };
+  const addPeriod = () => { const p = { id: uid("p"), name: "Новый период", desc: "", rune: "" }; setPeriods((a) => [...a, p]); setExpanded((s) => new Set(s).add(p.id)); };
+
+  const togglePeriod = (p) => {
+    const fut = !gm && periodIndex[p.id] > currentIndex;
+    if (fut) return;
+    setExpanded((s) => { const m = new Set(s); m.has(p.id) ? m.delete(p.id) : m.add(p.id); return m; });
+  };
+
+  return (
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
+      <style>{`
+        @keyframes kSlide { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
+        .k-slide{ animation:kSlide .3s ease-out both; }
+        .k-input{ background:var(--inset); border:1px solid var(--line); border-radius:7px; color:var(--ink); padding:6px 9px; outline:none; font-size:13px; width:100%; }
+        .k-input:focus{ border-color:${GOLD}; }
+        .k-btn{ border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); }
+        .k-btn:hover{ background:var(--surf2); }
+        .k-card{ cursor:pointer; }
+      `}</style>
+
+      <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+        <div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD }}>Хронология</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>лента сессий · события · Безвременье</div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <CloudChip status={status} campaign={campaign} onBind={bind} />
+          {ROLE === "gm" && <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
+            {[["gm", "Ведущая"], ["player", "Игрок"]].map(([v, label]) => {
+              const active = (gm ? "gm" : "player") === v;
+              return <button key={v} onClick={() => switchMode(v === "gm")} style={{ background: active ? GOLD : "transparent", color: active ? INK : "var(--ink)", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
+            })}
+          </div>}
+          {gm && <>
+            <button className="k-btn flex items-center gap-1" onClick={() => setShowPlayers(true)}><Users size={14} /> Игроки</button>
+            <button className="k-btn flex items-center gap-1" onClick={addPeriod}><Plus size={14} /> Период</button>
+            <button className="k-btn flex items-center gap-1" onClick={() => setShowData(true)}><Database size={14} /> Данные</button>
+          </>}
+        </div>
+      </header>
+
+      {/* Лента периодов */}
+      <div style={{ overflowX: "auto", padding: "16px 14px 8px" }}>
+        <div className="flex" style={{ gap: 10, alignItems: "stretch", minHeight: 260 }}>
+          {periods.map((p) => {
+            const idx = periodIndex[p.id];
+            const isFuture = idx > currentIndex, isPast = idx < currentIndex, isCurrent = idx === currentIndex;
+            const anon = !gm && isFuture;
+            const open = expanded.has(p.id) && !anon;
+            const ps = sessions.filter((s) => s.periodId === p.id);
+            const pe = events.filter((e) => e.periodId === p.id && (gm || e.vis));
+            const runeG = p.rune && RUNE_MAP[p.rune];
+            return (
+              <div key={p.id} style={{ flex: open ? "0 0 280px" : "0 0 86px", transition: "flex-basis .2s",
+                background: isCurrent ? "rgba(230,195,77,.06)" : "var(--surf2)", border: `1px solid ${isCurrent ? "rgba(230,195,77,.35)" : "var(--surf2)"}`, borderRadius: 14, padding: 10, display: "flex", flexDirection: "column" }}>
+                {/* заголовок */}
+                <div className="flex items-center gap-1 mb-2">
+                  <button onClick={() => togglePeriod(p)} disabled={anon} style={{ background: "none", border: "none", cursor: anon ? "default" : "pointer", color: "var(--muted)", padding: 0 }}>
+                    {anon ? <Lock size={14} /> : (open ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
+                  </button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div onClick={() => gm && setSelected({ type: "period", id: p.id })}
+                      style={{ fontFamily: FONT_DISPLAY, fontSize: open ? 16 : 13, color: anon ? "var(--faint)" : "var(--ink)", cursor: gm ? "pointer" : "default", whiteSpace: open ? "normal" : "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {anon ? "?" : p.name}
+                    </div>
+                    {!anon && <div style={{ fontSize: 10, color: "var(--muted)" }}>{isCurrent ? "сейчас" : isPast ? "пройдено" : "впереди"}</div>}
+                  </div>
+                  {!anon && runeG && <span title={runeG.name} style={{ fontFamily: RUNE_FONT, fontSize: 18, color: GOLD }}>{runeG.glyph}</span>}
+                </div>
+
+                {open && (
+                  <div style={{ flex: 1 }}>
+                    {p.desc && <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10, lineHeight: 1.4 }}>{p.desc}</div>}
+
+                    {/* сессии */}
+                    <div style={{ position: "relative", marginBottom: 10 }}>
+                      <div style={{ position: "absolute", left: 0, right: 0, top: 22, height: 2, background: "rgba(230,195,77,.3)" }} />
+                      <div className="flex flex-wrap" style={{ gap: 6, position: "relative" }}>
+                        {ps.map((s) => (
+                          <div key={s.id} className="k-card" onClick={() => setSelected({ type: "session", id: s.id })}
+                            style={{ background: "var(--surf)", border: `1px solid ${GOLD}66`, borderRadius: 10, padding: "6px 9px", minWidth: 96 }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{s.name}</div>
+                            {s.timing && <div style={{ fontSize: 10, color: "var(--muted)" }}>{s.timing}</div>}
+                          </div>
+                        ))}
+                        {gm && <button onClick={() => addSession(p.id)} className="k-btn" style={{ padding: "4px 8px", fontSize: 12 }}><Plus size={12} /></button>}
+                      </div>
+                    </div>
+
+                    {/* события */}
+                    <div className="flex flex-col" style={{ gap: 5 }}>
+                      {pe.map((e) => {
+                        const c = EV_COLOR[e.kind] || "#888";
+                        return (
+                          <div key={e.id} className="k-card flex items-center gap-2" onClick={() => setSelected({ type: "event", id: e.id })}
+                            style={{ background: "var(--surf2)", border: `1px solid ${c}55`, borderLeft: `3px solid ${c}`, borderRadius: 8, padding: "5px 8px", opacity: gm && !e.vis ? 0.55 : 1 }}>
+                            <div style={{ flex: 1, fontSize: 12, color: "var(--ink)" }}>{e.name}</div>
+                            {gm && (e.vis ? <Eye size={12} style={{ color: "#6bbf59" }} /> : <EyeOff size={12} style={{ color: "var(--muted)" }} />)}
+                          </div>
+                        );
+                      })}
+                      {gm && <button onClick={() => addEvent(p.id)} className="k-btn" style={{ padding: "3px 8px", fontSize: 11, alignSelf: "flex-start" }}><Plus size={11} /> событие</button>}
+                    </div>
+                  </div>
+                )}
+                {anon && <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--faint)" }}><Lock size={18} /></div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Безвременье */}
+      <div style={{ borderTop: "1px solid var(--surf2)", padding: "12px 18px 22px", marginTop: 6 }}>
+        <div className="flex items-center gap-3 mb-2">
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 16, color: GOLD }}>Безвременье</div>
+          <div style={{ fontSize: 11, color: "var(--muted)" }}>события Старшей и Младшей Эдд</div>
+          {gm && <button className="k-btn flex items-center gap-1" style={{ padding: "3px 9px", fontSize: 12 }} onClick={addTimeless}><Plus size={12} /> событие</button>}
+          <span className="flex items-center gap-2" style={{ fontSize: 11, color: "var(--muted)", marginLeft: "auto" }}>
+            <span className="flex items-center gap-1"><span style={{ width: 9, height: 9, borderRadius: 2, background: SRC_COLOR["Старшая"], display: "inline-block" }} />Старшая</span>
+            <span className="flex items-center gap-1"><span style={{ width: 9, height: 9, borderRadius: 2, background: SRC_COLOR["Младшая"], display: "inline-block" }} />Младшая</span>
+          </span>
+        </div>
+        {(() => {
+          const shown = gm ? timeless : timeless.filter((t) => t.vis);
+          if (shown.length === 0) return <div style={{ fontSize: 13, color: "var(--muted)" }}>Мифы пока сокрыты — ведущая приоткроет их, когда придёт срок.</div>;
+          return (
+            <div style={{ overflowX: "auto" }}>
+              <div className="flex" style={{ gap: 8, paddingBottom: 4 }}>
+                {shown.map((t) => {
+                  const c = SRC_COLOR[t.source] || "#888";
+                  return (
+                    <div key={t.id} className="k-card" onClick={() => setSelected({ type: "timeless", id: t.id })}
+                      style={{ flex: "0 0 190px", background: "var(--surf2)", border: `1px solid ${c}44`, borderTop: `3px solid ${c}`, borderRadius: 10, padding: "8px 10px", opacity: gm && !t.vis ? 0.55 : 1 }}>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span style={{ fontSize: 9.5, color: c, textTransform: "uppercase", letterSpacing: ".4px" }}>{t.source}</span>
+                        {gm && (t.vis ? <Eye size={12} style={{ color: "#6bbf59" }} /> : <EyeOff size={12} style={{ color: "var(--muted)" }} />)}
+                      </div>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", marginBottom: 2 }}>{t.name}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.35 }}>{t.desc}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {gm && current && <Drawer type={selected.type} item={current} players={players}
+        onClose={() => setSelected(null)} patch={(p) => patchItem(selected.type, current.id, p)} del={() => delItem(selected.type, current.id)} />}
+
+      {showData && <DataModal data={{ periods, sessions, events, timeless, players }} onClose={() => setShowData(false)}
+        onApply={(d) => { setPeriods(d.periods); setSessions(d.sessions); setEvents(d.events); setTimeless(d.timeless); setPlayers(d.players || []); setSelected(null); setShowData(false); }} />}
+
+      {showPlayers && <PlayersModal players={players} setPlayers={setPlayers} onClose={() => setShowPlayers(false)} />}
+    </div>
+  );
+}
+
+/* ============================ Чип-редактор ============================ */
+function ChipEditor({ items, roster, onChange, placeholder }) {
+  const [txt, setTxt] = useState("");
+  const add = (v) => { v = v.trim(); if (v && !items.includes(v)) onChange([...items, v]); };
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1.5 mb-1.5">
+        {items.map((it) => (
+          <span key={it} className="flex items-center gap-1" style={{ fontSize: 12, background: "var(--line-soft)", border: "1px solid var(--line)", borderRadius: 14, padding: "2px 8px" }}>
+            {it}<button onClick={() => onChange(items.filter((x) => x !== it))} style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer", lineHeight: 1 }}><X size={11} /></button>
+          </span>
+        ))}
+        {items.length === 0 && <span style={{ fontSize: 12, color: "var(--faint)" }}>—</span>}
+      </div>
+      {roster && roster.filter((r) => !items.includes(r)).length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-1.5">
+          {roster.filter((r) => !items.includes(r)).map((r) => (
+            <button key={r} onClick={() => add(r)} style={{ fontSize: 11, padding: "1px 8px", borderRadius: 12, border: "1px dashed var(--line)", background: "transparent", color: "var(--muted)", cursor: "pointer" }}>+ {r}</button>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-1.5">
+        <input className="k-input" style={{ fontSize: 12, padding: "4px 8px" }} value={txt} placeholder={placeholder || "дописать вручную…"}
+          onChange={(e) => setTxt(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { add(txt); setTxt(""); } }} />
+        <button className="k-btn" style={{ padding: "4px 9px" }} onClick={() => { add(txt); setTxt(""); }}><Plus size={12} /></button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Сайдбар правки ============================ */
+function Drawer({ type, item, players, onClose, patch, del }) {
+  const titleMap = { period: "Период", session: "Сессия", event: "Событие", timeless: "Эдда" };
+  return (
+    <div className="k-slide" style={{ position: "fixed", top: 64, right: 0, bottom: 0, width: "min(380px, 94vw)", zIndex: 30,
+      background: "linear-gradient(180deg, var(--surf) 0%, var(--bg) 100%)", borderLeft: "1px solid var(--line)", boxShadow: "-18px 0 40px rgba(0,0,0,.45)", overflowY: "auto", padding: 16 }}>
+      <div className="flex items-center justify-between mb-3">
+        <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px" }}>{titleMap[type]}</span>
+        <button onClick={onClose} className="k-btn" style={{ padding: "4px 8px" }}><X size={16} /></button>
+      </div>
+
+      <input className="k-input" value={item.name} onChange={(e) => patch({ name: e.target.value })}
+        style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: GOLD, background: "none", border: "none", padding: 0, marginBottom: 12 }} />
+
+      {(type === "session" || type === "event") && (
+        <Field label="Тайминг"><input className="k-input" value={item.timing} onChange={(e) => patch({ timing: e.target.value })} placeholder="напр. Сессия 4 · 12 окт" /></Field>
+      )}
+
+      <Field label="Описание"><textarea className="k-input" value={item.desc} onChange={(e) => patch({ desc: e.target.value })} style={{ height: 70, resize: "vertical" }} /></Field>
+
+      {type === "event" && (
+        <Field label="Тип события">
+          <div className="flex gap-2">
+            {[["external", "Внешнее"], ["ragnarok", "Рагнарёк"]].map(([v, l]) => (
+              <button key={v} onClick={() => patch({ kind: v })} style={{ flex: 1, fontSize: 12, padding: "6px", borderRadius: 8, cursor: "pointer",
+                border: item.kind === v ? `1px solid ${EV_COLOR[v]}` : "1px solid var(--line)", background: item.kind === v ? `${EV_COLOR[v]}22` : "transparent", color: "var(--ink)" }}>{l}</button>
+            ))}
+          </div>
+        </Field>
+      )}
+
+      {type === "timeless" && (
+        <Field label="Источник">
+          <div className="flex gap-2">
+            {["Старшая", "Младшая"].map((v) => (
+              <button key={v} onClick={() => patch({ source: v })} style={{ flex: 1, fontSize: 12, padding: "6px", borderRadius: 8, cursor: "pointer",
+                border: item.source === v ? `1px solid ${SRC_COLOR[v]}` : "1px solid var(--line)", background: item.source === v ? `${SRC_COLOR[v]}22` : "transparent", color: "var(--ink)" }}>{v} Эдда</button>
+            ))}
+          </div>
+        </Field>
+      )}
+
+      {type === "period" && (
+        <Field label="Руна судьбы (ставится при переходе на этап)">
+          <RunePicker value={item.rune} onChange={(r) => patch({ rune: r })} />
+        </Field>
+      )}
+
+      {(type === "session" || type === "event") && (
+        <Field label="Участники"><ChipEditor items={item.participants} roster={players} onChange={(v) => patch({ participants: v })} placeholder="имя NPC / бога вручную…" /></Field>
+      )}
+
+      {type !== "period" && (
+        <Field label="Теги"><ChipEditor items={item.tags || []} onChange={(v) => patch({ tags: v })} placeholder="+ тег" /></Field>
+      )}
+
+      {(type === "event" || type === "timeless") && (
+        <Field label="Видимость">
+          <button className="k-btn flex items-center gap-1" onClick={() => patch({ vis: !item.vis })}>
+            {item.vis ? <><Eye size={14} /> видно игрокам</> : <><EyeOff size={14} /> скрыто</>}
+          </button>
+        </Field>
+      )}
+
+      {type !== "period" && <button className="k-btn flex items-center gap-1 mt-2" onClick={del} style={{ color: "var(--red)" }}><Trash2 size={14} /> Удалить</button>}
+      {type === "period" && <button className="k-btn flex items-center gap-1 mt-2" onClick={del} style={{ color: "var(--red)" }}><Trash2 size={14} /> Удалить период</button>}
+    </div>
+  );
+}
+function Field({ label, children }) {
+  return <div style={{ marginBottom: 12 }}><div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>{label}</div>{children}</div>;
+}
+
+function RunePicker({ value, onChange }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      <button onClick={() => onChange("")} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 8, border: `1px solid ${value ? "var(--line)" : GOLD}`, background: "transparent", color: "var(--ink)", cursor: "pointer" }}>нет</button>
+      {RUNES.map(([id, g, n]) => (
+        <button key={id} title={n} onClick={() => onChange(id)} style={{ fontFamily: RUNE_FONT, fontSize: 18, width: 30, height: 30, borderRadius: 8, cursor: "pointer",
+          border: value === id ? `1px solid ${GOLD}` : "1px solid var(--line)", background: value === id ? "rgba(230,195,77,.15)" : "transparent", color: value === id ? GOLD : "var(--ink)" }}>{g}</button>
+      ))}
+    </div>
+  );
+}
+
+/* ============================ Игроки ============================ */
+function PlayersModal({ players, setPlayers, onClose }) {
+  const [txt, setTxt] = useState("");
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 50 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 420 }}>
+        <div className="flex items-center justify-between mb-3"><div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Игроки</div><button onClick={onClose} style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer" }}><X size={18} /></button></div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>Эти герои автоматически попадают в участники новых сессий.</div>
+        <div className="flex flex-col gap-1.5 mb-3">
+          {players.map((p, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input className="k-input" value={p} onChange={(e) => setPlayers(players.map((x, k) => (k === i ? e.target.value : x)))} />
+              <button className="k-btn" style={{ padding: "5px 8px", color: "var(--red)" }} onClick={() => setPlayers(players.filter((_, k) => k !== i))}><Trash2 size={14} /></button>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input className="k-input" value={txt} placeholder="имя игрока…" onChange={(e) => setTxt(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && txt.trim()) { setPlayers([...players, txt.trim()]); setTxt(""); } }} />
+          <button className="k-btn" onClick={() => { if (txt.trim()) { setPlayers([...players, txt.trim()]); setTxt(""); } }}><Plus size={14} /></button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Данные ============================ */
+function DataModal({ data, onClose, onApply }) {
+  const [text, setText] = useState(JSON.stringify(data, null, 2));
+  const [err, setErr] = useState("");
+  const apply = () => { try { const d = JSON.parse(text); if (!d.periods || !d.sessions || !d.events || !d.timeless) throw new Error("нужны periods, sessions, events, timeless"); setErr(""); onApply(d); } catch (e) { setErr("Не разобрал JSON: " + e.message); } };
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 50 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
+        <div className="flex items-center justify-between mb-3"><div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Данные хронологии</div><button onClick={onClose} style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer" }}><X size={18} /></button></div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>Скопируй, чтобы сохранить. Вставь свой JSON и нажми «Применить».</div>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} style={{ width: "100%", height: 300, background: "var(--bg)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, fontFamily: "ui-monospace,monospace", fontSize: 12 }} />
+        {err && <div style={{ color: "var(--red)", fontSize: 12, marginTop: 6 }}>{err}</div>}
+        <div className="flex justify-end gap-2 mt-3"><button className="k-btn" onClick={onClose}>Закрыть</button><button onClick={apply} style={{ background: GOLD, color: INK, border: "none", borderRadius: 8, padding: "6px 16px", fontWeight: 600, cursor: "pointer" }}>Применить</button></div>
+      </div>
+    </div>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Chronology />);
+</script>
+<script src="app-shell.js" defer></script>
+</body>
+</html>

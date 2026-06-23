@@ -30,14 +30,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="tool-icons.js"></script>
 <script type="text/babel" data-presets="react">
 const { useState, useRef, useMemo, useEffect } = React;
 const { Plus, Minus, X, Eye, EyeOff, Palette, Database, Trash2, Link2, Maximize2, Search, Network, Crosshair, ArrowLeft, RotateCcw, Send, Lock } = window.LI;
 
 /* ============================ Сид-данные ============================ */
-const GOLD = "#e6c34d";
-const INK = "#0a0e1a";
+const GOLD = "var(--bronze)";
+const INK = "var(--bg)";
 
 const initialLegend = [
   { id: "branch", label: "Ветви Иггдрасиля", color: "#6b8e23" },
@@ -48,7 +51,7 @@ const initialLegend = [
 
 /* Раскладка «древо жизни»: центральный столп из 5 миров + по 2 слева/справа */
 const initialWorlds = [
-  { id: "asgard", name: "Асгард", sub: "престол асов", color: "#e6c34d", x: 450, y: 90,
+  { id: "asgard", name: "Асгард", sub: "престол асов", color: "var(--bronze)", x: 450, y: 90,
     locations: [
       { id: "as1", name: "Валаскьяльв", tags: ["престол", "всевидение"], vis: true },
       { id: "as2", name: "Вальхалла", tags: ["павшие", "пир"], vis: true },
@@ -75,7 +78,7 @@ const initialWorlds = [
       { id: "mi2", name: "Старый фьорд", tags: ["порог", "миф"], vis: true },
       { id: "mi3", name: "Заброшенная станция", tags: ["разлом"], vis: false },
     ] },
-  { id: "muspelheim", name: "Муспельхейм", sub: "огонь, что сожжёт мир", color: "#ef6b4a", x: 200, y: 670,
+  { id: "muspelheim", name: "Муспельхейм", sub: "огонь, что сожжёт мир", color: "var(--red)", x: 200, y: 670,
     locations: [
       { id: "mu1", name: "Чертог Сурта", tags: ["огонь", "меч"], vis: true },
       { id: "mu2", name: "Кромка пламени", tags: ["Рагнарёк"], vis: false },
@@ -125,6 +128,45 @@ const FONT_DISPLAY = "'Iowan Old Style','Palatino Linotype',Palatino,Georgia,ser
 const FONT_UI = "system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
 
 /* ============================ Компонент ============================ */
+/* ============================ Облако ============================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCSb7M5IbOql61HIqOUxe3ct4VqdjkhLyE",
+  authDomain: "ragnarau-80866.firebaseapp.com",
+  projectId: "ragnarau-80866",
+  storageBucket: "ragnarau-80866.firebasestorage.app",
+  messagingSenderId: "727752765165",
+  appId: "1:727752765165:web:8c625b7675f022a1b026e4"
+};
+const HAS_FB = !!(window.firebase && firebaseConfig.apiKey);
+let db = null, auth = null;
+if (HAS_FB) {
+  try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); auth = firebase.auth(); }
+  catch (e) { console.error("Firebase init:", e); }
+}
+const BOARD_ID = "nineWorlds";
+const _qs = new URLSearchParams(location.search);
+const ROLE = _qs.get("role") === "gm" ? "gm" : "player";
+function readCampaign() {
+  const u = (_qs.get("c") || _qs.get("campaign") || "").trim();
+  if (u) { try { localStorage.setItem("ragnarok-board-campaign", u); } catch (e) {} return u; }
+  try { const cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null"); if (cur && cur.campaign) return cur.campaign; } catch (e) {}
+  try { return localStorage.getItem("ragnarok-board-campaign") || ""; } catch (e) { return ""; }
+}
+function CloudChip({ status, campaign, onBind }) {
+  const base = { fontSize: 11.5, letterSpacing: ".04em", borderRadius: 999, padding: "5px 11px", border: "1px solid var(--line)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 };
+  if (!HAS_FB) return <span style={{ ...base, color: "var(--faint)" }}>локально</span>;
+  if (!campaign) return <button onClick={onBind} style={{ ...base, color: "var(--bronze)", borderColor: "var(--line-warm)", cursor: "pointer", background: "none" }}>привязать кампанию</button>;
+  const map = {
+    loading: { t: "загрузка…", c: "var(--muted)" },
+    cloud:   { t: "облако · " + campaign, c: "var(--steel)" },
+    saving:  { t: "сохранение…", c: "var(--muted)" },
+    saved:   { t: "сохранено ✓", c: "var(--steel)" },
+    error:   { t: "нет связи", c: "var(--red)" },
+  };
+  const s = map[status] || map.cloud;
+  return <button onClick={onBind} title="сменить код кампании" style={{ ...base, color: s.c, cursor: "pointer", background: "none" }}>{s.t}</button>;
+}
+
 function NineWorlds() {
   const [worlds, setWorlds] = useState(initialWorlds);
   const [edges, setEdges] = useState(initialEdges);
@@ -137,6 +179,63 @@ function NineWorlds() {
   const [linking, setLinking] = useState(false);     // режим «новая связь»
   const [linkFrom, setLinkFrom] = useState(null);
   const [showData, setShowData] = useState(false);
+
+  // --- облако ---
+  const [campaign, setCampaign] = useState(readCampaign);
+  const [status, setStatus] = useState(HAS_FB && readCampaign() ? "loading" : "local");
+  const [playerTags, setPlayerTags] = useState({});   // id места → [теги игроков] (отдельное поле, не затирается ГМом)
+  const _skip = useRef(true);
+  const _skipPT = useRef(true);
+  const _ready = useRef(false);
+  const hydrate = (d) => {
+    _skip.current = true; _skipPT.current = true;
+    if (Array.isArray(d.worlds)) setWorlds(d.worlds);
+    if (Array.isArray(d.edges)) setEdges(d.edges);
+    if (Array.isArray(d.legend)) setLegend(d.legend);
+    if (d.playerTags && typeof d.playerTags === "object") setPlayerTags(d.playerTags);
+  };
+  useEffect(() => {
+    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); return; }
+    let unsub = null, alive = true; setStatus("loading");
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) { console.error("auth:", e); }
+      const ref = db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID);
+      try {
+        const snap = await ref.get();
+        if (alive && snap.exists) hydrate(snap.data());
+        else if (ROLE === "gm") { try { await ref.set({ worlds, edges, legend, updatedAt: Date.now() }); } catch (e) { console.error("seed:", e); } }
+      } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
+      _ready.current = true; if (alive) setStatus("cloud");
+      unsub = ref.onSnapshot((snap) => { if (!snap.exists || snap.metadata.hasPendingWrites) return; hydrate(snap.data()); }, (e) => console.error("snapshot:", e));
+    })();
+    return () => { alive = false; if (unsub) unsub(); };
+  }, [campaign]);
+  useEffect(() => {
+    if (!HAS_FB || !campaign || ROLE !== "gm") return;
+    if (!_ready.current) return;
+    if (_skip.current) { _skip.current = false; return; }
+    setStatus("saving");
+    const t = setTimeout(async () => {
+      try { await db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID).set({ worlds, edges, legend, updatedAt: Date.now() }, { merge: true }); setStatus("saved"); setTimeout(() => setStatus("cloud"), 1200); }
+      catch (e) { console.error("save:", e); setStatus("error"); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [worlds, edges, legend, campaign]);
+  const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} _ready.current = false; _skip.current = true; _skipPT.current = true; setCampaign(c); } };
+
+  // автосейв тегов игрока — отдельное поле playerTags, пишут обе роли (игрок добавляет свои)
+  useEffect(() => {
+    if (!HAS_FB || !campaign) return;
+    if (!_ready.current) return;
+    if (_skipPT.current) { _skipPT.current = false; return; }
+    const t = setTimeout(async () => {
+      try { await db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID).set({ playerTags, updatedAt: Date.now() }, { merge: true }); }
+      catch (e) { console.error("save playerTags:", e); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [playerTags, campaign]);
+  const addPlayerTag = (lid, t) => { const tag = (t || "").trim(); if (!tag) return; setPlayerTags((pt) => ({ ...pt, [lid]: [...(pt[lid] || []), tag] })); };
+  const delPlayerTag = (lid, i) => setPlayerTags((pt) => ({ ...pt, [lid]: (pt[lid] || []).filter((_, k) => k !== i) }));
 
   const legendMap = useMemo(() => Object.fromEntries(legend.map((l) => [l.id, l])), [legend]);
   const worldMap = useMemo(() => Object.fromEntries(worlds.map((w) => [w.id, w])), [worlds]);
@@ -191,7 +290,7 @@ function NineWorlds() {
   };
 
   return (
-    <div style={{ fontFamily: FONT_UI, background: INK, color: "#e8edf5", minHeight: "100%" }} className="w-full">
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
       <style>{`
         @keyframes nwPulse { 0%,100%{opacity:.32} 50%{opacity:.55} }
         @keyframes nwSlide { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
@@ -200,25 +299,26 @@ function NineWorlds() {
         .nw-node:hover { transform: scale(1.07); }
         .nw-edge-hit { cursor:pointer; }
         @media (prefers-reduced-motion: reduce){ .nw-slide{animation:none} .nw-halo{animation:none!important} .nw-node{transition:none} }
-        .nw-input { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:8px; color:#e8edf5; padding:6px 10px; outline:none; font-size:13px; }
+        .nw-input { background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:6px 10px; outline:none; font-size:13px; }
         .nw-input:focus { border-color:${GOLD}; }
-        .nw-btn { border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.04); color:#e8edf5; }
-        .nw-btn:hover { background:rgba(255,255,255,.1); }
+        .nw-btn { border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); }
+        .nw-btn:hover { background:var(--surf2); }
       `}</style>
 
       {/* Шапка */}
-      <header className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+      <header className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
         <div>
           <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, letterSpacing: ".5px", color: GOLD }}>Девять миров</div>
-          <div style={{ fontSize: 12, color: "#8b95a7" }}>Иггдрасиль · карта и локации</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>Иггдрасиль · карта и локации</div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,.14)" }}>
+          <CloudChip status={status} campaign={campaign} onBind={bind} />
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
             {[["gm", "Ведущая"], ["player", "Игрок"]].map(([v, label]) => {
               const active = (gm ? "gm" : "player") === v;
               return (
                 <button key={v} onClick={() => { setGm(v === "gm"); setSelEdge(null); cancelLink(); }}
-                  style={{ background: active ? GOLD : "transparent", color: active ? INK : "#cdd5e2", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>
+                  style={{ background: active ? GOLD : "transparent", color: active ? INK : "var(--ink)", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>
                   {label}
                 </button>
               );
@@ -250,6 +350,7 @@ function NineWorlds() {
         <WorldDrawer
           world={current} gm={gm} onClose={() => setSelected(null)}
           patchLoc={patchLoc} addLoc={addLoc} delLoc={delLoc} addTag={addTag} delTag={delTag}
+          playerTags={playerTags} addPlayerTag={addPlayerTag} delPlayerTag={delPlayerTag}
           setName={(n) => patchWorld(current.id, (w) => ({ ...w, name: n }))}
         />
       )}
@@ -284,7 +385,7 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
 
   return (
     <div className="relative">
-      <svg viewBox="0 0 900 1080" style={{ width: "100%", display: "block", background: "radial-gradient(120% 80% at 50% 28%, #121a30 0%, #0a0e1a 72%)" }}>
+      <svg viewBox="0 0 900 1080" style={{ width: "100%", display: "block", background: "radial-gradient(120% 80% at 50% 28%, var(--surf) 0%, var(--bg) 72%)" }}>
         <rect x="0" y="0" width="900" height="1080" fill="transparent" onClick={() => setSelEdge(null)} />
         {/* связи */}
         {shownEdges.map((e) => {
@@ -313,10 +414,10 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
             <g key={w.id} onClick={() => onNode(w.id)} className="nw-node">
               <circle className="nw-halo" cx={w.x} cy={w.y} r="48" fill={w.color} opacity="0.32" style={{ animation: "nwPulse 5s ease-in-out infinite" }} />
               {(armed || here) && <circle cx={w.x} cy={w.y} r="40" fill="none" stroke={GOLD} strokeWidth="2" strokeDasharray={armed ? "4 4" : undefined} />}
-              <circle cx={w.x} cy={w.y} r="32" fill={w.color} stroke="#0a0e1a" strokeWidth="3" />
-              <circle cx={w.x} cy={w.y} r="32" fill="none" stroke="rgba(255,255,255,.35)" strokeWidth="1" />
-              <text x={w.x} y={w.y + 52} textAnchor="middle" style={{ fontFamily: FONT_DISPLAY, fontSize: 19, fill: "#f1f4fa", letterSpacing: ".4px" }}>{w.name}</text>
-              <text x={w.x} y={w.y + 69} textAnchor="middle" style={{ fontSize: 10.5, fill: "#8b95a7" }}>{w.sub}</text>
+              <circle cx={w.x} cy={w.y} r="32" fill={w.color} stroke="var(--bg)" strokeWidth="3" />
+              <circle cx={w.x} cy={w.y} r="32" fill="none" stroke="var(--line)" strokeWidth="1" />
+              <text x={w.x} y={w.y + 52} textAnchor="middle" style={{ fontFamily: FONT_DISPLAY, fontSize: 19, fill: "var(--ink)", letterSpacing: ".4px" }}>{w.name}</text>
+              <text x={w.x} y={w.y + 69} textAnchor="middle" style={{ fontSize: 10.5, fill: "var(--muted)" }}>{w.sub}</text>
             </g>
           );
         })}
@@ -331,17 +432,17 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
 
       {/* Инспектор связи */}
       {gm && !linking && sel && (
-        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: "1px solid rgba(255,255,255,.16)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", width: "min(340px, 92%)" }}>
+        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", width: "min(340px, 92%)" }}>
           <div className="flex items-center justify-between mb-2">
             <div style={{ fontSize: 13, color: GOLD }}>{worldMap[sel.from]?.name} — {worldMap[sel.to]?.name}</div>
-            <button onClick={() => setSelEdge(null)} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer" }}><X size={16} /></button>
+            <button onClick={() => setSelEdge(null)} style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer" }}><X size={16} /></button>
           </div>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {legend.map((t) => (
               <button key={t.id} onClick={() => setEdgeType(sel.id, t.id)} className="flex items-center gap-1"
                 style={{ fontSize: 12, padding: "3px 8px", borderRadius: 16, cursor: "pointer",
-                  border: sel.type === t.id ? `1px solid ${t.color}` : "1px solid rgba(255,255,255,.14)",
-                  background: sel.type === t.id ? `${t.color}26` : "transparent", color: "#e8edf5" }}>
+                  border: sel.type === t.id ? `1px solid ${t.color}` : "1px solid var(--line)",
+                  background: sel.type === t.id ? `${t.color}26` : "transparent", color: "var(--ink)" }}>
                 <span style={{ width: 12, height: 3, borderRadius: 2, background: t.color, display: "inline-block" }} /> {t.label}
               </button>
             ))}
@@ -350,7 +451,7 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
             <button className="nw-btn flex items-center gap-1" onClick={() => toggleEdgeVis(sel.id)}>
               {sel.vis ? <><Eye size={14} /> Видна игрокам</> : <><EyeOff size={14} /> Скрыта</>}
             </button>
-            <button className="nw-btn flex items-center gap-1" onClick={() => delEdge(sel.id)} style={{ color: "#ef6b4a" }}>
+            <button className="nw-btn flex items-center gap-1" onClick={() => delEdge(sel.id)} style={{ color: "var(--red)" }}>
               <Trash2 size={14} /> Убрать
             </button>
           </div>
@@ -358,7 +459,7 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
       )}
 
       {/* Легенда */}
-      <div className="absolute left-4 bottom-4" style={{ background: "rgba(10,14,26,.82)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", minWidth: 210 }}>
+      <div className="absolute left-4 bottom-4" style={{ background: "rgba(10,14,26,.82)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", minWidth: 210 }}>
         <div className="flex items-center gap-2 mb-2" style={{ color: GOLD, fontSize: 12, letterSpacing: ".5px", textTransform: "uppercase" }}>
           <Palette size={13} /> Связи
         </div>
@@ -369,12 +470,12 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
                 <input type="color" value={l.color} onChange={(e) => onLegend(l.id, { color: e.target.value })}
                   style={{ width: 22, height: 22, border: "none", background: "none", padding: 0, cursor: "pointer" }} />
                 <input className="nw-input" style={{ flex: 1, padding: "3px 8px", fontSize: 12 }} value={l.label} onChange={(e) => onLegend(l.id, { label: e.target.value })} />
-                <button onClick={() => delLegend(l.id)} title="Убрать тип" style={{ color: "#8b95a7", background: "none", border: "none", cursor: "pointer" }}><X size={14} /></button>
+                <button onClick={() => delLegend(l.id)} title="Убрать тип" style={{ color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}><X size={14} /></button>
               </>
             ) : (
               <>
                 <span style={{ width: 16, height: 4, borderRadius: 2, background: l.color, display: "inline-block" }} />
-                <span style={{ fontSize: 12, color: "#cdd5e2" }}>{l.label}</span>
+                <span style={{ fontSize: 12, color: "var(--ink)" }}>{l.label}</span>
               </>
             )}
           </div>
@@ -387,7 +488,7 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
       </div>
 
       {gm && !linking && (
-        <div className="absolute right-4 top-4" style={{ fontSize: 12, color: "#8b95a7", maxWidth: 190, textAlign: "right" }}>
+        <div className="absolute right-4 top-4" style={{ fontSize: 12, color: "var(--muted)", maxWidth: 190, textAlign: "right" }}>
           Клик по миру — локации. Клик по связи — тип / скрыть / убрать. «Связь» — соединить два мира.
         </div>
       )}
@@ -396,12 +497,12 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
 }
 
 /* ============================ Сайдбар мира ============================ */
-function WorldDrawer({ world, gm, onClose, patchLoc, addLoc, delLoc, addTag, delTag, setName }) {
+function WorldDrawer({ world, gm, onClose, patchLoc, addLoc, delLoc, addTag, delTag, playerTags, addPlayerTag, delPlayerTag, setName }) {
   const shown = gm ? world.locations : world.locations.filter((l) => l.vis);
   return (
     <div className="nw-slide" style={{ position: "fixed", top: 64, right: 0, bottom: 0, width: "min(360px, 90vw)", zIndex: 30,
-      background: `linear-gradient(180deg, ${world.color}1f 0%, #0c1120 22%, #0a0e1a 100%)`,
-      borderLeft: "1px solid rgba(255,255,255,.12)", boxShadow: "-18px 0 40px rgba(0,0,0,.45)", overflowY: "auto", padding: 16 }}>
+      background: `linear-gradient(180deg, ${world.color}1f 0%, var(--surf) 22%, var(--bg) 100%)`,
+      borderLeft: "1px solid var(--line)", boxShadow: "-18px 0 40px rgba(0,0,0,.45)", overflowY: "auto", padding: 16 }}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-3" style={{ flex: 1 }}>
           <span style={{ width: 22, height: 22, borderRadius: "50%", background: world.color, boxShadow: `0 0 20px ${world.color}`, flexShrink: 0 }} />
@@ -414,29 +515,30 @@ function WorldDrawer({ world, gm, onClose, patchLoc, addLoc, delLoc, addTag, del
         </div>
         <button onClick={onClose} className="nw-btn" style={{ padding: "4px 8px" }}><X size={16} /></button>
       </div>
-      <div style={{ fontSize: 12, color: "#8b95a7", marginBottom: 16 }}>{world.sub} · локаций: {shown.length}</div>
+      <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>{world.sub} · локаций: {shown.length}</div>
 
       <div className="grid gap-3" style={{ gridTemplateColumns: "1fr" }}>
         {shown.map((l) => (
-          <LocationCard key={l.id} loc={l} world={world} gm={gm} patchLoc={patchLoc} delLoc={delLoc} addTag={addTag} delTag={delTag} />
+          <LocationCard key={l.id} loc={l} world={world} gm={gm} patchLoc={patchLoc} delLoc={delLoc} addTag={addTag} delTag={delTag}
+            ptags={(playerTags && playerTags[l.id]) || []} addPlayerTag={addPlayerTag} delPlayerTag={delPlayerTag} />
         ))}
         {gm && (
           <button onClick={() => addLoc(world.id)} className="flex items-center justify-center gap-2"
-            style={{ minHeight: 64, border: "1px dashed rgba(255,255,255,.22)", borderRadius: 14, color: "#8b95a7", background: "rgba(255,255,255,.02)", cursor: "pointer" }}>
+            style={{ minHeight: 64, border: "1px dashed var(--line)", borderRadius: 14, color: "var(--muted)", background: "var(--surf2)", cursor: "pointer" }}>
             <Plus size={16} /> Добавить локацию
           </button>
         )}
-        {!gm && shown.length === 0 && <div style={{ color: "#8b95a7", fontSize: 14 }}>В этом мире пока ничего не открыто.</div>}
+        {!gm && shown.length === 0 && <div style={{ color: "var(--muted)", fontSize: 14 }}>В этом мире пока ничего не открыто.</div>}
       </div>
     </div>
   );
 }
 
-function LocationCard({ loc, world, gm, patchLoc, delLoc, addTag, delTag }) {
+function LocationCard({ loc, world, gm, patchLoc, delLoc, addTag, delTag, ptags, addPlayerTag, delPlayerTag }) {
   const [tagInput, setTagInput] = useState("");
-  const submitTag = () => { addTag(world.id, loc.id, tagInput); setTagInput(""); };
+  const submitTag = () => { if (gm) addTag(world.id, loc.id, tagInput); else addPlayerTag(loc.id, tagInput); setTagInput(""); };
   return (
-    <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 14, padding: 14, opacity: gm && !loc.vis ? 0.6 : 1 }}>
+    <div style={{ background: "var(--surf)", border: "1px solid var(--surf2)", borderRadius: 14, padding: 14, opacity: gm && !loc.vis ? 0.6 : 1 }}>
       <div className="flex items-start justify-between gap-2 mb-2">
         {gm ? (
           <input className="nw-input" style={{ flex: 1, fontWeight: 600 }} value={loc.name} onChange={(e) => patchLoc(world.id, loc.id, { name: e.target.value })} />
@@ -446,32 +548,37 @@ function LocationCard({ loc, world, gm, patchLoc, delLoc, addTag, delTag }) {
         {gm && (
           <div className="flex items-center gap-1">
             <button title={loc.vis ? "Видна игрокам" : "Скрыта от игроков"} onClick={() => patchLoc(world.id, loc.id, { vis: !loc.vis })}
-              style={{ background: "none", border: "none", cursor: "pointer", color: loc.vis ? "#6bbf59" : "#8b95a7" }}>
+              style={{ background: "none", border: "none", cursor: "pointer", color: loc.vis ? "#6bbf59" : "var(--muted)" }}>
               {loc.vis ? <Eye size={16} /> : <EyeOff size={16} />}
             </button>
-            <button title="Удалить" onClick={() => delLoc(world.id, loc.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#8b95a7" }}><Trash2 size={15} /></button>
+            <button title="Удалить" onClick={() => delLoc(world.id, loc.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}><Trash2 size={15} /></button>
           </div>
         )}
       </div>
 
       <div className="flex flex-wrap gap-1.5">
         {loc.tags.map((t, i) => (
-          <span key={i} className="flex items-center gap-1"
-            style={{ fontSize: 11, background: `${world.color}26`, border: `1px solid ${world.color}55`, color: "#e8edf5", borderRadius: 20, padding: "2px 9px" }}>
+          <span key={"g" + i} className="flex items-center gap-1"
+            style={{ fontSize: 11, background: `${world.color}26`, border: `1px solid ${world.color}55`, color: "var(--ink)", borderRadius: 20, padding: "2px 9px" }}>
             {t}
-            {gm && <button onClick={() => delTag(world.id, loc.id, i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#cdd5e2", lineHeight: 1 }}><X size={11} /></button>}
+            {gm && <button onClick={() => delTag(world.id, loc.id, i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink)", lineHeight: 1 }}><X size={11} /></button>}
           </span>
         ))}
-        {!gm && loc.tags.length === 0 && <span style={{ fontSize: 11, color: "#8b95a7" }}>без тегов</span>}
+        {(ptags || []).map((t, i) => (
+          <span key={"p" + i} className="flex items-center gap-1" title="тег игрока"
+            style={{ fontSize: 11, background: "var(--surf2)", border: "1px dashed var(--steel-soft)", color: "var(--steel)", borderRadius: 20, padding: "2px 9px" }}>
+            {t}
+            <button onClick={() => delPlayerTag(loc.id, i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--steel)", lineHeight: 1 }}><X size={11} /></button>
+          </span>
+        ))}
+        {loc.tags.length === 0 && (ptags || []).length === 0 && <span style={{ fontSize: 11, color: "var(--muted)" }}>без тегов</span>}
       </div>
 
-      {gm && (
-        <div className="flex gap-1.5 mt-2">
-          <input className="nw-input" style={{ flex: 1, fontSize: 12, padding: "4px 8px" }} placeholder="+ тег"
-            value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submitTag(); }} />
-          <button className="nw-btn" style={{ padding: "4px 10px" }} onClick={submitTag}><Plus size={13} /></button>
-        </div>
-      )}
+      <div className="flex gap-1.5 mt-2">
+        <input className="nw-input" style={{ flex: 1, fontSize: 12, padding: "4px 8px" }} placeholder={gm ? "+ тег" : "+ свой тег"}
+          value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submitTag(); }} />
+        <button className="nw-btn" style={{ padding: "4px 10px" }} onClick={submitTag}><Plus size={13} /></button>
+      </div>
     </div>
   );
 }
@@ -489,15 +596,15 @@ function DataModal({ worlds, edges, legend, onClose, onApply }) {
   };
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 50 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#11162a", border: "1px solid rgba(255,255,255,.14)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
         <div className="flex items-center justify-between mb-3">
           <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Данные графа</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer" }}><X size={18} /></button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer" }}><X size={18} /></button>
         </div>
-        <div style={{ fontSize: 12, color: "#8b95a7", marginBottom: 8 }}>Скопируй, чтобы сохранить. Вставь свой JSON и нажми «Применить», чтобы загрузить.</div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>Скопируй, чтобы сохранить. Вставь свой JSON и нажми «Применить», чтобы загрузить.</div>
         <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
-          style={{ width: "100%", height: 280, background: "#0a0e1a", color: "#cdd5e2", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: 12, fontFamily: "ui-monospace,monospace", fontSize: 12 }} />
-        {err && <div style={{ color: "#ef6b4a", fontSize: 12, marginTop: 6 }}>{err}</div>}
+          style={{ width: "100%", height: 280, background: "var(--bg)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, fontFamily: "ui-monospace,monospace", fontSize: 12 }} />
+        {err && <div style={{ color: "var(--red)", fontSize: 12, marginTop: 6 }}>{err}</div>}
         <div className="flex justify-end gap-2 mt-3">
           <button className="nw-btn" onClick={onClose}>Закрыть</button>
           <button onClick={apply} style={{ background: GOLD, color: INK, border: "none", borderRadius: 8, padding: "6px 16px", fontWeight: 600, cursor: "pointer" }}>Применить</button>

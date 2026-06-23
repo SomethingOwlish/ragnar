@@ -30,22 +30,25 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="tool-icons.js"></script>
 <script type="text/babel" data-presets="react">
 const { useState, useRef, useMemo, useEffect } = React;
 const { Plus, Minus, X, Eye, EyeOff, Palette, Database, Trash2, Link2, Maximize2, Search, Network, Crosshair, ArrowLeft, RotateCcw, Send, Lock } = window.LI;
 
 /* ============================ Токены ============================ */
-const GOLD = "#e6c34d";
-const INK = "#0a0e1a";
+const GOLD = "var(--bronze)";
+const INK = "var(--bg)";
 const R = 22;
 const VBW = 1280, VBH = 860;
 
 /* 9 миров + чудовища */
 const KINDS = {
-  "асы": "#e6c34d", "ваны": "#6bbf59", "альвы": "#9fd0ff", "люди": "#7f9cb5",
+  "асы": "var(--bronze)", "ваны": "#6bbf59", "альвы": "#9fd0ff", "люди": "#7f9cb5",
   "йотуны": "#8b6fc4", "двемеры": "#f0883e", "мёртвые": "#4fb3a3",
-  "нифльхейм": "#88b4e8", "муспельхейм": "#ef6b4a", "чудовища": "#d0455a",
+  "нифльхейм": "#88b4e8", "муспельхейм": "var(--red)", "чудовища": "#d0455a",
 };
 const KIND_LIST = Object.keys(KINDS);
 
@@ -54,7 +57,7 @@ const initialLegend = [
   { id: "feud", label: "Вражда", color: "#d0455a", directed: false },
   { id: "kin", label: "Родство", color: "#b5793f", directed: false },
   { id: "love", label: "Любовь / узы", color: "#e58fb0", directed: false },
-  { id: "oath", label: "Долг / клятва", color: "#e6c34d", directed: false },
+  { id: "oath", label: "Долг / клятва", color: "var(--bronze)", directed: false },
   { id: "mentor", label: "Наставник →", color: "#9b6fe0", directed: true },
   { id: "secret", label: "Тайна", color: "#d946ef", directed: false },
 ];
@@ -180,6 +183,45 @@ const FONT_UI = "system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
 const trunc = (s, n) => (s && s.length > n ? s.slice(0, n - 1) + "…" : s || "");
 
 /* ============================ Компонент ============================ */
+/* ============================ Облако ============================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCSb7M5IbOql61HIqOUxe3ct4VqdjkhLyE",
+  authDomain: "ragnarau-80866.firebaseapp.com",
+  projectId: "ragnarau-80866",
+  storageBucket: "ragnarau-80866.firebasestorage.app",
+  messagingSenderId: "727752765165",
+  appId: "1:727752765165:web:8c625b7675f022a1b026e4"
+};
+const HAS_FB = !!(window.firebase && firebaseConfig.apiKey);
+let db = null, auth = null;
+if (HAS_FB) {
+  try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); auth = firebase.auth(); }
+  catch (e) { console.error("Firebase init:", e); }
+}
+const BOARD_ID = "characters";
+const _qs = new URLSearchParams(location.search);
+const ROLE = _qs.get("role") === "gm" ? "gm" : "player";
+function readCampaign() {
+  const u = (_qs.get("c") || _qs.get("campaign") || "").trim();
+  if (u) { try { localStorage.setItem("ragnarok-board-campaign", u); } catch (e) {} return u; }
+  try { const cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null"); if (cur && cur.campaign) return cur.campaign; } catch (e) {}
+  try { return localStorage.getItem("ragnarok-board-campaign") || ""; } catch (e) { return ""; }
+}
+function CloudChip({ status, campaign, onBind }) {
+  const base = { fontSize: 11.5, letterSpacing: ".04em", borderRadius: 999, padding: "5px 11px", border: "1px solid var(--line)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 };
+  if (!HAS_FB) return <span style={{ ...base, color: "var(--faint)" }}>локально</span>;
+  if (!campaign) return <button onClick={onBind} style={{ ...base, color: "var(--bronze)", borderColor: "var(--line-warm)", cursor: "pointer", background: "none" }}>привязать кампанию</button>;
+  const map = {
+    loading: { t: "загрузка…", c: "var(--muted)" },
+    cloud:   { t: "облако · " + campaign, c: "var(--steel)" },
+    saving:  { t: "сохранение…", c: "var(--muted)" },
+    saved:   { t: "сохранено ✓", c: "var(--steel)" },
+    error:   { t: "нет связи", c: "var(--red)" },
+  };
+  const s = map[status] || map.cloud;
+  return <button onClick={onBind} title="сменить код кампании" style={{ ...base, color: s.c, cursor: "pointer", background: "none" }}>{s.t}</button>;
+}
+
 function Characters() {
   const [nodes, setNodes] = useState(initialNodes);
   const [edges, setEdges] = useState(initialEdges);
@@ -196,6 +238,61 @@ function Characters() {
   const [query, setQuery] = useState("");
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [kindFilter, setKindFilter] = useState(() => new Set());
+
+  // --- облако ---
+  const [campaign, setCampaign] = useState(readCampaign);
+  const [status, setStatus] = useState(HAS_FB && readCampaign() ? "loading" : "local");
+  const [playerTags, setPlayerTags] = useState({});   // id персонажа → [теги игроков] (отдельное поле)
+  const _skip = useRef(true);
+  const _skipPT = useRef(true);
+  const _ready = useRef(false);
+  const hydrate = (d) => {
+    _skip.current = true; _skipPT.current = true;
+    if (Array.isArray(d.nodes)) setNodes(d.nodes);
+    if (Array.isArray(d.edges)) setEdges(d.edges);
+    if (Array.isArray(d.legend)) setLegend(d.legend);
+    if (d.playerTags && typeof d.playerTags === "object") setPlayerTags(d.playerTags);
+  };
+  useEffect(() => {
+    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); return; }
+    let unsub = null, alive = true; setStatus("loading");
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) { console.error("auth:", e); }
+      const ref = db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID);
+      try {
+        const snap = await ref.get();
+        if (alive && snap.exists) hydrate(snap.data());
+        else if (ROLE === "gm") { try { await ref.set({ nodes, edges, legend, updatedAt: Date.now() }); } catch (e) { console.error("seed:", e); } }
+      } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
+      _ready.current = true; if (alive) setStatus("cloud");
+      unsub = ref.onSnapshot((snap) => { if (!snap.exists || snap.metadata.hasPendingWrites) return; hydrate(snap.data()); }, (e) => console.error("snapshot:", e));
+    })();
+    return () => { alive = false; if (unsub) unsub(); };
+  }, [campaign]);
+  useEffect(() => {
+    if (!HAS_FB || !campaign || ROLE !== "gm") return;
+    if (!_ready.current) return;
+    if (_skip.current) { _skip.current = false; return; }
+    setStatus("saving");
+    const t = setTimeout(async () => {
+      try { await db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID).set({ nodes, edges, legend, updatedAt: Date.now() }, { merge: true }); setStatus("saved"); setTimeout(() => setStatus("cloud"), 1200); }
+      catch (e) { console.error("save:", e); setStatus("error"); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [nodes, edges, legend, campaign]);
+  useEffect(() => {
+    if (!HAS_FB || !campaign) return;
+    if (!_ready.current) return;
+    if (_skipPT.current) { _skipPT.current = false; return; }
+    const t = setTimeout(async () => {
+      try { await db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID).set({ playerTags, updatedAt: Date.now() }, { merge: true }); }
+      catch (e) { console.error("save playerTags:", e); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [playerTags, campaign]);
+  const addPlayerTag = (cid, t) => { const tag = (t || "").trim(); if (!tag) return; setPlayerTags((pt) => ({ ...pt, [cid]: [...(pt[cid] || []), tag] })); };
+  const delPlayerTag = (cid, i) => setPlayerTags((pt) => ({ ...pt, [cid]: (pt[cid] || []).filter((_, k) => k !== i) }));
+  const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} _ready.current = false; _skip.current = true; _skipPT.current = true; setCampaign(c); } };
   const toggleKind = (k) => setKindFilter((st) => { const m = new Set(st); m.has(k) ? m.delete(k) : m.add(k); return m; });
 
   const legendMap = useMemo(() => Object.fromEntries(legend.map((l) => [l.id, l])), [legend]);
@@ -256,36 +353,37 @@ function Characters() {
   const results = q ? nodes.filter((n) => (gm || n.vis) && n.name.toLowerCase().includes(q)).slice(0, 8) : [];
 
   return (
-    <div style={{ fontFamily: FONT_UI, background: INK, color: "#e8edf5", minHeight: "100%" }} className="w-full">
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
       <style>{`
         @keyframes cSlide { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
         .c-slide{ animation:cSlide .3s ease-out both; }
         .c-node{ cursor:${gm ? "grab" : "pointer"}; }
         @media (prefers-reduced-motion: reduce){ .c-slide{animation:none} }
-        .c-input{ background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:8px; color:#e8edf5; padding:6px 10px; outline:none; font-size:13px; }
+        .c-input{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:6px 10px; outline:none; font-size:13px; }
         .c-input:focus{ border-color:${GOLD}; }
-        .c-btn{ border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.04); color:#e8edf5; }
-        .c-btn:hover{ background:rgba(255,255,255,.1); }
+        .c-btn{ border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); }
+        .c-btn:hover{ background:var(--surf2); }
       `}</style>
 
-      <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+      <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>
         <div>
           <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD }}>Персонажи</div>
-          <div style={{ fontSize: 12, color: "#8b95a7" }}>{nodes.length} лиц · связи и расстановка</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>{nodes.length} лиц · связи и расстановка</div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,.14)" }}>
+          <CloudChip status={status} campaign={campaign} onBind={bind} />
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
             {[["links", "Связи", Network], ["grid", "Сетка", Crosshair]].map(([v, label, Ic]) => {
               const active = mode === v;
               return <button key={v} onClick={() => { setMode(v); setSelEdge(null); cancelLink(); }} className="flex items-center gap-1"
-                style={{ background: active ? "#2a3350" : "transparent", color: active ? "#fff" : "#cdd5e2", padding: "6px 12px", fontSize: 13, fontWeight: 600 }}><Ic size={13} /> {label}</button>;
+                style={{ background: active ? "var(--choice-on)" : "transparent", color: active ? "var(--steel)" : "var(--ink)", padding: "6px 12px", fontSize: 13, fontWeight: 600 }}><Ic size={13} /> {label}</button>;
             })}
           </div>
-          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,.14)" }}>
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
             {[["gm", "Ведущая"], ["player", "Игрок"]].map(([v, label]) => {
               const active = (gm ? "gm" : "player") === v;
               return <button key={v} onClick={() => { setGm(v === "gm"); setSelEdge(null); cancelLink(); }}
-                style={{ background: active ? GOLD : "transparent", color: active ? INK : "#cdd5e2", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
+                style={{ background: active ? GOLD : "transparent", color: active ? INK : "var(--ink)", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
             })}
           </div>
           {gm && (
@@ -301,20 +399,20 @@ function Characters() {
       <div className="relative">
         {/* поиск */}
         <div className="absolute" style={{ top: 12, right: 16, zIndex: 6, width: "min(260px, 70%)" }}>
-          <div className="flex items-center gap-2" style={{ background: "rgba(10,14,26,.92)", border: "1px solid rgba(255,255,255,.16)", borderRadius: 10, padding: "5px 10px" }}>
-            <Search size={14} style={{ color: "#8b95a7", flexShrink: 0 }} />
+          <div className="flex items-center gap-2" style={{ background: "rgba(10,14,26,.92)", border: "1px solid var(--surf2)", borderRadius: 10, padding: "5px 10px" }}>
+            <Search size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="поиск персонажа…"
-              style={{ flex: 1, background: "none", border: "none", outline: "none", color: "#e8edf5", fontSize: 13 }} />
-            {query && <button onClick={() => setQuery("")} style={{ background: "none", border: "none", color: "#8b95a7", cursor: "pointer" }}><X size={14} /></button>}
+              style={{ flex: 1, background: "none", border: "none", outline: "none", color: "var(--ink)", fontSize: 13 }} />
+            {query && <button onClick={() => setQuery("")} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={14} /></button>}
           </div>
           {results.length > 0 && (
-            <div style={{ marginTop: 4, background: "rgba(10,14,26,.96)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ marginTop: 4, background: "rgba(10,14,26,.96)", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
               {results.map((n) => (
                 <button key={n.id} onClick={() => focusNode(n.id)} className="flex items-center gap-2"
-                  style={{ width: "100%", textAlign: "left", padding: "6px 10px", background: "none", border: "none", borderBottom: "1px solid rgba(255,255,255,.06)", color: "#e8edf5", cursor: "pointer", fontSize: 13 }}>
+                  style={{ width: "100%", textAlign: "left", padding: "6px 10px", background: "none", border: "none", borderBottom: "1px solid var(--line-soft)", color: "var(--ink)", cursor: "pointer", fontSize: 13 }}>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: KINDS[n.kind] || "#888", flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>{n.name}</span>
-                  <span style={{ fontSize: 11, color: "#8b95a7" }}>{n.kind}</span>
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>{n.kind}</span>
                 </button>
               ))}
             </div>
@@ -322,8 +420,8 @@ function Characters() {
         </div>
 
         {/* фильтр по виду */}
-        <div className="absolute" style={{ left: 16, bottom: 16, zIndex: 6, background: "rgba(10,14,26,.88)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 12, padding: 10, maxWidth: "min(380px, 80%)" }}>
-          <div className="flex items-center justify-between mb-1.5" style={{ fontSize: 10.5, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px" }}>
+        <div className="absolute" style={{ left: 16, bottom: 16, zIndex: 6, background: "rgba(10,14,26,.88)", border: "1px solid var(--line)", borderRadius: 12, padding: 10, maxWidth: "min(380px, 80%)" }}>
+          <div className="flex items-center justify-between mb-1.5" style={{ fontSize: 10.5, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px" }}>
             <span>Фильтр по виду</span>
             {kindFilter.size > 0 && <button onClick={() => setKindFilter(new Set())} style={{ background: "none", border: "none", color: GOLD, cursor: "pointer", fontSize: 11 }}>сбросить</button>}
           </div>
@@ -334,8 +432,8 @@ function Characters() {
               return (
                 <button key={k} onClick={() => toggleKind(k)} className="flex items-center gap-1"
                   style={{ fontSize: 11.5, padding: "2px 8px", borderRadius: 14, cursor: "pointer",
-                    border: on ? `1px solid ${KINDS[k]}` : "1px solid rgba(255,255,255,.14)",
-                    background: on ? `${KINDS[k]}26` : "transparent", color: active ? "#e8edf5" : "#5a6473", opacity: active ? 1 : 0.55 }}>
+                    border: on ? `1px solid ${KINDS[k]}` : "1px solid var(--line)",
+                    background: on ? `${KINDS[k]}26` : "transparent", color: active ? "var(--ink)" : "var(--faint)", opacity: active ? 1 : 0.55 }}>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: KINDS[k], display: "inline-block" }} />{k}
                 </button>
               );
@@ -359,7 +457,8 @@ function Characters() {
 
       {current && (
         <NodeDrawer node={current} gm={gm} edges={edges} nodeMap={nodeMap} legendMap={legendMap}
-          onClose={() => setSelected(null)} patchNode={patchNode} delNode={delNode} toggleEdgeVis={toggleEdgeVis} delEdge={delEdge} />
+          onClose={() => setSelected(null)} patchNode={patchNode} delNode={delNode} toggleEdgeVis={toggleEdgeVis} delEdge={delEdge}
+          ptags={(playerTags && playerTags[current.id]) || []} addPlayerTag={addPlayerTag} delPlayerTag={delPlayerTag} />
       )}
 
       {showData && <DataModal nodes={nodes} edges={edges} legend={legend} onClose={() => setShowData(false)}
@@ -407,7 +506,7 @@ function MapView(props) {
   return (
     <div className="relative">
       <svg ref={svgRef} viewBox={`0 0 ${VBW} ${VBH}`} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp} onWheel={onWheel}
-        style={{ width: "100%", display: "block", background: "radial-gradient(120% 90% at 50% 30%, #121a30 0%, #0a0e1a 72%)", touchAction: "none" }}>
+        style={{ width: "100%", display: "block", background: "radial-gradient(120% 90% at 50% 30%, var(--surf) 0%, var(--bg) 72%)", touchAction: "none" }}>
         <rect x="0" y="0" width={VBW} height={VBH} fill="transparent" onPointerDown={onBgDown} />
         <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
           {shownEdges.map((e) => {
@@ -432,10 +531,10 @@ function MapView(props) {
               <g key={n.id} className="c-node" onPointerDown={(e) => onNodeDown(e, n.id)} style={{ opacity: dim ? 0.4 : (q && !hit ? 0.3 : 1) }}>
                 {hit && <circle cx={n.x} cy={n.y} r={R + 9} fill="none" stroke="#fff" strokeWidth="2" opacity="0.8" />}
                 {(armed || here) && <circle cx={n.x} cy={n.y} r={R + 6} fill="none" stroke={GOLD} strokeWidth="2" strokeDasharray={armed ? "4 4" : undefined} />}
-                <circle cx={n.x} cy={n.y} r={R} fill={col} stroke="#0a0e1a" strokeWidth="2.5" />
-                <circle cx={n.x} cy={n.y} r={R} fill="none" stroke="rgba(255,255,255,.3)" strokeWidth="1" />
-                {dim && <g><circle cx={n.x + R - 3} cy={n.y - R + 3} r="7" fill="#0a0e1a" /><text x={n.x + R - 3} y={n.y - R + 6} textAnchor="middle" style={{ fontSize: 9, fill: "#8b95a7" }}>✕</text></g>}
-                <text x={n.x} y={n.y + R + 13} textAnchor="middle" style={{ fontFamily: FONT_DISPLAY, fontSize: 13, fill: "#f1f4fa" }}>{n.name}</text>
+                <circle cx={n.x} cy={n.y} r={R} fill={col} stroke="var(--bg)" strokeWidth="2.5" />
+                <circle cx={n.x} cy={n.y} r={R} fill="none" stroke="var(--line)" strokeWidth="1" />
+                {dim && <g><circle cx={n.x + R - 3} cy={n.y - R + 3} r="7" fill="var(--bg)" /><text x={n.x + R - 3} y={n.y - R + 6} textAnchor="middle" style={{ fontSize: 9, fill: "var(--muted)" }}>✕</text></g>}
+                <text x={n.x} y={n.y + R + 13} textAnchor="middle" style={{ fontFamily: FONT_DISPLAY, fontSize: 13, fill: "var(--ink)" }}>{n.name}</text>
               </g>
             );
           })}
@@ -455,27 +554,27 @@ function MapView(props) {
       )}
 
       {gm && !linking && sel && (
-        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: "1px solid rgba(255,255,255,.16)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", width: "min(360px, 92%)" }}>
+        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", width: "min(360px, 92%)" }}>
           <div className="flex items-center justify-between mb-2">
             <div style={{ fontSize: 13, color: GOLD }}>{nodeMap[sel.from]?.name} → {nodeMap[sel.to]?.name}</div>
-            <button onClick={() => setSelEdge(null)} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer" }}><X size={16} /></button>
+            <button onClick={() => setSelEdge(null)} style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer" }}><X size={16} /></button>
           </div>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {legend.map((t) => (
               <button key={t.id} onClick={() => setEdgeType(sel.id, t.id)} className="flex items-center gap-1"
-                style={{ fontSize: 12, padding: "3px 8px", borderRadius: 16, cursor: "pointer", border: sel.type === t.id ? `1px solid ${t.color}` : "1px solid rgba(255,255,255,.14)", background: sel.type === t.id ? `${t.color}26` : "transparent", color: "#e8edf5" }}>
+                style={{ fontSize: 12, padding: "3px 8px", borderRadius: 16, cursor: "pointer", border: sel.type === t.id ? `1px solid ${t.color}` : "1px solid var(--line)", background: sel.type === t.id ? `${t.color}26` : "transparent", color: "var(--ink)" }}>
                 <span style={{ width: 12, height: 3, borderRadius: 2, background: t.color, display: "inline-block" }} /> {t.label}
               </button>
             ))}
           </div>
           <div className="flex items-center gap-2">
             <button className="c-btn flex items-center gap-1" onClick={() => toggleEdgeVis(sel.id)}>{sel.vis ? <><Eye size={14} /> Видна игрокам</> : <><EyeOff size={14} /> Скрыта</>}</button>
-            <button className="c-btn flex items-center gap-1" onClick={() => delEdge(sel.id)} style={{ color: "#ef6b4a" }}><Trash2 size={14} /> Убрать</button>
+            <button className="c-btn flex items-center gap-1" onClick={() => delEdge(sel.id)} style={{ color: "var(--red)" }}><Trash2 size={14} /> Убрать</button>
           </div>
         </div>
       )}
 
-      <div className="absolute right-4 bottom-4" style={{ background: "rgba(10,14,26,.84)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: 11, backdropFilter: "blur(6px)", maxWidth: 320 }}>
+      <div className="absolute right-4 bottom-4" style={{ background: "rgba(10,14,26,.84)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 11, backdropFilter: "blur(6px)", maxWidth: 320 }}>
         <div className="flex items-center gap-2 mb-1" style={{ color: GOLD, fontSize: 10.5, letterSpacing: ".5px", textTransform: "uppercase" }}>
           <Palette size={11} /> Связи
         </div>
@@ -485,11 +584,11 @@ function MapView(props) {
               <span key={l.id} className="flex items-center gap-1">
                 <input type="color" value={l.color} onChange={(e) => onLegend(l.id, { color: e.target.value })} style={{ width: 16, height: 16, border: "none", background: "none", padding: 0, cursor: "pointer" }} />
                 <input className="c-input" style={{ width: 78, padding: "1px 5px", fontSize: 11 }} value={l.label} onChange={(e) => onLegend(l.id, { label: e.target.value })} />
-                <button onClick={() => onLegend(l.id, { directed: !l.directed })} title="Стрелка" style={{ background: "none", border: "none", cursor: "pointer", color: l.directed ? GOLD : "#5a6473", fontSize: 13 }}>→</button>
-                <button onClick={() => delLegend(l.id)} style={{ color: "#8b95a7", background: "none", border: "none", cursor: "pointer" }}><X size={12} /></button>
+                <button onClick={() => onLegend(l.id, { directed: !l.directed })} title="Стрелка" style={{ background: "none", border: "none", cursor: "pointer", color: l.directed ? GOLD : "var(--faint)", fontSize: 13 }}>→</button>
+                <button onClick={() => delLegend(l.id)} style={{ color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}><X size={12} /></button>
               </span>
             ) : (
-              <span key={l.id} className="flex items-center gap-1"><span style={{ width: 14, height: 4, borderRadius: 2, background: l.color, display: "inline-block" }} /><span style={{ fontSize: 11, color: "#cdd5e2" }}>{l.label}</span></span>
+              <span key={l.id} className="flex items-center gap-1"><span style={{ width: 14, height: 4, borderRadius: 2, background: l.color, display: "inline-block" }} /><span style={{ fontSize: 11, color: "var(--ink)" }}>{l.label}</span></span>
             )
           ))}
           {gm && <button className="c-btn flex items-center gap-1" style={{ padding: "2px 8px" }} onClick={addLegend}><Plus size={11} /></button>}
@@ -516,11 +615,11 @@ function GridView({ nodes, gm, selected, q, kindFilter, patchNode, onSelect }) {
   return (
     <div className="relative">
       <svg ref={svgRef} viewBox={`0 0 ${VBW} ${VBH}`} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
-        style={{ width: "100%", display: "block", background: "radial-gradient(120% 90% at 50% 40%, #121a30 0%, #0a0e1a 72%)", touchAction: "none" }}>
+        style={{ width: "100%", display: "block", background: "radial-gradient(120% 90% at 50% 40%, var(--surf) 0%, var(--bg) 72%)", touchAction: "none" }}>
         {/* оси */}
-        <line x1={cx - hw} y1={cy} x2={cx + hw} y2={cy} stroke="rgba(255,255,255,.18)" strokeWidth="1.5" />
-        <line x1={cx} y1={cy - hh} x2={cx} y2={cy + hh} stroke="rgba(255,255,255,.18)" strokeWidth="1.5" />
-        <rect x={cx - hw} y={cy - hh} width={hw * 2} height={hh * 2} fill="none" stroke="rgba(255,255,255,.08)" />
+        <line x1={cx - hw} y1={cy} x2={cx + hw} y2={cy} stroke="var(--line)" strokeWidth="1.5" />
+        <line x1={cx} y1={cy - hh} x2={cx} y2={cy + hh} stroke="var(--line)" strokeWidth="1.5" />
+        <rect x={cx - hw} y={cy - hh} width={hw * 2} height={hh * 2} fill="none" stroke="var(--line-soft)" />
         <text x={cx} y={cy - hh - 12} textAnchor="middle" style={{ fontSize: 13, fill: "#d0455a", letterSpacing: ".5px" }}>ЗА РАГНАРЁК</text>
         <text x={cx} y={cy + hh + 22} textAnchor="middle" style={{ fontSize: 13, fill: "#6bbf59", letterSpacing: ".5px" }}>ПРОТИВ</text>
         <text x={cx - hw - 8} y={cy - 6} textAnchor="end" style={{ fontSize: 13, fill: "#ef8b3a", letterSpacing: ".5px" }}>ХАОС</text>
@@ -535,13 +634,13 @@ function GridView({ nodes, gm, selected, q, kindFilter, patchNode, onSelect }) {
             <g key={n.id} className="c-node" onPointerDown={(e) => onDown(e, n.id)} style={{ opacity: dim ? 0.4 : (q && !hit ? 0.3 : 1) }}>
               {hit && <circle cx={px(n.ax)} cy={py(n.ay)} r="15" fill="none" stroke="#fff" strokeWidth="2" />}
               {here && <circle cx={px(n.ax)} cy={py(n.ay)} r="13" fill="none" stroke={GOLD} strokeWidth="2" />}
-              <circle cx={px(n.ax)} cy={py(n.ay)} r="7" fill={col} stroke="#0a0e1a" strokeWidth="1.5" />
-              <text x={px(n.ax)} y={py(n.ay) - 11} textAnchor="middle" style={{ fontSize: 11, fill: "#cdd5e2" }}>{n.name}</text>
+              <circle cx={px(n.ax)} cy={py(n.ay)} r="7" fill={col} stroke="var(--bg)" strokeWidth="1.5" />
+              <text x={px(n.ax)} y={py(n.ay) - 11} textAnchor="middle" style={{ fontSize: 11, fill: "var(--ink)" }}>{n.name}</text>
             </g>
           );
         })}
       </svg>
-      <div className="absolute right-4 bottom-4" style={{ fontSize: 12, color: "#8b95a7", maxWidth: 230, textAlign: "right" }}>
+      <div className="absolute right-4 bottom-4" style={{ fontSize: 12, color: "var(--muted)", maxWidth: 230, textAlign: "right" }}>
         Только расстановка, без связей. {gm ? "Тащи точку — задать координаты. Клик — карточка." : "Клик — карточка."}
       </div>
     </div>
@@ -549,12 +648,13 @@ function GridView({ nodes, gm, selected, q, kindFilter, patchNode, onSelect }) {
 }
 
 /* ============================ Сайдбар персонажа ============================ */
-function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, delNode, toggleEdgeVis, delEdge }) {
+function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, delNode, toggleEdgeVis, delEdge, ptags, addPlayerTag, delPlayerTag }) {
+  const [tagInput, setTagInput] = useState("");
   const col = KINDS[node.kind] || "#9aa0aa";
   const rels = edges.filter((e) => (e.from === node.id || e.to === node.id) && (gm || e.vis));
   return (
     <div className="c-slide" style={{ position: "fixed", top: 64, right: 0, bottom: 0, width: "min(360px, 92vw)", zIndex: 30,
-      background: `linear-gradient(180deg, ${col}1f 0%, #0c1120 22%, #0a0e1a 100%)`, borderLeft: "1px solid rgba(255,255,255,.12)",
+      background: `linear-gradient(180deg, ${col}1f 0%, var(--surf) 22%, var(--bg) 100%)`, borderLeft: "1px solid var(--line)",
       boxShadow: "-18px 0 40px rgba(0,0,0,.45)", overflowY: "auto", padding: 16 }}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-3" style={{ flex: 1 }}>
@@ -576,26 +676,26 @@ function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, d
           </button>
         </div>
       ) : (
-        <span style={{ display: "inline-block", marginBottom: 12, fontSize: 11, color: "#0a0e1a", background: col, borderRadius: 12, padding: "2px 10px" }}>{node.kind}</span>
+        <span style={{ display: "inline-block", marginBottom: 12, fontSize: 11, color: "var(--bg)", background: col, borderRadius: 12, padding: "2px 10px" }}>{node.kind}</span>
       )}
 
-      <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>Кто это</div>
+      <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>Кто это</div>
       {gm ? (
         <textarea className="c-input" value={node.role} onChange={(e) => patchNode(node.id, { role: e.target.value })} placeholder="кто, откуда, чем известен" style={{ width: "100%", height: 56, resize: "vertical", marginBottom: 14 }} />
-      ) : <div style={{ fontSize: 14, marginBottom: 14, color: "#cdd5e2", lineHeight: 1.4 }}>{node.role || "—"}</div>}
+      ) : <div style={{ fontSize: 14, marginBottom: 14, color: "var(--ink)", lineHeight: 1.4 }}>{node.role || "—"}</div>}
 
       {/* координаты */}
       {gm && (
         <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>Координаты</div>
-          <div style={{ fontSize: 11, color: "#8b95a7", marginBottom: 2 }}>Хаос ↔ Порядок: <span style={{ color: "#cdd5e2" }}>{(node.ax || 0).toFixed(2)}</span></div>
+          <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>Координаты</div>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>Хаос ↔ Порядок: <span style={{ color: "var(--ink)" }}>{(node.ax || 0).toFixed(2)}</span></div>
           <input type="range" min="-100" max="100" value={(node.ax || 0) * 100} onChange={(e) => patchNode(node.id, { ax: +(e.target.value / 100).toFixed(2) })} style={{ width: "100%" }} />
-          <div style={{ fontSize: 11, color: "#8b95a7", marginTop: 4, marginBottom: 2 }}>Против ↔ За Рагнарёк: <span style={{ color: "#cdd5e2" }}>{(node.ay || 0).toFixed(2)}</span></div>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, marginBottom: 2 }}>Против ↔ За Рагнарёк: <span style={{ color: "var(--ink)" }}>{(node.ay || 0).toFixed(2)}</span></div>
           <input type="range" min="-100" max="100" value={(node.ay || 0) * 100} onChange={(e) => patchNode(node.id, { ay: +(e.target.value / 100).toFixed(2) })} style={{ width: "100%" }} />
         </div>
       )}
 
-      <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>Связи ({rels.length})</div>
+      <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>Связи ({rels.length})</div>
       <div className="grid gap-2" style={{ gridTemplateColumns: "1fr", marginBottom: 14 }}>
         {rels.map((e) => {
           const lt = legendMap[e.type] || {};
@@ -603,26 +703,43 @@ function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, d
           const other = nodeMap[outgoing ? e.to : e.from];
           const dirMark = lt.directed ? (outgoing ? "→" : "←") : "·";
           return (
-            <div key={e.id} className="flex items-center gap-2" style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: "6px 10px", opacity: gm && !e.vis ? 0.55 : 1 }}>
+            <div key={e.id} className="flex items-center gap-2" style={{ background: "var(--surf)", border: "1px solid var(--surf2)", borderRadius: 10, padding: "6px 10px", opacity: gm && !e.vis ? 0.55 : 1 }}>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: lt.color || "#888", flexShrink: 0 }} />
-              <div style={{ flex: 1, fontSize: 13 }}><span style={{ color: "#9aa7b8" }}>{lt.label || e.type}</span> <span style={{ color: "#cdd5e2" }}>{dirMark} {other?.name || "?"}</span></div>
+              <div style={{ flex: 1, fontSize: 13 }}><span style={{ color: "var(--muted)" }}>{lt.label || e.type}</span> <span style={{ color: "var(--ink)" }}>{dirMark} {other?.name || "?"}</span></div>
               {gm && (
                 <>
-                  <button onClick={() => toggleEdgeVis(e.id)} title={e.vis ? "Видна" : "Скрыта"} style={{ background: "none", border: "none", cursor: "pointer", color: e.vis ? "#6bbf59" : "#8b95a7" }}>{e.vis ? <Eye size={15} /> : <EyeOff size={15} />}</button>
-                  <button onClick={() => delEdge(e.id)} title="Убрать" style={{ background: "none", border: "none", cursor: "pointer", color: "#8b95a7" }}><Trash2 size={14} /></button>
+                  <button onClick={() => toggleEdgeVis(e.id)} title={e.vis ? "Видна" : "Скрыта"} style={{ background: "none", border: "none", cursor: "pointer", color: e.vis ? "#6bbf59" : "var(--muted)" }}>{e.vis ? <Eye size={15} /> : <EyeOff size={15} />}</button>
+                  <button onClick={() => delEdge(e.id)} title="Убрать" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}><Trash2 size={14} /></button>
                 </>
               )}
             </div>
           );
         })}
-        {rels.length === 0 && <div style={{ fontSize: 13, color: "#8b95a7" }}>пока ни с кем не связан</div>}
+        {rels.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>пока ни с кем не связан</div>}
+      </div>
+
+      <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>Теги игроков</div>
+      <div className="flex flex-wrap gap-1.5" style={{ marginBottom: 8 }}>
+        {(ptags || []).map((t, i) => (
+          <span key={i} className="flex items-center gap-1" title="тег игрока"
+            style={{ fontSize: 11, background: "var(--surf2)", border: "1px dashed var(--steel-soft)", color: "var(--steel)", borderRadius: 20, padding: "2px 9px" }}>
+            {t}
+            <button onClick={() => delPlayerTag(node.id, i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--steel)", lineHeight: 1 }}><X size={11} /></button>
+          </span>
+        ))}
+        {(ptags || []).length === 0 && <span style={{ fontSize: 11, color: "var(--muted)" }}>пока нет тегов</span>}
+      </div>
+      <div className="flex gap-1.5" style={{ marginBottom: 14 }}>
+        <input className="c-input" style={{ flex: 1, fontSize: 12, padding: "4px 8px" }} placeholder={gm ? "+ тег" : "+ свой тег"}
+          value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { addPlayerTag(node.id, tagInput); setTagInput(""); } }} />
+        <button className="c-btn" style={{ padding: "4px 10px" }} onClick={() => { addPlayerTag(node.id, tagInput); setTagInput(""); }}><Plus size={13} /></button>
       </div>
 
       {gm && (
         <>
-          <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>Заметки ведущей</div>
+          <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>Заметки ведущей</div>
           <textarea className="c-input" value={node.notes} onChange={(e) => patchNode(node.id, { notes: e.target.value })} placeholder="тайны, наследие, зацепки…" style={{ width: "100%", height: 60, resize: "vertical", marginBottom: 14 }} />
-          <button className="c-btn flex items-center gap-1" onClick={() => delNode(node.id)} style={{ color: "#ef6b4a" }}><Trash2 size={14} /> Удалить персонажа</button>
+          <button className="c-btn flex items-center gap-1" onClick={() => delNode(node.id)} style={{ color: "var(--red)" }}><Trash2 size={14} /> Удалить персонажа</button>
         </>
       )}
     </div>
@@ -636,15 +753,15 @@ function DataModal({ nodes, edges, legend, onClose, onApply }) {
   const apply = () => { try { const d = JSON.parse(text); if (!d.nodes || !d.edges || !d.legend) throw new Error("нужны поля nodes, edges, legend"); setErr(""); onApply(d); } catch (e) { setErr("Не разобрал JSON: " + e.message); } };
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 50 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#11162a", border: "1px solid rgba(255,255,255,.14)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
         <div className="flex items-center justify-between mb-3">
           <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Данные персонажей</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer" }}><X size={18} /></button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer" }}><X size={18} /></button>
         </div>
-        <div style={{ fontSize: 12, color: "#8b95a7", marginBottom: 8 }}>Скопируй, чтобы сохранить. Вставь свой JSON и нажми «Применить».</div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>Скопируй, чтобы сохранить. Вставь свой JSON и нажми «Применить».</div>
         <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
-          style={{ width: "100%", height: 280, background: "#0a0e1a", color: "#cdd5e2", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: 12, fontFamily: "ui-monospace,monospace", fontSize: 12 }} />
-        {err && <div style={{ color: "#ef6b4a", fontSize: 12, marginTop: 6 }}>{err}</div>}
+          style={{ width: "100%", height: 280, background: "var(--bg)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, fontFamily: "ui-monospace,monospace", fontSize: 12 }} />
+        {err && <div style={{ color: "var(--red)", fontSize: 12, marginTop: 6 }}>{err}</div>}
         <div className="flex justify-end gap-2 mt-3">
           <button className="c-btn" onClick={onClose}>Закрыть</button>
           <button onClick={apply} style={{ background: GOLD, color: INK, border: "none", borderRadius: 8, padding: "6px 16px", fontWeight: 600, cursor: "pointer" }}>Применить</button>

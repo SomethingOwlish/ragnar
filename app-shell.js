@@ -55,19 +55,33 @@
     tree:   { label: "Древо судеб",       rune: "ᛏ", href: "divine-tree.html" },
     worlds: { label: "Девять миров",      rune: "ᛃ" },
     chars:  { label: "Граф богов",        rune: "ᚷ" },
+    runes:  { label: "Руны",              rune: "ᚠ" },
+    chrono: { label: "Хронология",        rune: "ᛞ" },
   };
 
   var NAV = {
-    player: ["portal", "sheet", "tree", "worlds", "chars"],
-    gm:     ["portal", "panel", "tree", "worlds", "chars"],
+    player: ["portal", "sheet", "tree", "worlds", "chars", "runes", "chrono"],
+    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono"],
     portal: [],
   };
 
+  function campaignParam() {
+    try {
+      var cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null");
+      if (cur && cur.campaign) return "&c=" + encodeURIComponent(cur.campaign);
+      var c = localStorage.getItem("ragnarok-board-campaign") || localStorage.getItem("ragnarok-campaign");
+      if (c) return "&c=" + encodeURIComponent(c);
+    } catch (e) {}
+    return "";
+  }
   function hrefFor(key, role) {
     var it = ITEMS[key];
-    if (key === "tree")   return "divine-tree.html?role=" + role;
-    if (key === "worlds") return "nine-worlds.html?role=" + role;
-    if (key === "chars")  return "characters.html?role=" + role;
+    var cp = campaignParam();
+    if (key === "tree")   return "divine-tree.html?role=" + role + cp;
+    if (key === "worlds") return "nine-worlds.html?role=" + role + cp;
+    if (key === "chars")  return "characters.html?role=" + role + cp;
+    if (key === "runes")  return "runes.html?role=" + role + cp;
+    if (key === "chrono") return "chronology.html?role=" + role + cp;
     return it.href;
   }
 
@@ -93,7 +107,7 @@
     var keys = (NAV[role] || []).filter(function (k) {
       if (ITEMS[k].gm && role !== "gm") return false;                 // gm-пункты только ведущей
       // у игрока вкладки (кроме портала и своей карты) показываем только после входа в карту
-      if (role === "player" && (k === "tree" || k === "worlds" || k === "chars") && !isPlayerAuthed()) return false;
+      if (role === "player" && (k === "tree" || k === "worlds" || k === "chars" || k === "runes" || k === "chrono") && !isPlayerAuthed()) return false;
       return true;
     });
     if (keys.length) {

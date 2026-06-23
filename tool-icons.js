@@ -21,6 +21,11 @@
     RotateCcw: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
     Send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
     Lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    ChevronLeft: '<path d="m15 18-6-6 6-6"/>',
+    ChevronRight: '<path d="m9 18 6-6-6-6"/>',
+    ChevronDown: '<path d="m6 9 6 6 6-6"/>',
+    ChevronUp: '<path d="m18 15-6-6-6 6"/>',
+    Users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   };
   function make(name) {
     return function (props) {

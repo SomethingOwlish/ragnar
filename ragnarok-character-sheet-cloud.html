@@ -167,6 +167,7 @@ button{font-family:inherit; cursor:pointer;}
 .wiz-dot.done{background:var(--steel-soft);}
 .wiz-h{font-family:var(--disp); font-weight:600; font-size:23px; margin:0;}
 .wiz-sub{color:var(--muted); font-size:13px; margin:6px 0 16px; line-height:1.55;}
+.wiz-return{display:block; font-size:12.5px; font-weight:600; color:var(--steel); background:var(--surf2); border:1px solid var(--steel-soft); border-radius:9px; padding:8px 12px; margin:2px 0 12px; line-height:1.45;}
 .wiz-budget{display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600; padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:var(--surf2); margin-bottom:14px;}
 .wiz-budget.over{color:var(--red); border-color:var(--red);}
 .wiz-budget.ok{color:var(--steel);}
@@ -793,13 +794,20 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
 
   const hindNames = (arr) => arr.map((x) => x.n + (x.s === "major" ? " (большой)" : " (малый)"));
   const conflictWith = (name) => { const taken = [...hind.map((x) => x.n), ...data.edges]; return (CONFLICTS[name] || []).find((c) => taken.includes(c)); };
+  const hindLimitMsg = (sev) =>
+    sev === "major" ? "Можно взять только один большой изъян (1 большой + 2 малых — потолок по правилам)." :
+    "Можно взять не больше двух малых изъянов (1 большой + 2 малых — потолок по правилам).";
+  const overHindLimit = (sev) => (sev === "major" ? majors >= 1 : minors >= 2);
   const toggleHind = (h) => {
     const has = hind.find((x) => x.n === h.n);
-    if (!has) { const c = conflictWith(h.n); if (c) { alert("«" + h.n + "» не сочетается с «" + c + "» — выбери что-то одно."); return; } }
+    if (!has) {
+      const c = conflictWith(h.n); if (c) { alert("«" + h.n + "» не сочетается с «" + c + "» — выбери что-то одно."); return; }
+      if (overHindLimit(h.s)) { alert(hindLimitMsg(h.s)); return; }
+    }
     const next = has ? hind.filter((x) => x.n !== h.n) : [...hind, h];
     setHind(next); set({ hindrances: hindNames(next) });
   };
-  const addCustH = (sev) => { const v = custH.trim(); if (!v) return; const next = [...hind, { n: v, s: sev }]; setHind(next); set({ hindrances: hindNames(next) }); setCustH(""); };
+  const addCustH = (sev) => { const v = custH.trim(); if (!v) return; if (overHindLimit(sev)) { alert(hindLimitMsg(sev)); return; } const next = [...hind, { n: v, s: sev }]; setHind(next); set({ hindrances: hindNames(next) }); setCustH(""); };
   const setConvK = (k, dir) => setConv((c) => {
     const v = c[k] + dir; if (v < 0) return c;
     const use = (k === "attr" ? v : c.attr) * 2 + (k === "edge" ? v : c.edge) * 2 + (k === "skill" ? v : c.skill);
@@ -817,12 +825,32 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
   const addCustE = () => { const v = custE.trim(); if (!v) return; if (data.edges.length >= edgeSlots) { alert("Нет свободных слотов эджей."); return; } set({ edges: [...data.edges, v] }); setCustE(""); };
 
   const overBudget = attrSpent > attrBudget || skillSpent > skillBudget || hpUsed > hp || data.edges.length > edgeSlots;
+
+  // Динамический порядок: после «Изъянов» возвращаемся на те вкладки, куда сконвертили очки
+  const seq = (() => {
+    const s = ["who", "attr", "skill", "hind"];
+    if (conv.attr > 0) s.push("attr");
+    if (conv.skill > 0) s.push("skill");
+    s.push("edge", "gear");
+    return s;
+  })();
+  const cur = seq[Math.min(step, seq.length - 1)];
+  const returning = step > seq.indexOf("hind"); // повторный заход на распределение
+
   const stepErr =
-    step === 1 && attrSpent > attrBudget ? "Перебор очков атрибутов — опусти какой-нибудь кубик." :
-    step === 2 && skillSpent > skillBudget ? "Перебор очков навыков — опусти навык или подними его атрибут." :
-    step === 3 && hpUsed > hp ? "Обменяно больше очков, чем дают изъяны — убери обмен или добавь изъян." :
-    step === 4 && data.edges.length > edgeSlots ? "Эджей больше, чем слотов — убери эдж или возьми слот за очки изъянов." : "";
-  const STEPS = ["Кто ты", "Атрибуты", "Навыки", "Изъяны", "Эджи", "Снаряжение"];
+    cur === "attr" && attrSpent > attrBudget ? "Перебор очков атрибутов — опусти какой-нибудь кубик." :
+    cur === "skill" && skillSpent > skillBudget ? "Перебор очков навыков — опусти навык или подними его атрибут." :
+    cur === "hind" && hpUsed > hp ? "Обменяно больше очков, чем дают изъяны — убери обмен или добавь изъян." :
+    cur === "edge" && data.edges.length > edgeSlots ? "Эджей больше, чем слотов — убери эдж или возьми слот за очки изъянов." : "";
+
+  const finish = () => {
+    const parts = [];
+    if (hpLeft > 0) parts.push(hpLeft + " очк. изъянов не обменяно");
+    if (attrBudget - attrSpent > 0) parts.push((attrBudget - attrSpent) + " очк. атрибутов не вложено");
+    if (skillBudget - skillSpent > 0) parts.push((skillBudget - skillSpent) + " очк. навыков не вложено");
+    if (parts.length && !window.confirm("Осталось нераспределённым: " + parts.join("; ") + ".\n\nЭти очки сгорят — лист сохранится как есть. Всё равно завершить?")) return;
+    onDone();
+  };
 
   return (
     <div className="wiz-wrap">
@@ -831,9 +859,9 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
           <div className="wordmark"><span className="rune">ᛈ</span> Создание героя</div>
           <button className="wiz-skip" onClick={onDone}>заполню сам →</button>
         </div>
-        <div className="wiz-steps">{STEPS.map((s, i) => <span key={i} className={"wiz-dot" + (i === step ? " on" : i < step ? " done" : "")} />)}</div>
+        <div className="wiz-steps">{seq.map((s, i) => <span key={i} className={"wiz-dot" + (i === step ? " on" : i < step ? " done" : "")} />)}</div>
 
-        {step === 0 && (
+        {cur === "who" && (
           <div>
             <h2 className="wiz-h">Кто ты сейчас</h2>
             <p className="wiz-sub">Обычный современный скандинав. Имя — по нему ты будешь входить в кампанию, так что запомни его.</p>
@@ -842,9 +870,10 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
           </div>
         )}
 
-        {step === 1 && (
+        {cur === "attr" && (
           <div>
             <h2 className="wiz-h">Атрибуты</h2>
+            {returning && <div className="wiz-return">Распредели очки, полученные за изъяны — иначе они сгорят.</div>}
             <p className="wiz-sub">Все стартуют с d4. Подними кубики — всего {ATTR_POINTS} очка{conv.attr ? " + " + conv.attr + " от изъянов" : ""}, шаг = 1 очко.</p>
             <div className={"wiz-budget " + (attrSpent > attrBudget ? "over" : "ok")}>Очки атрибутов: <b>{attrSpent}/{attrBudget}</b></div>
             {ATTRS.map((at) => { const a = data.attrs[at.key]; return (
@@ -856,9 +885,10 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
           </div>
         )}
 
-        {step === 2 && (
+        {cur === "skill" && (
           <div>
             <h2 className="wiz-h">Навыки</h2>
+            {returning && <div className="wiz-return">Распредели очки, полученные за изъяны — иначе они сгорят.</div>}
             <p className="wiz-sub">{SKILL_POINTS} очков{conv.skill ? " + " + conv.skill + " от изъянов" : ""}. Пять основных уже на d4 даром. Поднять навык выше его атрибута — <b>2 очка</b> за шаг (помечены штрихом).</p>
             <div className={"wiz-budget " + (skillSpent > skillBudget ? "over" : "ok")}>Очки навыков: <b>{skillSpent}/{skillBudget}</b></div>
             <div className="skgroup-label">Ядро · у всех с d4</div>
@@ -868,13 +898,13 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
           </div>
         )}
 
-        {step === 3 && (
+        {cur === "hind" && (
           <div>
             <h2 className="wiz-h">Изъяны</h2>
             <p className="wiz-sub">Слабости дают очки: большой = 2, малый = 1, всего до 4. Ниже обменяй их на атрибуты, эджи или навыки.</p>
             <div className={"wiz-budget " + (hpUsed > hp ? "over" : "ok")}>Очки изъянов: <b>{hp}</b> · потрачено <b>{hpUsed}</b></div>
-            {lists.hindrances.map((h) => { const on = hind.find((x) => x.n === h.n); return (
-              <button key={h.n} className={"choice" + (on ? " on" : "")} onClick={() => toggleHind(h)}>
+            {lists.hindrances.map((h) => { const on = hind.find((x) => x.n === h.n); const blocked = !on && overHindLimit(h.s); return (
+              <button key={h.n} className={"choice" + (on ? " on" : "")} style={blocked ? { opacity: 0.4 } : null} onClick={() => toggleHind(h)}>
                 <span className="cn">{h.n}</span><span className={"csev " + h.s}>{h.s === "major" ? "большой" : "малый"}</span>
                 <div className="cd">{h.d}</div>
               </button>
@@ -889,7 +919,7 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
           </div>
         )}
 
-        {step === 4 && (
+        {cur === "edge" && (
           <div>
             <h2 className="wiz-h">Эджи</h2>
             <p className="wiz-sub">Один эдж — даром (ты человек), плюс по эджу за каждые 2 очка изъянов. Требования автоматически не проверяются — свериться с ведущей.</p>
@@ -904,7 +934,7 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
           </div>
         )}
 
-        {step === 5 && (
+        {cur === "gear" && (
           <div>
             <h2 className="wiz-h">Снаряжение и финал</h2>
             <p className="wiz-sub">Стартовые средства — на усмотрение ведущей. Опиши, что при тебе.</p>
@@ -920,8 +950,8 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
           {step > 0 ? <button className="wiz-back" onClick={() => setStep(step - 1)}>Назад</button> : <span />}
           <div className="wiz-navright">
             {stepErr && <span className="wiz-err">{stepErr}</span>}
-            {step < 5 ? <button className="wiz-next" onClick={() => setStep(step + 1)} disabled={!!stepErr}>Далее</button>
-              : <button className="wiz-next wiz-finish" onClick={onDone} disabled={overBudget}>Готово</button>}
+            {step < seq.length - 1 ? <button className="wiz-next" onClick={() => setStep(step + 1)} disabled={!!stepErr}>Далее</button>
+              : <button className="wiz-next wiz-finish" onClick={finish} disabled={overBudget}>Готово</button>}
           </div>
         </div>
       </div>

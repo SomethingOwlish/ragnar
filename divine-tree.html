@@ -45,16 +45,16 @@ const { useState, useRef, useMemo, useEffect } = React;
 const { Plus, Minus, X, Eye, EyeOff, Palette, Database, Trash2, Link2, Maximize2, Search, Network, Crosshair, ArrowLeft, RotateCcw, Send, Lock } = window.LI;
 
 /* ============================ Токены ============================ */
-const GOLD = "#e6c34d";
-const INK = "#0a0e1a";
+const GOLD = "var(--bronze)";
+const INK = "var(--bg)";
 const R = 26;
 const VBW = 1770, VBH = 1120;
 
 const TIERS = {
-  "смертный": "#9aa7b8", "зов": "#e6c34d", "грань": "#6d7cf0", "лик": "#e58fb0", "наследие": "#d0455a",
+  "смертный": "var(--muted)", "зов": "var(--bronze)", "грань": "#6d7cf0", "лик": "#e58fb0", "наследие": "#d0455a",
 };
 const TIER_LIST = Object.keys(TIERS);
-const BONS = { "Открытие": "#38bdf8", "Аспект": "#9b6fe0", "Мощь": "#ef6b4a", "Осколок": "#e6c34d" };
+const BONS = { "Открытие": "#38bdf8", "Аспект": "#9b6fe0", "Мощь": "var(--red)", "Осколок": "var(--bronze)" };
 const BON_LIST = Object.keys(BONS);
 
 /* ============================ Сид ============================ */
@@ -118,6 +118,30 @@ const FONT_DISPLAY = "'Iowan Old Style','Palatino Linotype',Palatino,Georgia,ser
 const FONT_UI = "system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
 
 /* ============================ Компонент ============================ */
+/* ============================ Облако (древо — только ведущая) ============================ */
+const _DT_HAS_FB = !!window._fbdb;
+const _dtQS = new URLSearchParams(location.search);
+function _dtReadCampaign() {
+  const u = (_dtQS.get("c") || _dtQS.get("campaign") || "").trim();
+  if (u) { try { localStorage.setItem("ragnarok-board-campaign", u); localStorage.setItem("ragnarok-campaign", u); } catch (e) {} return u; }
+  try { const cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null"); if (cur && cur.campaign) return cur.campaign; } catch (e) {}
+  try { return localStorage.getItem("ragnarok-board-campaign") || localStorage.getItem("ragnarok-campaign") || ""; } catch (e) { return ""; }
+}
+function CloudChip({ status, campaign, onBind }) {
+  const base = { fontSize: 11.5, letterSpacing: ".04em", borderRadius: 999, padding: "5px 11px", border: "1px solid var(--line)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 };
+  if (!_DT_HAS_FB) return <span style={{ ...base, color: "var(--faint)" }}>локально</span>;
+  if (!campaign) return <button onClick={onBind} style={{ ...base, color: "var(--bronze)", borderColor: "var(--line-warm)", cursor: "pointer", background: "none" }}>привязать кампанию</button>;
+  const map = {
+    loading: { t: "загрузка…", c: "var(--muted)" },
+    cloud:   { t: "облако · " + campaign, c: "var(--steel)" },
+    saving:  { t: "сохранение…", c: "var(--muted)" },
+    saved:   { t: "сохранено ✓", c: "var(--steel)" },
+    error:   { t: "нет связи", c: "var(--red)" },
+  };
+  const s = map[status] || map.cloud;
+  return <button onClick={onBind} title="сменить код кампании" style={{ ...base, color: s.c, cursor: "pointer", background: "none" }}>{s.t}</button>;
+}
+
 function DivineTree() {
   const [nodes, setNodes] = useState(initialNodes);
   const __ROLE__ = (new URLSearchParams(location.search).get("role") === "gm") ? "gm" : "player";
@@ -127,6 +151,40 @@ function DivineTree() {
   const [playerAt, setPlayerAt] = useState("r");
   const [released, setReleased] = useState(false); // ведущая выдала развилку?
   const [showData, setShowData] = useState(false);
+
+  // --- облако: полное древо хранит и пишет только ведущая (игрок этот документ не читает) ---
+  const [campaign, setCampaign] = useState(_dtReadCampaign);
+  const [status, setStatus] = useState(_DT_HAS_FB && _dtReadCampaign() ? "loading" : "local");
+  const _skip = useRef(true);
+  const _ready = useRef(false);
+  useEffect(() => {
+    if (!_DT_HAS_FB || !campaign) { setStatus(_DT_HAS_FB ? "cloud" : "local"); return; }
+    let unsub = null, alive = true; setStatus("loading");
+    (async () => {
+      try { await window._fbauth.signInAnonymously(); } catch (e) { console.error("auth:", e); }
+      const ref = window._fbdb.collection("campaigns").doc(campaign).collection("boards").doc("divineTree");
+      try {
+        const snap = await ref.get();
+        if (alive && snap.exists && Array.isArray(snap.data().nodes)) { _skip.current = true; setNodes(snap.data().nodes); }
+        else { try { await ref.set({ nodes: initialNodes, updatedAt: Date.now() }); } catch (e) { console.error("seed:", e); } }
+      } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
+      _ready.current = true; if (alive) setStatus("cloud");
+      unsub = ref.onSnapshot((snap) => { if (!snap.exists || snap.metadata.hasPendingWrites) return; if (Array.isArray(snap.data().nodes)) { _skip.current = true; setNodes(snap.data().nodes); } }, (e) => console.error("snapshot:", e));
+    })();
+    return () => { alive = false; if (unsub) unsub(); };
+  }, [campaign]);
+  useEffect(() => {
+    if (!_DT_HAS_FB || !campaign) return;
+    if (!_ready.current) return;
+    if (_skip.current) { _skip.current = false; return; }
+    setStatus("saving");
+    const t = setTimeout(async () => {
+      try { await window._fbdb.collection("campaigns").doc(campaign).collection("boards").doc("divineTree").set({ nodes, updatedAt: Date.now() }, { merge: true }); setStatus("saved"); setTimeout(() => setStatus("cloud"), 1200); }
+      catch (e) { console.error("save:", e); setStatus("error"); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [nodes, campaign]);
+  const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); localStorage.setItem("ragnarok-campaign", c); } catch (e) {} _ready.current = false; _skip.current = true; setCampaign(c); } };
 
   const nodeMap = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
   const current = selected ? nodeMap[selected] : null;
@@ -181,29 +239,30 @@ function DivineTree() {
   const resetPlayer = () => { setPlayerAt("r"); setReleased(false); };
 
   return (
-    <div style={{ fontFamily: FONT_UI, background: INK, color: "#e8edf5", minHeight: "100%" }} className="w-full">
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
       <style>{`
         @keyframes tSlide { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
         .t-slide{ animation:tSlide .3s ease-out both; }
         .t-node{ cursor:${gm ? "grab" : "default"}; }
-        .t-btn{ border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.04); color:#e8edf5; }
-        .t-btn:hover{ background:rgba(255,255,255,.1); }
-        .t-input{ background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:8px; color:#e8edf5; padding:6px 10px; outline:none; font-size:13px; }
+        .t-btn{ border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); }
+        .t-btn:hover{ background:var(--surf2); }
+        .t-input{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:6px 10px; outline:none; font-size:13px; }
         .t-input:focus{ border-color:${GOLD}; }
         @media (prefers-reduced-motion: reduce){ .t-slide{animation:none} }
       `}</style>
 
-      <header className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+      <header className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
         <div>
           <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD }}>Древо наследий</div>
-          <div style={{ fontSize: 12, color: "#8b95a7" }}>9 шагов · живые и фейковые развилки · бог скрыт</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>9 шагов · живые и фейковые развилки · бог скрыт</div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,.14)" }}>
+          <CloudChip status={status} campaign={campaign} onBind={bind} />
+          <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
             {[["gm", "Ведущая"], ["player", "Игрок"]].map(([v, label]) => {
               const active = (gm ? "gm" : "player") === v;
               return <button key={v} onClick={() => { setGm(v === "gm"); setSelected(null); }}
-                style={{ background: active ? GOLD : "transparent", color: active ? INK : "#cdd5e2", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
+                style={{ background: active ? GOLD : "transparent", color: active ? INK : "var(--ink)", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
             })}
           </div>
           {gm && <button className="t-btn flex items-center gap-1" onClick={() => setShowData(true)}><Database size={14} /> Данные</button>}
@@ -241,10 +300,10 @@ function GMView({ nodes, nodeMap, selected, svgRef, view, onDown, onMove, onUp, 
   return (
     <div className="relative">
       <svg ref={svgRef} viewBox="0 0 1770 1120" onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp} onWheel={onWheel}
-        style={{ width: "100%", display: "block", background: "radial-gradient(120% 100% at 20% 40%, #121a30 0%, #0a0e1a 75%)", touchAction: "none" }}>
+        style={{ width: "100%", display: "block", background: "radial-gradient(120% 100% at 20% 40%, var(--surf) 0%, var(--bg) 75%)", touchAction: "none" }}>
         <rect x="0" y="0" width="1770" height="1120" fill="transparent" onPointerDown={onBgDown} />
         <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
-          {edges.map(([a, b], i) => { const my = (a.y + b.y) / 2; return <path key={i} d={`M ${a.x} ${a.y - R} C ${a.x} ${my} ${b.x} ${my} ${b.x} ${b.y + R}`} fill="none" stroke="rgba(255,255,255,.25)" strokeWidth="2" />; })}
+          {edges.map(([a, b], i) => { const my = (a.y + b.y) / 2; return <path key={i} d={`M ${a.x} ${a.y - R} C ${a.x} ${my} ${b.x} ${my} ${b.x} ${b.y + R}`} fill="none" stroke="var(--line)" strokeWidth="2" />; })}
           {visNodes.map((n) => {
             const col = TIERS[n.tier] || "#888";
             const isFork = n.children.length > 1;
@@ -255,25 +314,25 @@ function GMView({ nodes, nodeMap, selected, svgRef, view, onDown, onMove, onUp, 
               <g key={n.id} className="t-node" onPointerDown={(e) => onDown(e, n.id)}>
                 {onPath && <circle cx={n.x} cy={n.y} r={R + 10} fill="none" stroke="#6bbf59" strokeWidth="2" strokeDasharray="3 3" />}
                 {selected === n.id && <circle cx={n.x} cy={n.y} r={R + 6} fill="none" stroke={GOLD} strokeWidth="2" />}
-                {isCol && hasKids && <circle cx={n.x} cy={n.y} r={R + 5} fill="none" stroke="#9aa7b8" strokeWidth="1.5" strokeDasharray="3 3" />}
-                <circle cx={n.x} cy={n.y} r={R} fill={col} stroke="#0a0e1a" strokeWidth="2.5" />
-                {n.bon && <circle cx={n.x} cy={n.y} r="7" fill={BONS[n.bon.type] || "#fff"} stroke="#0a0e1a" strokeWidth="1.5" />}
+                {isCol && hasKids && <circle cx={n.x} cy={n.y} r={R + 5} fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeDasharray="3 3" />}
+                <circle cx={n.x} cy={n.y} r={R} fill={col} stroke="var(--bg)" strokeWidth="2.5" />
+                {n.bon && <circle cx={n.x} cy={n.y} r="7" fill={BONS[n.bon.type] || "#fff"} stroke="var(--bg)" strokeWidth="1.5" />}
                 {isFork && (
                   <g>
-                    <circle cx={n.x + R - 4} cy={n.y - R + 4} r="9" fill="#0a0e1a" stroke={n.fork === "fake" ? "#9aa7b8" : GOLD} strokeWidth="1.5" />
-                    <text x={n.x + R - 4} y={n.y - R + 8} textAnchor="middle" style={{ fontSize: 11, fill: n.fork === "fake" ? "#9aa7b8" : GOLD }}>{n.fork === "fake" ? "↺" : "✦"}</text>
+                    <circle cx={n.x + R - 4} cy={n.y - R + 4} r="9" fill="var(--bg)" stroke={n.fork === "fake" ? "var(--muted)" : GOLD} strokeWidth="1.5" />
+                    <text x={n.x + R - 4} y={n.y - R + 8} textAnchor="middle" style={{ fontSize: 11, fill: n.fork === "fake" ? "var(--muted)" : GOLD }}>{n.fork === "fake" ? "↺" : "✦"}</text>
                   </g>
                 )}
                 {hasKids && (
                   <g onPointerDown={(e) => { e.stopPropagation(); toggleCollapse(n.id); }} style={{ cursor: "pointer" }}>
-                    <circle cx={n.x - R + 4} cy={n.y - R + 4} r="9" fill="#0a0e1a" stroke="#cdd5e2" strokeWidth="1.5" />
-                    <text x={n.x - R + 4} y={n.y - R + 8} textAnchor="middle" style={{ fontSize: 12, fill: "#cdd5e2" }}>{isCol ? "+" : "–"}</text>
+                    <circle cx={n.x - R + 4} cy={n.y - R + 4} r="9" fill="var(--bg)" stroke="var(--ink)" strokeWidth="1.5" />
+                    <text x={n.x - R + 4} y={n.y - R + 8} textAnchor="middle" style={{ fontSize: 12, fill: "var(--ink)" }}>{isCol ? "+" : "–"}</text>
                   </g>
                 )}
-                <text x={n.x} y={n.y + R + 14} textAnchor="middle" style={{ fontSize: 12, fill: "#e8edf5" }}>{n.title}</text>
+                <text x={n.x} y={n.y + R + 14} textAnchor="middle" style={{ fontSize: 12, fill: "var(--ink)" }}>{n.title}</text>
                 {isCol && hasKids
-                  ? <text x={n.x} y={n.y + R + 28} textAnchor="middle" style={{ fontSize: 10, fill: "#8b95a7" }}>{`свёрнуто · +${countDesc(n.id)}`}</text>
-                  : (n.dest && <text x={n.x} y={n.y + R + 28} textAnchor="middle" style={{ fontSize: 10, fill: "#8b95a7", fontStyle: "italic" }}>{n.dest}</text>)}
+                  ? <text x={n.x} y={n.y + R + 28} textAnchor="middle" style={{ fontSize: 10, fill: "var(--muted)" }}>{`свёрнуто · +${countDesc(n.id)}`}</text>
+                  : (n.dest && <text x={n.x} y={n.y + R + 28} textAnchor="middle" style={{ fontSize: 10, fill: "var(--muted)", fontStyle: "italic" }}>{n.dest}</text>)}
               </g>
             );
           })}
@@ -287,18 +346,18 @@ function GMView({ nodes, nodeMap, selected, svgRef, view, onDown, onMove, onUp, 
 
       
       {/* легенда */}
-      <div className="absolute left-4 bottom-4" style={{ background: "rgba(10,14,26,.84)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: 12, fontSize: 12, backdropFilter: "blur(6px)" }}>
+      <div className="absolute left-4 bottom-4" style={{ background: "rgba(10,14,26,.84)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 12, fontSize: 12, backdropFilter: "blur(6px)" }}>
         <div className="flex flex-wrap gap-3 mb-2">
           {TIER_LIST.map((t) => <span key={t} className="flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: "50%", background: TIERS[t], display: "inline-block" }} />{t}</span>)}
         </div>
-        <div className="flex flex-wrap gap-3" style={{ color: "#cdd5e2" }}>
+        <div className="flex flex-wrap gap-3" style={{ color: "var(--ink)" }}>
           <span style={{ color: GOLD }}>✦ живая</span>
-          <span style={{ color: "#9aa7b8" }}>↺ фейк (сходится назад)</span>
+          <span style={{ color: "var(--muted)" }}>↺ фейк (сходится назад)</span>
           {BON_LIST.map((b) => <span key={b} className="flex items-center gap-1"><span style={{ width: 8, height: 8, borderRadius: "50%", background: BONS[b], display: "inline-block" }} />{b}</span>)}
         </div>
       </div>
 
-      <div className="absolute right-4 bottom-4" style={{ fontSize: 12, color: "#8b95a7", maxWidth: 200, textAlign: "right" }}>
+      <div className="absolute right-4 bottom-4" style={{ fontSize: 12, color: "var(--muted)", maxWidth: 200, textAlign: "right" }}>
         Снизу вверх. Колесо или ±/⤢ — зум, тащи пустоту — двигать. +/− на узле — свернуть ветку. Тащи узел — переставить, клик — правка.
       </div>
     </div>
@@ -315,51 +374,51 @@ function PlayerCard({ nodes, nodeMap, at, released, onPick }) {
 
   return (
     <div className="t-slide" style={{ maxWidth: 560, margin: "0 auto", padding: "24px 18px" }}>
-      <div className="flex flex-wrap items-center gap-1 mb-5" style={{ fontSize: 12, color: "#8b95a7" }}>
+      <div className="flex flex-wrap items-center gap-1 mb-5" style={{ fontSize: 12, color: "var(--muted)" }}>
         <span>Смертный</span>
-        {path.map((p) => <span key={p.id} className="flex items-center gap-1"><span>→</span><span style={{ color: BONS[p.bon?.type] || "#cdd5e2" }}>{p.title}</span></span>)}
+        {path.map((p) => <span key={p.id} className="flex items-center gap-1"><span>→</span><span style={{ color: BONS[p.bon?.type] || "var(--ink)" }}>{p.title}</span></span>)}
       </div>
 
       {node.bon && (
-        <div className="mb-6" style={{ background: "rgba(255,255,255,.04)", border: `1px solid ${BONS[node.bon.type]}55`, borderRadius: 16, padding: 18 }}>
+        <div className="mb-6" style={{ background: "var(--surf)", border: `1px solid ${BONS[node.bon.type]}55`, borderRadius: 16, padding: 18 }}>
           <div className="flex items-center gap-2 mb-1">
             <span style={{ width: 10, height: 10, borderRadius: "50%", background: BONS[node.bon.type], display: "inline-block" }} />
             <span style={{ fontSize: 12, color: BONS[node.bon.type], textTransform: "uppercase", letterSpacing: ".5px" }}>{node.bon.type}</span>
           </div>
           <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: GOLD, marginBottom: 4 }}>{node.title}</div>
-          <div style={{ fontSize: 14, color: "#cdd5e2" }}>{node.bon.effect || "—"}</div>
+          <div style={{ fontSize: 14, color: "var(--ink)" }}>{node.bon.effect || "—"}</div>
         </div>
       )}
 
       {options.length === 0 ? (
-        <div style={{ color: "#8b95a7", fontSize: 14 }}>Тропа здесь обрывается — ведущая ещё не наполнила этот узел.</div>
+        <div style={{ color: "var(--muted)", fontSize: 14 }}>Тропа здесь обрывается — ведущая ещё не наполнила этот узел.</div>
       ) : !released ? (
-        <div style={{ background: "rgba(255,255,255,.03)", border: "1px dashed rgba(255,255,255,.16)", borderRadius: 14, padding: 18, textAlign: "center" }}>
+        <div style={{ background: "var(--surf2)", border: "1px dashed var(--surf2)", borderRadius: 14, padding: 18, textAlign: "center" }}>
           <Lock size={18} style={{ opacity: 0.6, marginBottom: 6 }} />
-          <div style={{ fontSize: 14, color: "#9aa7b8" }}>Жди пробуждения.</div>
-          <div style={{ fontSize: 12, color: "#5a6473", marginTop: 4 }}>Ведущая откроет следующую развилку, когда придёт срок.</div>
+          <div style={{ fontSize: 14, color: "var(--muted)" }}>Жди пробуждения.</div>
+          <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 4 }}>Ведущая откроет следующую развилку, когда придёт срок.</div>
         </div>
       ) : (
         <>
-          <div style={{ fontSize: 12, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 10 }}>
+          <div style={{ fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 10 }}>
             {options.length > 1 ? "Развилка — сделай выбор" : "Шаг открыт"}
           </div>
           <div className="grid gap-3" style={{ gridTemplateColumns: "1fr" }}>
             {options.map((o) => (
               <button key={o.id} onClick={() => onPick(o.id)} className="text-left"
-                style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 14, padding: 14, cursor: "pointer", color: "#e8edf5" }}>
+                style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 14, padding: 14, cursor: "pointer", color: "var(--ink)" }}>
                 <div className="flex items-center gap-2 mb-1">
                   {o.bon && <span style={{ width: 8, height: 8, borderRadius: "50%", background: BONS[o.bon.type], display: "inline-block" }} />}
                   <span style={{ fontWeight: 600 }}>{o.title}</span>
                 </div>
-                {o.bon && <div style={{ fontSize: 13, color: "#9aa7b8" }}>{o.bon.type}{o.bon.effect ? ` · ${o.bon.effect}` : ""}</div>}
+                {o.bon && <div style={{ fontSize: 13, color: "var(--muted)" }}>{o.bon.type}{o.bon.effect ? ` · ${o.bon.effect}` : ""}</div>}
               </button>
             ))}
           </div>
         </>
       )}
 
-      <div style={{ fontSize: 11, color: "#5a6473", marginTop: 16 }}>Выбор делается, только когда ведущая выдаёт развилку. Куда ведёт путь и где фейк — скрыто.</div>
+      <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 16 }}>Выбор делается, только когда ведущая выдаёт развилку. Куда ведёт путь и где фейк — скрыто.</div>
     </div>
   );
 }
@@ -370,7 +429,7 @@ function NodeDrawer({ node, nodeMap, onClose, patchNode, addChild, delNode }) {
   const isFork = node.children.length > 1;
   return (
     <div className="t-slide" style={{ position: "fixed", top: 64, right: 0, bottom: 0, width: "min(360px, 92vw)", zIndex: 30,
-      background: `linear-gradient(180deg, ${col}1f 0%, #0c1120 22%, #0a0e1a 100%)`, borderLeft: "1px solid rgba(255,255,255,.12)",
+      background: `linear-gradient(180deg, ${col}1f 0%, var(--surf) 22%, var(--bg) 100%)`, borderLeft: "1px solid var(--line)",
       boxShadow: "-18px 0 40px rgba(0,0,0,.45)", overflowY: "auto", padding: 16 }}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <input className="t-input" value={node.title} onChange={(e) => patchNode(node.id, { title: e.target.value })}
@@ -378,25 +437,25 @@ function NodeDrawer({ node, nodeMap, onClose, patchNode, addChild, delNode }) {
         <button onClick={onClose} className="t-btn" style={{ padding: "4px 8px" }}><X size={16} /></button>
       </div>
 
-      <div className="flex items-center gap-2 mb-4" style={{ fontSize: 12, color: "#8b95a7" }}>
-        <span style={{ background: col, color: "#0a0e1a", borderRadius: 10, padding: "2px 9px" }}>{node.tier}</span>
+      <div className="flex items-center gap-2 mb-4" style={{ fontSize: 12, color: "var(--muted)" }}>
+        <span style={{ background: col, color: "var(--bg)", borderRadius: 10, padding: "2px 9px" }}>{node.tier}</span>
         <span>шаг {node.step}</span>
       </div>
 
-      <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", marginBottom: 4 }}>Ярус</div>
+      <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 4 }}>Ярус</div>
       <select className="t-input" value={node.tier} onChange={(e) => patchNode(node.id, { tier: e.target.value })} style={{ marginBottom: 14, width: "100%" }}>
         {TIER_LIST.map((t) => <option key={t} value={t} style={{ color: "#000" }}>{t}</option>)}
       </select>
 
       {node.bon && (
         <>
-          <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", marginBottom: 6 }}>Бон</div>
+          <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 6 }}>Бон</div>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {BON_LIST.map((b) => (
               <button key={b} onClick={() => patchNode(node.id, { bon: { ...node.bon, type: b } })}
                 style={{ fontSize: 12, padding: "3px 9px", borderRadius: 14, cursor: "pointer",
-                  border: node.bon.type === b ? `1px solid ${BONS[b]}` : "1px solid rgba(255,255,255,.14)",
-                  background: node.bon.type === b ? `${BONS[b]}26` : "transparent", color: "#e8edf5" }}>{b}</button>
+                  border: node.bon.type === b ? `1px solid ${BONS[b]}` : "1px solid var(--line)",
+                  background: node.bon.type === b ? `${BONS[b]}26` : "transparent", color: "var(--ink)" }}>{b}</button>
             ))}
           </div>
           <textarea className="t-input" value={node.bon.effect} onChange={(e) => patchNode(node.id, { bon: { ...node.bon, effect: e.target.value } })}
@@ -406,28 +465,28 @@ function NodeDrawer({ node, nodeMap, onClose, patchNode, addChild, delNode }) {
 
       {isFork && (
         <>
-          <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", marginBottom: 6 }}>Тип развилки</div>
+          <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 6 }}>Тип развилки</div>
           <div className="flex gap-2 mb-4">
             {[["real", "✦ Живая (к разным богам)"], ["fake", "↺ Фейк (сходится назад)"]].map(([v, label]) => (
               <button key={v} onClick={() => patchNode(node.id, { fork: v })}
                 style={{ flex: 1, fontSize: 12, padding: "6px", borderRadius: 10, cursor: "pointer",
-                  border: node.fork === v ? `1px solid ${v === "fake" ? "#9aa7b8" : GOLD}` : "1px solid rgba(255,255,255,.14)",
-                  background: node.fork === v ? "rgba(255,255,255,.06)" : "transparent", color: "#e8edf5" }}>{label}</button>
+                  border: node.fork === v ? `1px solid ${v === "fake" ? "var(--muted)" : GOLD}` : "1px solid var(--line)",
+                  background: node.fork === v ? "var(--line-soft)" : "transparent", color: "var(--ink)" }}>{label}</button>
             ))}
           </div>
         </>
       )}
 
-      <div style={{ fontSize: 11, color: "#8b95a7", textTransform: "uppercase", marginBottom: 4 }}>Куда ведёт (скрыто от игрока)</div>
+      <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 4 }}>Куда ведёт (скрыто от игрока)</div>
       <input className="t-input" value={node.dest || ""} onChange={(e) => patchNode(node.id, { dest: e.target.value })}
         placeholder="бог / пара / кластер" style={{ width: "100%", marginBottom: 16 }} />
 
       <div className="flex gap-2">
         <button className="t-btn flex items-center gap-1" onClick={() => addChild(node.id)}><Plus size={14} /> Развилка / шаг</button>
-        {node.id !== "r" && <button className="t-btn flex items-center gap-1" onClick={() => delNode(node.id)} style={{ color: "#ef6b4a" }}><Trash2 size={14} /> Удалить</button>}
+        {node.id !== "r" && <button className="t-btn flex items-center gap-1" onClick={() => delNode(node.id)} style={{ color: "var(--red)" }}><Trash2 size={14} /> Удалить</button>}
       </div>
       {node.children.length > 0 && (
-        <div style={{ fontSize: 11, color: "#5a6473", marginTop: 10 }}>Дети: {node.children.map((c) => nodeMap[c]?.title).filter(Boolean).join(", ") || "—"}</div>
+        <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 10 }}>Дети: {node.children.map((c) => nodeMap[c]?.title).filter(Boolean).join(", ") || "—"}</div>
       )}
     </div>
   );
@@ -440,15 +499,15 @@ function DataModal({ nodes, onClose, onApply }) {
   const apply = () => { try { const d = JSON.parse(text); if (!d.nodes) throw new Error("нужно поле nodes"); setErr(""); onApply(d); } catch (e) { setErr("Не разобрал JSON: " + e.message); } };
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 50 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#11162a", border: "1px solid rgba(255,255,255,.14)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
         <div className="flex items-center justify-between mb-3">
           <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Данные древа</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer" }}><X size={18} /></button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer" }}><X size={18} /></button>
         </div>
-        <div style={{ fontSize: 12, color: "#8b95a7", marginBottom: 8 }}>Скопируй, чтобы сохранить. Вставь свой JSON и нажми «Применить».</div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>Скопируй, чтобы сохранить. Вставь свой JSON и нажми «Применить».</div>
         <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
-          style={{ width: "100%", height: 300, background: "#0a0e1a", color: "#cdd5e2", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: 12, fontFamily: "ui-monospace,monospace", fontSize: 12 }} />
-        {err && <div style={{ color: "#ef6b4a", fontSize: 12, marginTop: 6 }}>{err}</div>}
+          style={{ width: "100%", height: 300, background: "var(--bg)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, fontFamily: "ui-monospace,monospace", fontSize: 12 }} />
+        {err && <div style={{ color: "var(--red)", fontSize: 12, marginTop: 6 }}>{err}</div>}
         <div className="flex justify-end gap-2 mt-3">
           <button className="t-btn" onClick={onClose}>Закрыть</button>
           <button onClick={apply} style={{ background: GOLD, color: INK, border: "none", borderRadius: 8, padding: "6px 16px", fontWeight: 600, cursor: "pointer" }}>Применить</button>
@@ -498,29 +557,29 @@ function FirestoreIssue({ node, nodeMap }) {
     <div style={{ position: "fixed", left: "50%", bottom: 16, transform: "translateX(-50%)", zIndex: 40, width: "min(360px,94vw)", background: "rgba(10,14,26,.96)", border: "1px solid rgba(230,195,77,.4)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)" }}>
       <div className="flex items-center justify-between" style={{ marginBottom: open ? 10 : 0 }}>
         <div style={{ fontSize: 12, color: GOLD, letterSpacing: ".4px" }}>Выдать развилку игроку</div>
-        <button onClick={() => setOpen((o) => !o)} style={{ background: "none", border: "none", color: "#cdd5e2", cursor: "pointer", fontSize: 13 }}>{open ? "свернуть" : "открыть"}</button>
+        <button onClick={() => setOpen((o) => !o)} style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer", fontSize: 13 }}>{open ? "свернуть" : "открыть"}</button>
       </div>
       {open && (
         <div>
           {!joined ? (
             <div className="flex gap-2">
               <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="код кампании" onKeyDown={(e) => e.key === "Enter" && join()}
-                style={{ flex: 1, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, color: "#e8edf5", padding: "6px 10px", fontSize: 13, outline: "none" }} />
+                style={{ flex: 1, background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink)", padding: "6px 10px", fontSize: 13, outline: "none" }} />
               <button onClick={join} style={{ background: GOLD, color: INK, border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>Войти</button>
             </div>
           ) : (
             <div>
-              <div style={{ fontSize: 11, color: "#8b95a7", marginBottom: 6 }}>Кампания «{code}». Узел: <span style={{ color: node ? "#e6c34d" : "#ef6b4a" }}>{node ? node.title : "не выбран — кликни узел"}</span>{node ? " · вариантов: " + options.length : ""}</div>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6 }}>Кампания «{code}». Узел: <span style={{ color: node ? "var(--bronze)" : "var(--red)" }}>{node ? node.title : "не выбран — кликни узел"}</span>{node ? " · вариантов: " + options.length : ""}</div>
               <select value={pid} onChange={(e) => setPid(e.target.value)}
-                style={{ width: "100%", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, color: "#e8edf5", padding: "6px 10px", fontSize: 13, marginBottom: 8 }}>
+                style={{ width: "100%", background: "var(--inset)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink)", padding: "6px 10px", fontSize: 13, marginBottom: 8 }}>
                 <option value="" style={{ color: "#000" }}>— выбери игрока —</option>
                 {players.map((p) => <option key={p.id} value={p.id} style={{ color: "#000" }}>{p.name || "без имени"}</option>)}
               </select>
-              <button onClick={issue} disabled={!node} className="flex items-center justify-center gap-1" style={{ width: "100%", background: node ? GOLD : "rgba(255,255,255,.1)", color: node ? INK : "#8b95a7", border: "none", borderRadius: 8, padding: "7px", fontWeight: 600, cursor: node ? "pointer" : "not-allowed", fontSize: 13 }}><Send size={13} /> Выдать развилку из узла</button>
-              <div style={{ fontSize: 10.5, color: "#8b95a7", marginTop: 6, lineHeight: 1.4 }}>Кликни узел на древе, выбери игрока — варианты этого узла придут на его вкладку «Древо» и в карту. Имена богов на ярусе «наследие» не отправляются.</div>
+              <button onClick={issue} disabled={!node} className="flex items-center justify-center gap-1" style={{ width: "100%", background: node ? GOLD : "var(--surf2)", color: node ? INK : "var(--muted)", border: "none", borderRadius: 8, padding: "7px", fontWeight: 600, cursor: node ? "pointer" : "not-allowed", fontSize: 13 }}><Send size={13} /> Выдать развилку из узла</button>
+              <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 6, lineHeight: 1.4 }}>Кликни узел на древе, выбери игрока — варианты этого узла придут на его вкладку «Древо» и в карту. Имена богов на ярусе «наследие» не отправляются.</div>
             </div>
           )}
-          {msg && <div style={{ fontSize: 12, color: msg.indexOf("✓") >= 0 ? "#6bbf59" : "#ef6b4a", marginTop: 6 }}>{msg}</div>}
+          {msg && <div style={{ fontSize: 12, color: msg.indexOf("✓") >= 0 ? "#6bbf59" : "var(--red)", marginTop: 6 }}>{msg}</div>}
         </div>
       )}
     </div>
@@ -544,46 +603,46 @@ function PlayerStep() {
     try { await window._fbdb.collection("campaigns").doc(ident.campaign).collection("characters").doc(doc.id).set({ nextFork: { ...doc.nextFork, chosen: doc.nextFork.chosen === i ? null : i } }, { merge: true }); } catch (e) { setStatus("Ошибка: " + e.message); }
   };
   const wrap = (inner) => (
-    <div style={{ maxWidth: 560, margin: "0 auto", padding: "28px 18px", color: "#e8edf5" }}>
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "28px 18px", color: "var(--ink)" }}>
       <div style={{ fontFamily: FONT_DISPLAY, fontSize: 26, color: GOLD, marginBottom: 4 }}>Твой путь</div>
-      <div style={{ fontSize: 13, color: "#8b95a7", marginBottom: 22 }}>Ближайшая развилка. Куда ведёт и где фейк — знает только ведущая.</div>
+      <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 22 }}>Ближайшая развилка. Куда ведёт и где фейк — знает только ведущая.</div>
       {inner}
     </div>
   );
-  if (status === "no-fb") return wrap(<div style={{ color: "#8b95a7" }}>Облако не настроено — развилки приходят только в облачном режиме.</div>);
-  if (status === "no-ident") return wrap(<div style={{ background: "rgba(255,255,255,.04)", border: "1px dashed rgba(255,255,255,.16)", borderRadius: 14, padding: 18 }}><div style={{ fontSize: 15, marginBottom: 4 }}>Сначала открой свою «Карту героя»</div><div style={{ fontSize: 13, color: "#8b95a7" }}>Войди в кампанию на карте — тогда здесь появится твоя развилка. <a href="ragnarok-character-sheet-cloud.html" style={{ color: GOLD }}>Открыть карту →</a></div></div>);
-  if (status) return wrap(<div style={{ color: "#8b95a7" }}>{status}</div>);
+  if (status === "no-fb") return wrap(<div style={{ color: "var(--muted)" }}>Облако не настроено — развилки приходят только в облачном режиме.</div>);
+  if (status === "no-ident") return wrap(<div style={{ background: "var(--surf)", border: "1px dashed var(--surf2)", borderRadius: 14, padding: 18 }}><div style={{ fontSize: 15, marginBottom: 4 }}>Сначала открой свою «Карту героя»</div><div style={{ fontSize: 13, color: "var(--muted)" }}>Войди в кампанию на карте — тогда здесь появится твоя развилка. <a href="ragnarok-character-sheet-cloud.html" style={{ color: GOLD }}>Открыть карту →</a></div></div>);
+  if (status) return wrap(<div style={{ color: "var(--muted)" }}>{status}</div>);
   const nf = doc && doc.nextFork;
   return wrap(
     <div>
-      {doc && doc.node && <div style={{ fontSize: 13, color: "#8b95a7", marginBottom: 16 }}>Ты на: <span style={{ color: "#cdd5e2" }}>{doc.node}</span></div>}
+      {doc && doc.node && <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>Ты на: <span style={{ color: "var(--ink)" }}>{doc.node}</span></div>}
       {!nf || !nf.options || !nf.options.length ? (
-        <div style={{ background: "rgba(255,255,255,.03)", border: "1px dashed rgba(255,255,255,.16)", borderRadius: 14, padding: 22, textAlign: "center" }}>
+        <div style={{ background: "var(--surf2)", border: "1px dashed var(--surf2)", borderRadius: 14, padding: 22, textAlign: "center" }}>
           <Lock size={18} style={{ opacity: 0.6, marginBottom: 6 }} />
-          <div style={{ fontSize: 15, color: "#9aa7b8" }}>Жди пробуждения.</div>
-          <div style={{ fontSize: 12, color: "#5a6473", marginTop: 4 }}>Ведущая откроет следующую развилку, когда придёт срок.</div>
+          <div style={{ fontSize: 15, color: "var(--muted)" }}>Жди пробуждения.</div>
+          <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 4 }}>Ведущая откроет следующую развилку, когда придёт срок.</div>
         </div>
       ) : (
         <>
-          <div style={{ fontSize: 12, color: "#8b95a7", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 10 }}>{nf.options.length > 1 ? "Развилка — сделай выбор" : "Шаг открыт"}</div>
+          <div style={{ fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 10 }}>{nf.options.length > 1 ? "Развилка — сделай выбор" : "Шаг открыт"}</div>
           <div className="grid gap-3" style={{ gridTemplateColumns: "1fr" }}>
             {nf.options.map((o, i) => {
               const chosen = nf.chosen === i;
               return (
                 <button key={i} onClick={() => pick(i)} className="text-left"
-                  style={{ background: chosen ? "rgba(230,195,77,.12)" : "rgba(255,255,255,.04)", border: "1px solid " + (chosen ? GOLD : (BONS[o.type] || "#888") + "55"), borderRadius: 14, padding: 14, cursor: "pointer", color: "#e8edf5" }}>
+                  style={{ background: chosen ? "rgba(230,195,77,.12)" : "var(--surf)", border: "1px solid " + (chosen ? GOLD : (BONS[o.type] || "#888") + "55"), borderRadius: 14, padding: 14, cursor: "pointer", color: "var(--ink)" }}>
                   <div className="flex items-center gap-2 mb-1">
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: BONS[o.type] || "#888", display: "inline-block" }} />
-                    <span style={{ fontSize: 12, color: BONS[o.type] || "#cdd5e2", textTransform: "uppercase", letterSpacing: ".5px" }}>{o.type}</span>
+                    <span style={{ fontSize: 12, color: BONS[o.type] || "var(--ink)", textTransform: "uppercase", letterSpacing: ".5px" }}>{o.type}</span>
                     {o.title ? <span style={{ fontWeight: 600 }}>· {o.title}</span> : null}
                   </div>
-                  <div style={{ fontSize: 14, color: "#cdd5e2" }}>{o.effect || "—"}</div>
+                  <div style={{ fontSize: 14, color: "var(--ink)" }}>{o.effect || "—"}</div>
                   {chosen && <div style={{ fontSize: 11, color: GOLD, marginTop: 6 }}>✓ выбрано</div>}
                 </button>
               );
             })}
           </div>
-          <div style={{ fontSize: 11, color: "#5a6473", marginTop: 16 }}>Выбор сохраняется сам и виден ведущей. Можно переcделать, пока ведущая не закрыла развилку.</div>
+          <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 16 }}>Выбор сохраняется сам и виден ведущей. Можно переcделать, пока ведущая не закрыла развилку.</div>
         </>
       )}
     </div>

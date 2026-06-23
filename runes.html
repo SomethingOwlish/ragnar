@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Руны</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+</style>
+</head>
+<body>
+<header data-shell data-here="runes"></header>
+<script>
+/* роль для верхней полосы — из адреса */
+(function(){
+  var r = (new URLSearchParams(location.search).get("role")==="gm") ? "gm" : "player";
+  var h = document.querySelector("[data-shell]");
+  if (h) h.setAttribute("data-role", r);
+})();
+</script>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef } = React;
+const { X, Database, Search } = window.LI;
+
+/* ============================ Облако ============================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCSb7M5IbOql61HIqOUxe3ct4VqdjkhLyE",
+  authDomain: "ragnarau-80866.firebaseapp.com",
+  projectId: "ragnarau-80866",
+  storageBucket: "ragnarau-80866.firebasestorage.app",
+  messagingSenderId: "727752765165",
+  appId: "1:727752765165:web:8c625b7675f022a1b026e4"
+};
+const HAS_FB = !!(window.firebase && firebaseConfig.apiKey);
+let db = null, auth = null;
+if (HAS_FB) {
+  try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); auth = firebase.auth(); }
+  catch (e) { console.error("Firebase init:", e); }
+}
+const BOARD_ID = "runes";
+const _qs = new URLSearchParams(location.search);
+const ROLE = _qs.get("role") === "gm" ? "gm" : "player";
+function readCampaign() {
+  const u = (_qs.get("c") || _qs.get("campaign") || "").trim();
+  if (u) { try { localStorage.setItem("ragnarok-board-campaign", u); } catch (e) {} return u; }
+  try { const cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null"); if (cur && cur.campaign) return cur.campaign; } catch (e) {}
+  try { return localStorage.getItem("ragnarok-board-campaign") || ""; } catch (e) { return ""; }
+}
+
+/* ============================ Токены ============================ */
+const GOLD = "var(--bronze)";
+const INK = "var(--bg)";
+const FONT_DISPLAY = "var(--disp)";
+const FONT_UI = "var(--sans)";
+const RUNE_FONT = "var(--rune)";
+
+const AETTIR = { 1: "Аэтт Фрейра", 2: "Аэтт Хагалаз", 3: "Аэтт Тюра" };
+
+const R = (id, aett, glyph, name, meanings, links) => ({ id, aett, glyph, name, meanings, links, players: [], dates: "" });
+const initialRunes = [
+  R("fehu", 1, "ᚠ", "Феху", "Скот, золото, движимое богатство; изобилие, плодородие, новое начало, энергия в движении. Перевёрнутая: потеря, жадность, выгорание.", "Фрейр, Фрейя, Ньёрд; золото Брисингамен"),
+  R("uruz", 1, "ᚢ", "Уруз", "Тур (зубр), первобытная сила; здоровье, выносливость, воля, дикая формирующая мощь. Перевёрнутая: слабость, болезнь, бессилие.", "Аудумла, Имир; Тор"),
+  R("thurisaz", 1, "ᚦ", "Турисаз", "Турс, шип, ворота; защита и угроза разом, конфликт, разрушительная реакция, пробуждение силы. Перевёрнутая: опасность, принуждение, злая воля.", "Тор и его молот; йотуны"),
+  R("ansuz", 1, "ᚨ", "Ансуз", "Ас, бог; дыхание и слово, вдохновение, мудрость, весть, речь, связь с божественным. Перевёрнутая: ложь, обман, пустословие.", "Один — бог слова и дыхания"),
+  R("raido", 1, "ᚱ", "Райдо", "Езда, путь, странствие; движение, ритм, порядок, верное направление. Перевёрнутая: застой, срыв пути, кризис.", "Колесница богов; путь судьбы"),
+  R("kenaz", 1, "ᚲ", "Кеназ", "Факел, огонь знания; свет, творчество, ремесло, ковка, прозрение, страсть. Перевёрнутая: тьма, утрата, ложный свет.", "Двемеры-кузнецы; огонь Локи"),
+  R("gebo", 1, "ᚷ", "Гебо", "Дар, обмен, щедрость; союз, партнёрство, жертва, равновесие отдачи и принятия. Симметрична — без перевёрнутой.", "Один (дар себя себе); гостеприимство"),
+  R("wunjo", 1, "ᚹ", "Вуньо", "Радость, гармония, благополучие; исполнение желаний, родство, общность. Перевёрнутая: печаль, отчуждение, раздор.", "Фрейр — мир и радость"),
+  R("hagalaz", 2, "ᚺ", "Хагалаз", "Град; стихия, разрушение, неизбежная перемена, испытание, очищающий кризис. Семя в ледяной скорлупе. Обычно без перевёрнутой.", "Хель; разрушительные силы"),
+  R("nautiz", 2, "ᚾ", "Наутиз", "Нужда, нужда-огонь; ограничение, сопротивление, выдержка, необходимость, урок терпения. Перевёрнутая: отчаяние, надрыв.", "Норны, Скульд — необходимость судьбы"),
+  R("isa", 2, "ᛁ", "Иса", "Лёд; застывание, остановка, статика, концентрация, сохранение, пауза. Перевёрнутая: окоченение, ловушка, эго.", "Нифльхейм; Имир"),
+  R("jera", 2, "ᛃ", "Йера", "Год, урожай; цикл, награда за труд, плодоношение, верное время. Симметрична.", "Фрейр (урожай); Соль (круг года)"),
+  R("eihwaz", 2, "ᛇ", "Эйваз", "Тис, мировое древо; ось, стойкость, защита, связь миров, смерть и возрождение. Симметрична.", "Иггдрасиль; Один (висел на древе)"),
+  R("perthro", 2, "ᛈ", "Перто", "Чаша жребия; тайна, судьба, удача, сокрытое, рождение, оракул, игра случая. В инициативе — Джокер.", "Норны; колодец Урд"),
+  R("algiz", 2, "ᛉ", "Альгиз", "Лось, защита; оберег, связь с богами, инстинкт, граница, покровительство. Перевёрнутая: уязвимость, открытость удару.", "Валькирии; Хеймдалль — страж"),
+  R("sowilo", 2, "ᛊ", "Соулу", "Солнце; победа, воля, цельность, успех, ясность, жизненная сила. Без перевёрнутой.", "Соль; Бальдр (свет)"),
+  R("tiwaz", 3, "ᛏ", "Тейваз", "Тюр, копьё; справедливость, честь, победа в правом деле, клятва, самопожертвование, закон. Перевёрнутая: несправедливость, поражение.", "Тюр — бог права и войны"),
+  R("berkano", 3, "ᛒ", "Беркана", "Берёза, мать-богиня; плодородие, рост, рождение, дом, забота, обновление. Перевёрнутая: бесплодие, застой, тревога.", "Фригг; Фрейя; мать-земля"),
+  R("ehwaz", 3, "ᛖ", "Эваз", "Конь; движение в паре, доверие, верность, союз, прогресс. Перевёрнутая: разлад, неверность, остановка.", "Слейпнир; конь Фрейра"),
+  R("mannaz", 3, "ᛗ", "Манназ", "Человек, «я»; человечество, разум, сознание, социальный порядок, взаимность. Перевёрнутая: изоляция, гордыня, слепота.", "Хеймдалль/Риг — отец людей; Аск и Эмбла"),
+  R("laguz", 3, "ᛚ", "Лагуз", "Вода, поток; интуиция, бессознательное, текучесть, очищение, женское начало. Перевёрнутая: страх, застой, помрачение.", "Ньёрд; Эгир и Ран; нёкк"),
+  R("ingwaz", 3, "ᛜ", "Ингваз", "Инг (Фрейр), семя; потенциал, плодородие, завершение цикла, накопление и высвобождение, внутренний рост. Без перевёрнутой.", "Фрейр (Инг)"),
+  R("dagaz", 3, "ᛞ", "Дагаз", "День, рассвет; пробуждение, прорыв, трансформация, ясность, баланс света и тьмы, надежда. Без перевёрнутой.", "Соль/день; Бальдр; Дэллинг (рассвет)"),
+  R("othala", 3, "ᛟ", "Отала", "Наследие, родина; дом, род, собственность, традиция, корни, духовное наследство. Перевёрнутая: косность, предрассудки, цепляние. ⟶ сердце «наследия» кампании.", "Один (Одал); род и предки"),
+];
+
+/* ============================ Статус облака ============================ */
+function CloudChip({ status, campaign, onBind }) {
+  const base = { fontSize: 11.5, letterSpacing: ".04em", borderRadius: 999, padding: "5px 11px", border: "1px solid var(--line)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 };
+  if (!HAS_FB) return <span style={{ ...base, color: "var(--faint)" }}>локально</span>;
+  if (!campaign) return <button onClick={onBind} style={{ ...base, color: "var(--bronze)", borderColor: "var(--line-warm)", cursor: "pointer", background: "none" }}>привязать кампанию</button>;
+  const map = {
+    loading: { t: "загрузка…", c: "var(--muted)" },
+    cloud:   { t: "облако · " + campaign, c: "var(--steel)" },
+    saving:  { t: "сохранение…", c: "var(--muted)" },
+    saved:   { t: "сохранено ✓", c: "var(--steel)" },
+    error:   { t: "нет связи", c: "var(--red)" },
+  };
+  const s = map[status] || map.cloud;
+  return <button onClick={onBind} title="сменить код кампании" style={{ ...base, color: s.c, cursor: "pointer", background: "none" }}>{s.t}</button>;
+}
+
+/* ============================ Компонент ============================ */
+function Runes() {
+  const [runes, setRunes] = useState(initialRunes);
+  const [gm, setGm] = useState(ROLE === "gm");
+  const [query, setQuery] = useState("");
+  const [showData, setShowData] = useState(false);
+  const [campaign, setCampaign] = useState(readCampaign);
+  const [status, setStatus] = useState(HAS_FB && readCampaign() ? "loading" : "local");
+
+  const skip = useRef(true);   // пропустить автосейв на программных правках (загрузка/подписка)
+  const ready = useRef(false); // не писать до первой загрузки
+
+  // загрузка + живая подписка
+  useEffect(() => {
+    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); return; }
+    let unsub = null, alive = true;
+    setStatus("loading");
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) { console.error("auth:", e); }
+      const ref = db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID);
+      try {
+        const snap = await ref.get();
+        if (alive && snap.exists && Array.isArray(snap.data().runes)) { skip.current = true; setRunes(snap.data().runes); }
+        else if (ROLE === "gm") { try { await ref.set({ runes: initialRunes, updatedAt: Date.now() }); } catch (e) { console.error("seed:", e); } }
+      } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
+      ready.current = true;
+      if (alive) setStatus("cloud");
+      unsub = ref.onSnapshot((snap) => {
+        if (!snap.exists || snap.metadata.hasPendingWrites) return;
+        if (Array.isArray(snap.data().runes)) { skip.current = true; setRunes(snap.data().runes); }
+      }, (e) => console.error("snapshot:", e));
+    })();
+    return () => { alive = false; if (unsub) unsub(); };
+  }, [campaign]);
+
+  // автосейв (только ведущая)
+  useEffect(() => {
+    if (!HAS_FB || !campaign || ROLE !== "gm") return;
+    if (!ready.current) return;
+    if (skip.current) { skip.current = false; return; }
+    setStatus("saving");
+    const t = setTimeout(async () => {
+      try {
+        await db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID).set({ runes, updatedAt: Date.now() }, { merge: true });
+        setStatus("saved"); setTimeout(() => setStatus("cloud"), 1200);
+      } catch (e) { console.error("save:", e); setStatus("error"); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [runes, campaign]);
+
+  const bind = () => {
+    const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || "");
+    if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} ready.current = false; skip.current = true; setCampaign(c); }
+  };
+
+  const patch = (id, p) => setRunes((rs) => rs.map((r) => (r.id === id ? { ...r, ...p } : r)));
+
+  const q = query.trim().toLowerCase();
+  const filtered = useMemo(() => !q ? runes : runes.filter((r) =>
+    r.name.toLowerCase().includes(q) || r.meanings.toLowerCase().includes(q) || r.links.toLowerCase().includes(q) || r.glyph.includes(query.trim())
+  ), [runes, q, query]);
+
+  const cols = gm ? "58px 130px minmax(240px,1fr) 250px" : "58px 130px minmax(240px,1fr)";
+
+  return (
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
+      <style>{`
+        .r-input{ background:var(--inset); border:1px solid var(--line); border-radius:7px; color:var(--ink); padding:5px 8px; outline:none; font-size:13px; width:100%; }
+        .r-input:focus{ border-color:var(--bronze); }
+        .r-ta{ background:var(--inset); border:1px solid var(--line); border-radius:7px; color:var(--ink); padding:6px 8px; outline:none; font-size:12.5px; width:100%; resize:vertical; line-height:1.4; }
+        .r-ta:focus{ border-color:var(--bronze); }
+        .r-btn{ border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); }
+        .r-btn:hover{ background:var(--surf2); border-color:var(--steel-soft); }
+      `}</style>
+
+      <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+        <div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD }}>Руны · Старший Футарк</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>24 руны · трактовки и связи</div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <CloudChip status={status} campaign={campaign} onBind={bind} />
+          <div className="flex items-center gap-2" style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 9, padding: "5px 9px" }}>
+            <Search size={14} style={{ color: "var(--muted)" }} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="поиск…" style={{ background: "none", border: "none", outline: "none", color: "var(--ink)", fontSize: 13, width: 110 }} />
+            {query && <button onClick={() => setQuery("")} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={13} /></button>}
+          </div>
+          {ROLE === "gm" && (
+            <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
+              {[["gm", "Ведущая"], ["player", "Игрок"]].map(([v, label]) => {
+                const active = (gm ? "gm" : "player") === v;
+                return <button key={v} onClick={() => setGm(v === "gm")} style={{ background: active ? GOLD : "transparent", color: active ? "var(--on-ink)" : "var(--muted)", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
+              })}
+            </div>
+          )}
+          {gm && <button className="r-btn flex items-center gap-1" onClick={() => setShowData(true)}><Database size={14} /> Данные</button>}
+        </div>
+      </header>
+
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: gm ? 720 : 540, padding: "8px 14px 28px" }}>
+          {/* шапка таблицы */}
+          <div style={{ display: "grid", gridTemplateColumns: cols, gap: 0, position: "sticky", top: 0, background: INK, zIndex: 2, borderBottom: "1px solid var(--line)" }}>
+            {["Руна", "Название", "Трактовки", ...(gm ? ["Связи"] : [])].map((h, i) => (
+              <div key={i} style={{ padding: "8px 10px", fontSize: 11, letterSpacing: ".6px", textTransform: "uppercase", color: GOLD }}>{h}</div>
+            ))}
+          </div>
+
+          {[1, 2, 3].map((aett) => {
+            const rows = filtered.filter((r) => r.aett === aett);
+            if (rows.length === 0) return null;
+            return (
+              <div key={aett}>
+                <div style={{ padding: "10px 10px 4px", fontFamily: FONT_DISPLAY, fontSize: 13, color: "var(--muted)", letterSpacing: ".5px" }}>{AETTIR[aett]}</div>
+                {rows.map((r) => {
+                  const isPerth = r.id === "perthro";
+                  return (
+                    <div key={r.id} style={{ display: "grid", gridTemplateColumns: cols, gap: 0, borderBottom: "1px solid var(--line-soft)", background: isPerth ? "var(--warm)" : "transparent" }}>
+                      {/* Руна */}
+                      <div style={{ padding: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontFamily: RUNE_FONT, fontSize: 28, color: GOLD, lineHeight: 1 }}>{r.glyph}</span>
+                      </div>
+                      {/* Название */}
+                      <div style={{ padding: "10px", display: "flex", alignItems: "center" }}>
+                        {gm ? <input className="r-input" value={r.name} onChange={(e) => patch(r.id, { name: e.target.value })} />
+                          : <span style={{ fontWeight: 600 }}>{r.name}</span>}
+                      </div>
+                      {/* Трактовки */}
+                      <div style={{ padding: "8px 10px", display: "flex", alignItems: "center" }}>
+                        {gm ? <textarea className="r-ta" rows={3} value={r.meanings} onChange={(e) => patch(r.id, { meanings: e.target.value })} />
+                          : <span style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.45 }}>{r.meanings}</span>}
+                      </div>
+                      {/* Связи — только ведущая */}
+                      {gm && (
+                        <div style={{ padding: "8px 10px" }}>
+                          <textarea className="r-ta" rows={2} value={r.links} onChange={(e) => patch(r.id, { links: e.target.value })} placeholder="боги / существа" />
+                          <div style={{ fontSize: 10.5, color: "var(--faint)", marginTop: 4 }}>
+                            игроки (по дате рожд.): {r.players.length ? r.players.join(", ") : <span style={{ fontStyle: "italic" }}>— позже</span>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+          {filtered.length === 0 && <div style={{ padding: 20, color: "var(--muted)" }}>Ничего не найдено.</div>}
+        </div>
+      </div>
+
+      {showData && <DataModal runes={runes} onClose={() => setShowData(false)} onApply={(d) => { setRunes(d.runes); setShowData(false); }} />}
+    </div>
+  );
+}
+
+/* ============================ Данные (ручной бэкап) ============================ */
+function DataModal({ runes, onClose, onApply }) {
+  const [text, setText] = useState(JSON.stringify({ runes }, null, 2));
+  const [err, setErr] = useState("");
+  const apply = () => { try { const d = JSON.parse(text); if (!d.runes) throw new Error("нужно поле runes"); setErr(""); onApply(d); } catch (e) { setErr("Не разобрал JSON: " + e.message); } };
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 50 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
+        <div className="flex items-center justify-between mb-3">
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Данные рун</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={18} /></button>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>Ручной бэкап. Данные и так сохраняются в облако автоматически (для ведущей). Тут можно скопировать JSON или вставить свой и «Применить».</div>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
+          style={{ width: "100%", height: 300, background: "var(--inset)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, fontFamily: "var(--mono)", fontSize: 12 }} />
+        {err && <div style={{ color: "var(--red)", fontSize: 12, marginTop: 6 }}>{err}</div>}
+        <div className="flex justify-end gap-2 mt-3">
+          <button className="r-btn" onClick={onClose}>Закрыть</button>
+          <button onClick={apply} style={{ background: GOLD, color: "var(--on-ink)", border: "none", borderRadius: 8, padding: "6px 16px", fontWeight: 600, cursor: "pointer" }}>Применить</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Runes />);
+</script>
+<script src="app-shell.js" defer></script>
+</body>
+</html>
