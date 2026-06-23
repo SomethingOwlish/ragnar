@@ -172,7 +172,6 @@ function Chronology() {
   // --- облако ---
   const [campaign, setCampaign] = useState(readCampaign);
   const [status, setStatus] = useState(HAS_FB && readCampaign() ? "loading" : "local");
-  const [loaded, setLoaded] = useState(!(HAS_FB && readCampaign()));
   const skip = useRef(true);
   const ready = useRef(false);
   const hydrate = (d) => {
@@ -184,7 +183,7 @@ function Chronology() {
     if (Array.isArray(d.players)) setPlayers(d.players);
   };
   useEffect(() => {
-    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); setLoaded(true); return; }
+    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); return; }
     let unsub = null, alive = true; setStatus("loading");
     (async () => {
       try { await auth.signInAnonymously(); } catch (e) { console.error("auth:", e); }
@@ -194,13 +193,7 @@ function Chronology() {
         if (alive && snap.exists) hydrate(snap.data());
         else if (ROLE === "gm") { try { await ref.set({ periods, sessions, events, timeless, players, updatedAt: Date.now() }); } catch (e) { console.error("seed:", e); } }
       } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
-      // ростер игроков — автоматически из персонажей кампании (плюс ручные, если были)
-      try {
-        const chars = await db.collection("campaigns").doc(campaign).collection("characters").get();
-        const names = chars.docs.map((c) => (c.data().name || "").trim()).filter(Boolean);
-        if (alive && names.length) { skip.current = true; setPlayers((prev) => Array.from(new Set([...names, ...(prev || [])]))); }
-      } catch (e) { console.error("roster:", e); }
-      ready.current = true; if (alive) { setStatus("cloud"); setLoaded(true); }
+      ready.current = true; if (alive) setStatus("cloud");
       unsub = ref.onSnapshot((snap) => { if (!snap.exists || snap.metadata.hasPendingWrites) return; hydrate(snap.data()); }, (e) => console.error("snapshot:", e));
     })();
     return () => { alive = false; if (unsub) unsub(); };
@@ -216,7 +209,7 @@ function Chronology() {
     }, 700);
     return () => clearTimeout(t);
   }, [periods, sessions, events, timeless, players, campaign]);
-  const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} ready.current = false; skip.current = true; setLoaded(false); setCampaign(c); } };
+  const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} ready.current = false; skip.current = true; setCampaign(c); } };
 
   const periodIndex = useMemo(() => Object.fromEntries(periods.map((p, i) => [p.id, i])), [periods]);
   const currentIndex = useMemo(() => {
@@ -247,8 +240,6 @@ function Chronology() {
     if (fut) return;
     setExpanded((s) => { const m = new Set(s); m.has(p.id) ? m.delete(p.id) : m.add(p.id); return m; });
   };
-
-  if (!loaded) return <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--muted)", minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }} className="w-full">Загрузка из облака…</div>;
 
   return (
     <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
@@ -394,8 +385,6 @@ function Chronology() {
       {gm && current && <Drawer type={selected.type} item={current} players={players}
         onClose={() => setSelected(null)} patch={(p) => patchItem(selected.type, current.id, p)} del={() => delItem(selected.type, current.id)} />}
 
-      {!gm && current && <ViewerDrawer type={selected.type} item={current} onClose={() => setSelected(null)} />}
-
       {showData && <DataModal data={{ periods, sessions, events, timeless, players }} onClose={() => setShowData(false)}
         onApply={(d) => { setPeriods(d.periods); setSessions(d.sessions); setEvents(d.events); setTimeless(d.timeless); setPlayers(d.players || []); setSelected(null); setShowData(false); }} />}
 
@@ -438,7 +427,7 @@ function ChipEditor({ items, roster, onChange, placeholder }) {
 function Drawer({ type, item, players, onClose, patch, del }) {
   const titleMap = { period: "Период", session: "Сессия", event: "Событие", timeless: "Эдда" };
   return (
-    <div className="k-slide" style={{ position: "fixed", top: 64, right: 0, bottom: 0, width: "min(380px, 94vw)", zIndex: 30,
+    <div className="k-slide" style={{ position: "fixed", top: "var(--shell-h, 64px)", right: 0, bottom: 0, width: "min(380px, 94vw)", zIndex: 30,
       background: "linear-gradient(180deg, var(--surf) 0%, var(--bg) 100%)", borderLeft: "1px solid var(--line)", boxShadow: "-18px 0 40px rgba(0,0,0,.45)", overflowY: "auto", padding: 16 }}>
       <div className="flex items-center justify-between mb-3">
         <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px" }}>{titleMap[type]}</span>
@@ -505,31 +494,6 @@ function Drawer({ type, item, players, onClose, patch, del }) {
 }
 function Field({ label, children }) {
   return <div style={{ marginBottom: 12 }}><div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>{label}</div>{children}</div>;
-}
-
-/* ============================ Просмотр (игрок, только чтение) ============================ */
-function ViewerDrawer({ type, item, onClose }) {
-  const titleMap = { period: "Период", session: "Сессия", event: "Событие", timeless: "Эдда" };
-  const chips = (arr) => (
-    <div className="flex flex-wrap gap-1.5">
-      {arr.map((x) => <span key={x} style={{ fontSize: 12, background: "var(--line-soft)", border: "1px solid var(--line)", borderRadius: 14, padding: "2px 8px" }}>{x}</span>)}
-    </div>
-  );
-  return (
-    <div className="k-slide" style={{ position: "fixed", top: 64, right: 0, bottom: 0, width: "min(380px, 94vw)", zIndex: 30,
-      background: "linear-gradient(180deg, var(--surf) 0%, var(--bg) 100%)", borderLeft: "1px solid var(--line)", boxShadow: "-18px 0 40px rgba(0,0,0,.45)", overflowY: "auto", padding: 16 }}>
-      <div className="flex items-center justify-between mb-3">
-        <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px" }}>{titleMap[type]}</span>
-        <button onClick={onClose} className="k-btn" style={{ padding: "4px 8px" }}><X size={16} /></button>
-      </div>
-      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: GOLD, marginBottom: 12 }}>{item.name}</div>
-      {item.timing && <Field label="Тайминг"><div style={{ fontSize: 14, color: "var(--ink)" }}>{item.timing}</div></Field>}
-      {type === "timeless" && item.source && <Field label="Источник"><div style={{ fontSize: 14, color: "var(--ink)" }}>{item.source} Эдда</div></Field>}
-      {item.desc && <Field label="Описание"><div style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.45 }}>{item.desc}</div></Field>}
-      {Array.isArray(item.participants) && item.participants.length > 0 && <Field label="Участники">{chips(item.participants)}</Field>}
-      {Array.isArray(item.tags) && item.tags.length > 0 && <Field label="Теги">{chips(item.tags)}</Field>}
-    </div>
-  );
 }
 
 function RunePicker({ value, onChange }) {

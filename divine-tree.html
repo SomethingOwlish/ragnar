@@ -155,11 +155,10 @@ function DivineTree() {
   // --- облако: полное древо хранит и пишет только ведущая (игрок этот документ не читает) ---
   const [campaign, setCampaign] = useState(_dtReadCampaign);
   const [status, setStatus] = useState(_DT_HAS_FB && _dtReadCampaign() ? "loading" : "local");
-  const [loaded, setLoaded] = useState(!(_DT_HAS_FB && _dtReadCampaign()));
   const _skip = useRef(true);
   const _ready = useRef(false);
   useEffect(() => {
-    if (!_DT_HAS_FB || !campaign) { setStatus(_DT_HAS_FB ? "cloud" : "local"); setLoaded(true); return; }
+    if (!_DT_HAS_FB || !campaign) { setStatus(_DT_HAS_FB ? "cloud" : "local"); return; }
     let unsub = null, alive = true; setStatus("loading");
     (async () => {
       try { await window._fbauth.signInAnonymously(); } catch (e) { console.error("auth:", e); }
@@ -169,7 +168,7 @@ function DivineTree() {
         if (alive && snap.exists && Array.isArray(snap.data().nodes)) { _skip.current = true; setNodes(snap.data().nodes); }
         else { try { await ref.set({ nodes: initialNodes, updatedAt: Date.now() }); } catch (e) { console.error("seed:", e); } }
       } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
-      _ready.current = true; if (alive) { setStatus("cloud"); setLoaded(true); }
+      _ready.current = true; if (alive) setStatus("cloud");
       unsub = ref.onSnapshot((snap) => { if (!snap.exists || snap.metadata.hasPendingWrites) return; if (Array.isArray(snap.data().nodes)) { _skip.current = true; setNodes(snap.data().nodes); } }, (e) => console.error("snapshot:", e));
     })();
     return () => { alive = false; if (unsub) unsub(); };
@@ -185,7 +184,7 @@ function DivineTree() {
     }, 700);
     return () => clearTimeout(t);
   }, [nodes, campaign]);
-  const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); localStorage.setItem("ragnarok-campaign", c); } catch (e) {} _ready.current = false; _skip.current = true; setLoaded(false); setCampaign(c); } };
+  const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); localStorage.setItem("ragnarok-campaign", c); } catch (e) {} _ready.current = false; _skip.current = true; setCampaign(c); } };
 
   const nodeMap = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
   const current = selected ? nodeMap[selected] : null;
@@ -238,8 +237,6 @@ function DivineTree() {
   const retractFork = () => setReleased(false);
   const playerPick = (childId) => { setPlayerAt(childId); setReleased(false); };
   const resetPlayer = () => { setPlayerAt("r"); setReleased(false); };
-
-  if (!loaded) return <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--muted)", minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }} className="w-full">Загрузка из облака…</div>;
 
   return (
     <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
@@ -431,7 +428,7 @@ function NodeDrawer({ node, nodeMap, onClose, patchNode, addChild, delNode }) {
   const col = TIERS[node.tier] || "#888";
   const isFork = node.children.length > 1;
   return (
-    <div className="t-slide" style={{ position: "fixed", top: 64, right: 0, bottom: 0, width: "min(360px, 92vw)", zIndex: 30,
+    <div className="t-slide" style={{ position: "fixed", top: "var(--shell-h, 64px)", right: 0, bottom: 0, width: "min(360px, 92vw)", zIndex: 30,
       background: `linear-gradient(180deg, ${col}1f 0%, var(--surf) 22%, var(--bg) 100%)`, borderLeft: "1px solid var(--line)",
       boxShadow: "-18px 0 40px rgba(0,0,0,.45)", overflowY: "auto", padding: 16 }}>
       <div className="flex items-start justify-between gap-2 mb-3">

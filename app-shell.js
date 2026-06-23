@@ -161,10 +161,73 @@
   function buildAll() {
     document.querySelectorAll("[data-shell]").forEach(buildShell);
     refreshToggles(document.documentElement.getAttribute("data-theme") || current());
+    publishShellH();
+  }
+
+  /* --- высота шапки → --shell-h ---
+     Сайдбары досок фиксируются под шапкой. На мобиле навигация
+     переносится в несколько строк, и шапка выше дефолтных 64px —
+     поэтому отдаём реальную высоту, чтобы верх сайдбара (и крестик)
+     не уезжал под шапку (BUG-10). */
+  function publishShellH() {
+    var sh = document.querySelector(".shell");
+    var h = sh ? Math.round(sh.getBoundingClientRect().height) : 64;
+    document.documentElement.style.setProperty("--shell-h", h + "px");
+  }
+
+  /* --- тап-тултипы (BUG-11) ---
+     На наведении подсказки работали только мышью. На касании
+     показываем плавающий пузырь из data-tip / title по тапу;
+     повторный тап или тап мимо — скрывает. Включаем только на
+     сенсорных устройствах, чтобы не мешать ховеру на десктопе. */
+  function initTapTips() {
+    var touch = ("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0;
+    if (!touch) return;
+    var tip = document.createElement("div");
+    tip.className = "tap-tip";
+    tip.style.display = "none";
+    document.body.appendChild(tip);
+    var hideT = null, curEl = null;
+    function place(el) {
+      var r = el.getBoundingClientRect();
+      tip.style.display = "block";
+      var bw = tip.offsetWidth, bh = tip.offsetHeight;
+      var left = r.left + r.width / 2 - bw / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+      var top = r.top - bh - 10;
+      if (top < 8) top = r.bottom + 10;
+      tip.style.left = left + "px";
+      tip.style.top = top + "px";
+    }
+    function show(el) {
+      var txt = el.getAttribute("data-tip") || el.getAttribute("title");
+      if (!txt) return;
+      curEl = el; tip.textContent = txt; place(el);
+      clearTimeout(hideT); hideT = setTimeout(hide, 3600);
+    }
+    function hide() { tip.style.display = "none"; curEl = null; }
+    document.addEventListener("click", function (e) {
+      var t = e.target;
+      var el = t && t.closest ? t.closest("[data-tip],.tip,[title]") : null;
+      if (el && (el.getAttribute("data-tip") || el.getAttribute("title"))) {
+        if (el === curEl && tip.style.display === "block") { hide(); return; }
+        show(el);
+      } else { hide(); }
+    }, true);
+    window.addEventListener("scroll", hide, true);
+    window.addEventListener("resize", hide);
   }
 
   function init() {
     buildAll();
+    initTapTips();
+    // следим за высотой шапки (перенос строк навигации, загрузка шрифтов)
+    if (window.ResizeObserver) {
+      var sh = document.querySelector(".shell");
+      if (sh) new ResizeObserver(publishShellH).observe(sh);
+    } else {
+      window.addEventListener("resize", publishShellH);
+    }
     // плавные переходы включаем после первой отрисовки (без мигания на загрузке)
     var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 0); };
     raf(function () {
