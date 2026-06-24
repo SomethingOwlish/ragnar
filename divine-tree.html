@@ -161,6 +161,8 @@ function DivineTree() {
   const [playerAt, setPlayerAt] = useState("r");
   const [released, setReleased] = useState(false); // ведущая выдала развилку?
   const [showData, setShowData] = useState(false);
+  const [linkMode, setLinkMode] = useState(false);   // режим ручного соединения узлов
+  const [linkSrc, setLinkSrc] = useState(null);      // выбранный родитель в этом режиме
 
   // --- облако: полное древо хранит и пишет только ведущая (игрок этот документ не читает) ---
   const [campaign, setCampaign] = useState(_dtReadCampaign);
@@ -219,6 +221,20 @@ function DivineTree() {
   const toggleCollapse = (id) => setCollapsed((st) => { const m = new Set(st); m.has(id) ? m.delete(id) : m.add(id); return m; });
 
   const patchNode = (id, patch) => setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+  const toggleLink = (aId, bId) => {
+    if (aId === bId) return;
+    setNodes((ns) => {
+      const map = {}; ns.forEach((n) => { map[n.id] = n; });
+      const a = map[aId]; if (!a) return ns;
+      const has = a.children.includes(bId);
+      if (!has) {
+        const reach = new Set(); const stack = [bId];
+        while (stack.length) { const x = stack.pop(); if (reach.has(x)) continue; reach.add(x); (map[x] ? map[x].children : []).forEach((c) => stack.push(c)); }
+        if (reach.has(aId)) { window.alert("Нельзя соединить — получилась бы петля (этот узел уже выше по ветке)."); return ns; }
+      }
+      return ns.map((n) => (n.id === aId ? { ...n, children: has ? n.children.filter((c) => c !== bId) : [...n.children, bId] } : n));
+    });
+  };
   const addChild = (pid) => {
     const p = nodeMap[pid];
     const c = M(uid("n"), p.step + 1, p.tier === "зов" ? "грань" : p.tier, "Новый узел",
@@ -240,8 +256,15 @@ function DivineTree() {
     return p.matrixTransform(svgRef.current.getScreenCTM().inverse());
   };
   const toContent = (q) => ({ x: (q.x - view.x) / view.k, y: (q.y - view.y) / view.k });
-  const onDown = (evt, id) => { evt.stopPropagation(); const q = toContent(svgPoint(evt)); const n = nodeMap[id]; dragRef.current = { id, ox: n.x - q.x, oy: n.y - q.y, moved: false }; };
-  const onBgDown = (evt) => { const sp = svgPoint(evt); panRef.current = { sx: sp.x, sy: sp.y }; };
+  const onDown = (evt, id) => {
+    evt.stopPropagation();
+    if (linkMode) {
+      setLinkSrc((s) => { if (!s) return id; if (s === id) return null; toggleLink(s, id); return null; });
+      return;
+    }
+    const q = toContent(svgPoint(evt)); const n = nodeMap[id]; dragRef.current = { id, ox: n.x - q.x, oy: n.y - q.y, moved: false };
+  };
+  const onBgDown = (evt) => { if (linkMode) setLinkSrc(null); const sp = svgPoint(evt); panRef.current = { sx: sp.x, sy: sp.y }; };
   const onMove = (evt) => {
     if (dragRef.current) { if (!gm) return; const d = dragRef.current; const q = toContent(svgPoint(evt)); d.moved = true; patchNode(d.id, { x: Math.round(q.x + d.ox), y: Math.round(q.y + d.oy) }); return; }
     if (panRef.current) { const sp = svgPoint(evt); const dx = sp.x - panRef.current.sx, dy = sp.y - panRef.current.sy; panRef.current = { sx: sp.x, sy: sp.y }; setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy })); }
@@ -266,7 +289,7 @@ function DivineTree() {
       <style>{`
         @keyframes tSlide { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
         .t-slide{ animation:tSlide .3s ease-out both; }
-        .t-node{ cursor:${gm ? "grab" : "default"}; }
+        .t-node{ cursor:${linkMode ? "crosshair" : (gm ? "grab" : "default")}; }
         .t-btn{ border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); }
         .t-btn:hover{ background:var(--surf2); }
         .t-input{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:6px 10px; outline:none; font-size:13px; }
@@ -288,6 +311,7 @@ function DivineTree() {
                 style={{ background: active ? GOLD : "transparent", color: active ? INK : "var(--ink)", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
             })}
           </div>
+          {gm && <button className="t-btn flex items-center gap-1" onClick={() => { setLinkMode((m) => !m); setLinkSrc(null); setSelected(null); }} style={linkMode ? { borderColor: "#38bdf8", color: "#38bdf8", background: "rgba(56,189,248,.12)" } : undefined}><Link2 size={14} /> {linkMode ? "Соединяю…" : "Соединить"}</button>}
           {gm && <button className="t-btn flex items-center gap-1" onClick={() => setShowData(true)}><Database size={14} /> Данные</button>}
         </div>
       </header>
@@ -295,6 +319,7 @@ function DivineTree() {
       {gm ? (
         <GMView nodes={nodes} nodeMap={nodeMap} selected={selected} svgRef={svgRef} view={view} onDown={onDown} onMove={onMove} onUp={onUp} onWheel={onWheel} onBgDown={onBgDown}
           collapsed={collapsed} toggleCollapse={toggleCollapse} zoomBy={zoomBy} resetView={resetView}
+          linkMode={linkMode} linkSrc={linkSrc}
           playerNode={playerNode} released={released} playerHasNext={playerHasNext}
           issueFork={issueFork} retractFork={retractFork} resetPlayer={resetPlayer} players={players} />
       ) : (
@@ -312,7 +337,7 @@ function DivineTree() {
 }
 
 /* ============================ Мастерский вид ============================ */
-function GMView({ nodes, nodeMap, selected, svgRef, view, onDown, onMove, onUp, onWheel, onBgDown, collapsed, toggleCollapse, zoomBy, resetView, playerNode, released, playerHasNext, issueFork, retractFork, resetPlayer, players }) {
+function GMView({ nodes, nodeMap, selected, svgRef, view, onDown, onMove, onUp, onWheel, onBgDown, collapsed, toggleCollapse, zoomBy, resetView, playerNode, released, playerHasNext, issueFork, retractFork, resetPlayer, players, linkMode, linkSrc }) {
   const vis = new Set();
   const walk = (id) => { if (vis.has(id)) return; vis.add(id); if (!collapsed.has(id)) (nodeMap[id]?.children || []).forEach(walk); };
   walk("r");
@@ -337,6 +362,7 @@ function GMView({ nodes, nodeMap, selected, svgRef, view, onDown, onMove, onUp, 
               <g key={n.id} className="t-node" onPointerDown={(e) => onDown(e, n.id)}>
                 {onPath && <circle cx={n.x} cy={n.y} r={R + 10} fill="none" stroke="#6bbf59" strokeWidth="2" strokeDasharray="3 3" />}
                 {selected === n.id && <circle cx={n.x} cy={n.y} r={R + 6} fill="none" stroke={GOLD} strokeWidth="2" />}
+                {linkSrc === n.id && <circle cx={n.x} cy={n.y} r={R + 9} fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeDasharray="4 3" />}
                 {isCol && hasKids && <circle cx={n.x} cy={n.y} r={R + 5} fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeDasharray="3 3" />}
                 <circle cx={n.x} cy={n.y} r={R} fill={col} stroke="var(--bg)" strokeWidth="2.5" />
                 {n.bon && <circle cx={n.x} cy={n.y} r="7" fill={BONS[n.bon.type] || "#fff"} stroke="var(--bg)" strokeWidth="1.5" />}
@@ -384,6 +410,11 @@ function GMView({ nodes, nodeMap, selected, svgRef, view, onDown, onMove, onUp, 
         <button className="t-btn" style={{ padding: "6px" }} onClick={() => zoomBy(1 / 1.2)}><Minus size={14} /></button>
         <button className="t-btn" style={{ padding: "6px" }} onClick={resetView}><Maximize2 size={14} /></button>
       </div>
+      {linkMode && (
+        <div className="absolute" style={{ top: 14, left: "50%", transform: "translateX(-50%)", background: "rgba(56,189,248,.14)", border: "1px solid #38bdf8", color: "#bfe7fb", borderRadius: 999, padding: "6px 16px", fontSize: 12.5, backdropFilter: "blur(4px)", whiteSpace: "nowrap" }}>
+          {linkSrc ? "Кликни второй узел — соединю с ним (повторно — разъединю). Фон — отмена." : "Режим соединения: кликни родителя, затем ребёнка. Петли запрещены."}
+        </div>
+      )}
 
       
       {/* легенда */}
@@ -577,7 +608,13 @@ function IssuePanel({ node, nodeMap, campaign, players, onBind }) {
   const [pid, setPid] = useState("");
   const [msg, setMsg] = useState("");
   const [confirmFor, setConfirmFor] = useState(null);
-  const [sh, setSh] = useState({ rune: "", title: "", text: "", give: true });
+  const [sh, setSh] = useState({ rune: "", title: "", text: "", img: "", give: true });
+  const onShardImg = (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { const im = new Image(); im.onload = () => { const max = 240, sc = Math.min(1, max / im.width); const c = document.createElement("canvas"); c.width = Math.round(im.width * sc); c.height = Math.round(im.height * sc); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); setSh((s) => ({ ...s, img: c.toDataURL("image/jpeg", 0.82) })); }; im.src = rd.result; };
+    rd.readAsDataURL(f); e.target.value = "";
+  };
   const [defaultRune, setDefaultRune] = useState("");
   useEffect(() => {
     if (!campaign || !window._fbdb) { setDefaultRune(""); return; }
@@ -616,7 +653,7 @@ function IssuePanel({ node, nodeMap, campaign, players, onBind }) {
     } catch (e) { setMsg("Ошибка: " + e.message); }
   };
 
-  const openConfirm = (p) => { setConfirmFor(p.id); setSh({ rune: defaultRune || "", title: "", text: "", give: true }); };
+  const openConfirm = (p) => { setConfirmFor(p.id); setSh({ rune: defaultRune || "", title: "", text: "", img: "", give: true }); };
 
   const confirmStep = async (p) => {
     const nf = p.nextFork; if (!nf || typeof nf.chosen !== "number") return;
@@ -648,7 +685,7 @@ function IssuePanel({ node, nodeMap, campaign, players, onBind }) {
     }
     if (sh.give) {
       const shards = (p.shards || 0) + 1;
-      const sd = [...(p.shardData || [])]; sd[shards - 1] = { rune: (sh.rune || "\u2726").slice(0, 2), title: (sh.title || "").trim(), text: (sh.text || "").trim() };
+      const sd = [...(p.shardData || [])]; sd[shards - 1] = { rune: (sh.rune || "\u2726").slice(0, 2), title: (sh.title || "").trim(), text: (sh.text || "").trim(), img: sh.img || "" };
       patch.shards = shards; patch.shardData = sd;
     }
     try { await charRef(p.id).set(patch, { merge: true }); setConfirmFor(null); setMsg("Шаг подтверждён \u2713"); setTimeout(() => setMsg(""), 1800); }
@@ -724,6 +761,15 @@ function IssuePanel({ node, nodeMap, campaign, players, onBind }) {
                                 {RUNES.map(([rid, g, rn]) => (
                                   <button key={rid} title={rn} onClick={() => setSh((s) => ({ ...s, rune: g }))} style={{ fontFamily: RUNE_FONT, fontSize: 16, width: 28, height: 28, borderRadius: 7, cursor: "pointer", border: sh.rune === g ? "1px solid " + GOLD : "1px solid var(--line)", background: sh.rune === g ? "rgba(230,195,77,.15)" : "transparent", color: sh.rune === g ? GOLD : "var(--ink)" }}>{g}</button>
                                 ))}
+                              </div>
+                              <div style={{ fontSize: 11, color: "var(--muted)" }}>Фон осколка (необязательно):</div>
+                              <div className="flex items-center gap-2">
+                                <label style={{ fontSize: 12, color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 7, padding: "5px 10px", cursor: "pointer", background: "var(--surf2)" }}>
+                                  {sh.img ? "заменить" : "загрузить картинку"}
+                                  <input type="file" accept="image/*" onChange={onShardImg} style={{ display: "none" }} />
+                                </label>
+                                {sh.img && <img src={sh.img} alt="" style={{ width: 34, height: 44, borderRadius: 6, objectFit: "cover", border: "1px solid var(--line)" }} />}
+                                {sh.img && <button onClick={() => setSh((s) => ({ ...s, img: "" }))} style={{ background: "none", border: "none", color: "var(--faint)", cursor: "pointer", fontSize: 12, textDecoration: "underline" }}>убрать</button>}
                               </div>
                             </div>
                           )}
