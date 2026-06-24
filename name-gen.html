@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Имена</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+  .ng{max-width:880px; margin:0 auto; padding:26px 18px 60px;}
+  .ng-h{font-family:var(--disp); font-size:30px; color:var(--ink); margin:0 0 4px; display:flex; gap:12px; align-items:center;}
+  .ng-h .rune{color:var(--bronze);}
+  .ng-sub{color:var(--muted); font-size:14px; margin-bottom:22px;}
+  .ng-tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+  .ng-tab{border:1px solid var(--line); background:var(--surf); color:var(--muted); border-radius:9px; padding:8px 14px; font-size:13.5px; cursor:pointer;}
+  .ng-tab.on{border-color:var(--bronze); color:var(--bronze); background:var(--warm-inset);}
+  .ng-roll{display:flex; gap:10px; align-items:center; margin-bottom:18px;}
+  .ng-btn{background:var(--bronze); color:var(--bg); border:none; border-radius:9px; padding:9px 18px; font-weight:600; cursor:pointer; font-size:14px;}
+  .ng-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px;}
+  .ng-item{border:1px solid var(--line); border-radius:10px; background:var(--surf); padding:11px 14px; font-size:16px; color:var(--ink); display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .ng-item .sub{font-size:11px; color:var(--faint);}
+  .ng-item .cp{background:none; border:none; color:var(--faint); cursor:pointer; font-size:12px;}
+  .ng-item .cp:hover{color:var(--bronze);}
+</style>
+</head>
+<body>
+<header data-shell data-here="names"></header>
+<script>(function(){var r=(new URLSearchParams(location.search).get("role")==="gm")?"gm":"player";var h=document.querySelector("[data-shell]");if(h)h.setAttribute("data-role",r);})();</script>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState } = React;
+const MALE = ["Бьёрн","Торстейн","Гуннар","Харальд","Сигурд","Хальвдан","Эйрик","Стейнар","Асгейр","Ульф","Рагнар","Хродгар","Ивар","Лейф","Кнут","Олаф","Свен","Хакон","Грим","Торвальд","Ансгар","Вемунд","Эйнар","Хельги","Орм","Ари","Скегги","Тости","Вали","Арнгрим","Хаук","Кетиль","Снорри","Торкель"];
+const FEMALE = ["Астрид","Сигрид","Гудрун","Хильда","Фрейдис","Ингрид","Тора","Сольвейг","Ранвейг","Ирса","Бергтора","Гунхильд","Йорунн","Рагнхильд","Брюнхильд","Ауд","Хельга","Дагню","Тордис","Сванхильд","Унн","Грид","Лив","Сив","Ярнсакса","Турид","Гроа","Хервёр","Свангильд"];
+const BYNAME = ["Кровавый","Бесстрашный","Змееглазый","Длинноногий","Вороний","Хитрый","Молчун","Железнобокий","Зимний","Одноглазый","Рыжий","Тихий","Дальновидец","Сын Грома","Берсерк","Странник","Скальд","Морской","Курганный","Беспалый","Седой","Острозубый","Волчья Шкура","Без Тени"];
+const T_ROOT = ["Хольм","Бьёрг","Вик","Эск","Грен","Стейн","Орм","Хель","Фрост","Раун","Эльд","Скар","Тинг","Ульв","Ворон","Аск","Ис","Грим","Свар","Гнип"];
+const T_SUF = ["хейм","фьорд","гард","вик","несс","даль","берг","стад","бю","танга","фелль","эй"];
+const pick = (a)=>a[Math.floor(Math.random()*a.length)];
+const KIND = [["male","Мужские"],["female","Женские"],["byname","Имя + прозвище"],["place","Топонимы"]];
+function gen(kind){
+  if(kind==="male") return pick(MALE);
+  if(kind==="female") return pick(FEMALE);
+  if(kind==="byname"){ const n=pick(Math.random()<0.5?MALE:FEMALE); return n+" "+pick(BYNAME); }
+  return pick(T_ROOT)+pick(T_SUF);
+}
+function App(){
+  const [kind,setKind]=useState("male");
+  const [list,setList]=useState(()=>Array.from({length:9},()=>gen("male")));
+  const roll=(k)=>{ const kk=k||kind; setList(Array.from({length:9},()=>gen(kk))); };
+  const copy=(t)=>{ try{navigator.clipboard.writeText(t);}catch(e){} };
+  return (
+    <div className="ng">
+      <h1 className="ng-h"><span className="rune">ᛗ</span> Скандинавские имена</h1>
+      <div className="ng-sub">Имена и прозвища для NPC, топонимы для мест. Жми «Бросить» — выдаёт девятку.</div>
+      <div className="ng-tabs">{KIND.map(([k,l])=>(<button key={k} className={"ng-tab"+(kind===k?" on":"")} onClick={()=>{setKind(k);roll(k);}}>{l}</button>))}</div>
+      <div className="ng-roll"><button className="ng-btn" onClick={()=>roll()}>⚄ Бросить</button></div>
+      <div className="ng-list">{list.map((n,i)=>(<div className="ng-item" key={i}><span>{n}</span><button className="cp" title="скопировать" onClick={()=>copy(n)}>копир.</button></div>))}</div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

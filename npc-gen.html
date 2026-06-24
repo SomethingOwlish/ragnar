@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Статблоки NPC</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+  .np{max-width:880px; margin:0 auto; padding:26px 18px 60px;}
+  .np-h{font-family:var(--disp); font-size:30px; color:var(--ink); margin:0 0 4px; display:flex; gap:12px; align-items:center;}
+  .np-h .rune{color:var(--bronze);}
+  .np-sub{color:var(--muted); font-size:14px; margin-bottom:20px;}
+  .np-arch{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-bottom:16px;}
+  .np-a{border:1px solid var(--line); background:var(--surf); color:var(--muted); border-radius:9px; padding:9px 12px; font-size:13px; cursor:pointer; text-align:left;}
+  .np-a.on{border-color:var(--bronze); color:var(--bronze); background:var(--warm-inset);}
+  .np-a .at{font-size:10.5px; color:var(--faint); display:block; margin-top:2px;}
+  .np-ctl{display:flex; gap:10px; align-items:center; margin-bottom:18px; flex-wrap:wrap;}
+  .np-btn{background:var(--bronze); color:var(--bg); border:none; border-radius:9px; padding:9px 18px; font-weight:600; cursor:pointer; font-size:14px;}
+  .np-tog{border:1px solid var(--line); background:var(--surf); color:var(--muted); border-radius:9px; padding:8px 12px; font-size:13px; cursor:pointer;}
+  .np-tog.on{border-color:var(--bronze); color:var(--bronze);}
+  .sb{border:1px solid var(--line-warm); border-radius:14px; background:var(--warm-field); padding:18px 20px;}
+  .sb-name{font-family:var(--disp); font-size:22px; color:var(--ink);}
+  .sb-type{font-size:12px; color:var(--bronze); text-transform:uppercase; letter-spacing:.08em; margin-bottom:12px;}
+  .sb-line{font-size:14px; color:var(--ink); line-height:1.7; margin:3px 0;}
+  .sb-line b{color:var(--bronze); font-weight:600;}
+  .sb-k{color:var(--muted); font-weight:600;}
+  .sb-derived{display:flex; gap:18px; flex-wrap:wrap; margin:10px 0; padding:10px 0; border-top:1px solid var(--line-warm); border-bottom:1px solid var(--line-warm);}
+  .sb-d b{font-size:18px; color:var(--ink); font-family:var(--disp);}
+  .sb-d span{font-size:11px; color:var(--faint); display:block; text-transform:uppercase; letter-spacing:.05em;}
+  .sb-sp{font-size:13px; color:var(--muted); line-height:1.55; margin-top:8px;}
+</style>
+</head>
+<body>
+<header data-shell data-here="npc"></header>
+<script>(function(){var r=(new URLSearchParams(location.search).get("role")==="gm")?"gm":"player";var h=document.querySelector("[data-shell]");if(h)h.setAttribute("data-role",r);})();</script>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState } = React;
+const NAMES=["Бьёрн","Гуннар","Харальд","Сигурд","Эйрик","Стейнар","Рагнар","Орм","Грим","Астрид","Сигрид","Гудрун","Фрейдис","Тордис","Хельга","Унн","Ауд"];
+const DICE=[4,6,8,10,12];
+const pick=(a)=>a[Math.floor(Math.random()*a.length)];
+const step=(n,dn)=>DICE[Math.max(0,Math.min(DICE.length-1,DICE.indexOf(n)+dn))];
+const d=(n)=>"d"+n;
+const half=(n)=>n/2; // SWADE: половина кости
+
+// архетипы: attrs[ag,sm,sp,st,vg], skills, armor, gear, special, wc(default)
+const ARCH=[
+  {id:"hird",name:"Дружинник",note:"строевой воин",wc:false,a:[6,4,6,6,6],sk:{"Драка":6,"Стрельба":6,"Внимание":4,"Атлетика":6,"Запугивание":4},armor:2,gear:"копьё/меч, щит, кольчужная рубаха",sp:"Щит даёт +2 Стойкости от стрел и +1 Парирования (учтено)."},
+  {id:"vet",name:"Хускарл",note:"ветеран, Wild Card",wc:true,a:[8,6,8,8,8],sk:{"Драка":10,"Стрельба":6,"Внимание":6,"Атлетика":8,"Запугивание":8},armor:3,gear:"секира данов, кольчуга, щит",sp:"Эджи: Блок (+1 Парир.), Замах. Опытен, не дрогнет первым."},
+  {id:"bers",name:"Берсерк",note:"Wild Card",wc:true,a:[8,4,6,10,10],sk:{"Драка":10,"Атлетика":8,"Запугивание":10,"Внимание":4},armor:1,gear:"великий топор (Сила+к10), волчья шкура",sp:"Эдж Берсерк: в ярости +урон и Стойкость, но −2 Парир., бьёт без разбора."},
+  {id:"arch",name:"Лучник",note:"стрелок",wc:false,a:[8,6,6,6,6],sk:{"Стрельба":8,"Драка":6,"Внимание":6,"Скрытность":6,"Атлетика":6},armor:1,gear:"тисовый лук (2к6, дальн. 12/24/48), сакс",sp:"Бьёт первым на дистанции; в укрытии −2 врагам по нему."},
+  {id:"volva",name:"Вёльва",note:"сейдкона, Wild Card",wc:true,a:[6,10,10,4,6],sk:{"Колдовство (Сейд)":10,"Внимание":8,"Оккультизм":8,"Убеждение":6,"Знание судеб":8},armor:0,gear:"посох, мешочек рун, плащ из перьев",sp:"Силы: чары, прозрение, проклятие, морок (10 ПС). Раз в сцену видит ложь."},
+  {id:"skald",name:"Скальд",note:"Wild Card",wc:true,a:[6,8,10,6,6],sk:{"Убеждение":10,"Выступление":10,"Общие знания":8,"Внимание":6,"Драка":6},armor:1,gear:"нож, арфа, острый язык",sp:"Эджи: Харизматичный, Вдохновитель — поддержка союзникам +1; виса бьёт по духу."},
+  {id:"jarl",name:"Ярл / тан",note:"вождь, Wild Card",wc:true,a:[6,8,8,8,8],sk:{"Драка":8,"Убеждение":8,"Запугивание":8,"Внимание":6,"Верховая езда":6},armor:3,gear:"украшенный меч, кольчуга, гривна",sp:"Командир: союзники в пределах голоса +1 к броскам страха; свита рядом."},
+  {id:"draug",name:"Драуг",note:"курганная нежить, WC",wc:true,a:[6,6,8,12,12],sk:{"Драка":10,"Запугивание":10,"Внимание":6,"Атлетика":6},armor:2,gear:"ржавый меч, могильный холод",sp:"Нежить: +2 Стойкости, бесстрашен, иммун к страху/яду/болезни. Хватка леденит (Выносливость или −1 кость)."},
+  {id:"jotun",name:"Ётун",note:"великан, WC",wc:true,a:[6,4,6,14,12],sk:{"Драка":8,"Запугивание":10,"Атлетика":6,"Метание":8},armor:2,gear:"глыба/ствол как дубина (Сила+к8)",sp:"Размер +4 (Стойкость учтена), Громадина. Удар отбрасывает. Тупой, но злой."},
+  {id:"wolf",name:"Волк фенрирова рода",note:"зверь",wc:false,a:[8,4,6,8,8],sk:{"Драка":8,"Внимание":8,"Скрытность":8,"Атлетика":8},armor:0,gear:"клыки (Сила+к6)",sp:"Скорость 8, бег к12. Стая: +1 к атаке за каждого союзника по цели (до +4). Чует кровь."},
+];
+
+function build(arch, wc){
+  const a=arch.a.map((n,i)=> i===3&&n>12 ? n : (Math.random()<0.34? step(n, Math.random()<0.5?-1:1) : n));
+  const sk={}; Object.entries(arch.sk).forEach(([k,v])=>{ sk[k]= Math.random()<0.3? step(v, Math.random()<0.5?-1:1) : v; });
+  const fight = sk["Драка"]||0;
+  const vg = a[4];
+  const parry = 2 + (fight?half(fight):0) + (arch.id==="hird"||arch.id==="vet"||arch.id==="jarl"?1:0);
+  let tough = 2 + half(vg>12?12:vg) + arch.armor + (arch.id==="draug"?2:0) + (arch.id==="jotun"?4:0);
+  const pace = arch.id==="wolf"?8:6;
+  return {name:pick(NAMES), arch, wc, a, sk, parry, tough, pace, armor:arch.armor};
+}
+const ALAB=["Ловкость","Смекалка","Дух","Сила","Выносливость"];
+
+function Block({npc}){
+  const big = npc.a[3]>12;
+  return (
+    <div className="sb">
+      <div className="sb-name">{npc.name} <span style={{fontSize:14,color:"var(--muted)"}}>· {npc.arch.name}</span></div>
+      <div className="sb-type">{npc.wc?"★ Wild Card":"Статист (Extra)"} · {npc.arch.note}</div>
+      <div className="sb-line"><span className="sb-k">Атрибуты:</span> {ALAB.map((l,i)=> l+" "+d(npc.a[i])+(i===3&&big?"+2":"")).join(", ")}</div>
+      <div className="sb-line"><span className="sb-k">Навыки:</span> {Object.entries(npc.sk).map(([k,v])=>k+" "+d(v)).join(", ")}</div>
+      <div className="sb-derived">
+        <div className="sb-d"><b>{npc.pace}</b><span>Шаг</span></div>
+        <div className="sb-d"><b>{npc.parry}</b><span>Парир.</span></div>
+        <div className="sb-d"><b>{npc.tough}{npc.armor?" ("+npc.armor+")":""}</b><span>Стойкость</span></div>
+        {npc.wc && <div className="sb-d"><b>3</b><span>Бенни</span></div>}
+      </div>
+      <div className="sb-line"><span className="sb-k">Снаряжение:</span> {npc.arch.gear}</div>
+      <div className="sb-sp">{npc.arch.sp}</div>
+    </div>
+  );
+}
+
+function App(){
+  const [aid,setAid]=useState("hird");
+  const [wc,setWc]=useState(false);
+  const arch=ARCH.find(x=>x.id===aid);
+  const [npc,setNpc]=useState(()=>build(ARCH[0],ARCH[0].wc));
+  const roll=(ar,w)=>{ const A=ar||arch; setNpc(build(A, w===undefined?A.wc:w)); };
+  return (
+    <div className="np">
+      <h1 className="np-h"><span className="rune">ᛟ</span> Статблоки NPC</h1>
+      <div className="np-sub">SWADE: Wild Cards и статисты. Выбери архетип — генерит готовый блок с бросаемой вариацией атрибутов/навыков и посчитанными Шаг/Парирование/Стойкость.</div>
+      <div className="np-arch">
+        {ARCH.map(x=>(<button key={x.id} className={"np-a"+(aid===x.id?" on":"")} onClick={()=>{setAid(x.id);setWc(x.wc);roll(x,x.wc);}}>{x.name}<span className="at">{x.note}</span></button>))}
+      </div>
+      <div className="np-ctl">
+        <button className="np-btn" onClick={()=>roll(arch,wc)}>⚄ Сгенерировать</button>
+        <button className={"np-tog"+(wc?" on":"")} onClick={()=>{const v=!wc;setWc(v);roll(arch,v);}}>{wc?"★ Wild Card":"Статист"}</button>
+      </div>
+      <Block npc={npc}/>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

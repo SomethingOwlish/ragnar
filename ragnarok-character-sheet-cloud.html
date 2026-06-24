@@ -431,6 +431,16 @@ const LOCKED = [
   { name: "Ярость", hint: "берсерк, слом оков" }, { name: "Тропы меж мирами", hint: "хождение по древу" },
 ];
 const SHARD_RUNES = ["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ", "ᚺ"];
+// рунический календарь полумесяцев (Старший Футарк): глиф, имя, старт «м/д»
+const RUNE_HM = [["ᚠ","Феху","6/29"],["ᚢ","Уруз","7/14"],["ᚦ","Турисаз","7/29"],["ᚨ","Ансуз","8/13"],["ᚱ","Райдо","8/29"],["ᚲ","Кеназ","9/13"],["ᚷ","Гебо","9/28"],["ᚹ","Вуньо","10/13"],["ᚺ","Хагалаз","10/28"],["ᚾ","Наутиз","11/13"],["ᛁ","Иса","11/28"],["ᛃ","Йера","12/13"],["ᛇ","Эйваз","12/28"],["ᛈ","Перт","1/13"],["ᛉ","Альгиз","1/28"],["ᛊ","Соулу","2/12"],["ᛏ","Тейваз","2/27"],["ᛒ","Беркана","3/14"],["ᛖ","Эваз","3/30"],["ᛗ","Манназ","4/14"],["ᛚ","Лагуз","4/29"],["ᛜ","Ингваз","5/14"],["ᛞ","Дагаз","5/29"],["ᛟ","Отала","6/14"]];
+function runeOfDate(iso) {
+  if (!iso) return null;
+  const dt = new Date(iso + "T12:00:00"); if (isNaN(dt)) return null;
+  const md = (dt.getMonth() + 1) * 100 + dt.getDate();
+  let best = 12, bestMd = -1;
+  RUNE_HM.forEach((r, i) => { const [m, d] = r[2].split("/").map(Number); const s = m * 100 + d; if (s <= md && s > bestMd) { bestMd = s; best = i; } });
+  return { good: RUNE_HM[best], bad: RUNE_HM[(best + 12) % 24] };
+}
 const PATH_TIERS = [
   { name: "Зов", from: 1, to: 3, hint: "Широкий путь. На первой развилке выберешь одно из шести начал — дальше бог скрыт." },
   { name: "Грань", from: 4, to: 6, hint: "Путь сужается до нескольких богов-кандидатов." },
@@ -464,7 +474,7 @@ function makeDefaults() {
   CORE.forEach((k) => (skills[k.n] = 4));
   OPEN.forEach((k) => (skills[k.n] = null));
   return {
-    name: "", concept: "", bio: "", img: null, gear: "", advances: 0,
+    name: "", concept: "", bio: "", born: "", img: null, gear: "", advances: 0,
     attrs: { agility: { die: 4, plus: 0 }, smarts: { die: 4, plus: 0 }, spirit: { die: 4, plus: 0 }, strength: { die: 4, plus: 0 }, vigor: { die: 4, plus: 0 } },
     skills, shards: 0, edges: [], hindrances: [], geasa: [], prophecies: [], node: "", nextFork: null, created: false,
     shaken: false, wounds: 0, fatigue: 0, incap: false, bennies: 3, conditions: [], weapons: [], armor: "", armorVal: "",
@@ -748,6 +758,16 @@ function App() {
             <div className="field" style={{ flex: 1, minWidth: 180 }}>
               <label>Концепт <span className="tip" data-tip="кто ты в двух словах до пробуждения" style={{ color: "var(--faint)" }}>?</span></label>
               <input className="t-input" value={data.concept} onChange={(e) => set({ concept: e.target.value })} placeholder="рыбак, студентка-медик…" />
+            </div>
+          </div>
+          <div className="field"><label>Дата рождения <span className="tip" data-tip="по руническому календарю полумесяцев: руна твоего полумесяца — удачная, напротив по колесу — неудачная" style={{ color: "var(--faint)" }}>?</span></label>
+            <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+              <input type="date" className="t-input" style={{ maxWidth: 190 }} value={data.born || ""} onChange={(e) => set({ born: e.target.value })} />
+              {(() => { const r = runeOfDate(data.born); return r ? (
+                <span style={{ fontSize: 13.5, color: "var(--muted)", display: "flex", gap: 14, alignItems: "center" }}>
+                  <span title="удачная руна" data-tip="удачная руна">☼ <b style={{ color: "var(--bronze)" }}>{r.good[0]} {r.good[1]}</b></span>
+                  <span title="неудачная руна" data-tip="неудачная руна">☓ <b style={{ color: "var(--ember)" }}>{r.bad[0]} {r.bad[1]}</b></span>
+                </span>) : <span style={{ fontSize: 12, color: "var(--faint)" }}>выбери дату — проявятся руны</span>; })()}
             </div>
           </div>
           <div className="field"><label>Биография · кратко</label><textarea className="ta" value={data.bio} onChange={(e) => set({ bio: e.target.value })} placeholder="откуда, чем жил до того, как миф постучал" /></div>

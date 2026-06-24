@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Колесо года</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+  .woy-wrap{max-width:1040px; margin:0 auto; padding:26px 18px 60px;}
+  .woy-h{font-family:var(--disp); font-size:30px; color:var(--ink); margin:0 0 4px; display:flex; align-items:center; gap:12px;}
+  .woy-h .rune{color:var(--bronze); font-size:30px;}
+  .woy-sub{color:var(--muted); font-size:14px; margin-bottom:26px; max-width:680px; line-height:1.5;}
+  .woy-sec{font-family:var(--disp); font-size:20px; color:var(--ink); margin:34px 0 14px; display:flex; align-items:center; gap:10px;}
+  .woy-sec .rune{color:var(--bronze); font-size:18px;}
+  .fest-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px;}
+  .fest{border:1px solid var(--line); border-radius:12px; background:var(--surf); padding:14px 16px;}
+  .fest .fn{font-family:var(--disp); font-size:17px; color:var(--ink);}
+  .fest .fd{font-family:var(--mono); font-size:11.5px; color:var(--bronze); letter-spacing:.03em; margin:2px 0 7px;}
+  .fest .ft{font-size:13px; color:var(--muted); line-height:1.5;}
+  .cal{border:1px solid var(--line); border-radius:12px; overflow:hidden;}
+  .cal-row{display:grid; grid-template-columns:54px 1fr 150px; align-items:center; gap:12px; padding:9px 14px; border-top:1px solid var(--line);}
+  .cal-row:first-child{border-top:none;}
+  .cal-row.on{background:var(--warm-inset);}
+  .cal-g{font-family:var(--rune,serif); font-size:26px; color:var(--bronze); text-align:center; line-height:1;}
+  .cal-n{font-weight:600; color:var(--ink); font-size:14px;}
+  .cal-k{font-size:12px; color:var(--muted);}
+  .cal-d{font-family:var(--mono); font-size:11.5px; color:var(--faint); text-align:right;}
+  .pick{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:8px 0 18px;}
+  .pick input{background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:7px 10px; font-size:14px;}
+  .pick .res{font-size:13px; color:var(--muted);}
+  .pick .res b{color:var(--bronze);}
+  .note{font-size:12px; color:var(--faint); margin-top:8px; line-height:1.5;}
+</style>
+</head>
+<body>
+<header data-shell data-here="woy"></header>
+<script>(function(){var r=(new URLSearchParams(location.search).get("role")==="gm")?"gm":"player";var h=document.querySelector("[data-shell]");if(h)h.setAttribute("data-role",r);})();</script>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState } = React;
+
+// Рунический календарь полумесяцев (Старший Футарк). Старт каждого получодья [месяц, день].
+const RUNE_HALFMONTHS = [
+  ["ᚠ","Феху","6/29","изобилие, начало"],["ᚢ","Уруз","7/14","сила, здоровье"],["ᚦ","Турисаз","7/29","шип, защита-угроза"],
+  ["ᚨ","Ансуз","8/13","слово, вдох"],["ᚱ","Райдо","8/29","путь, ритм"],["ᚲ","Кеназ","9/13","факел, ремесло"],
+  ["ᚷ","Гебо","9/28","дар, союз"],["ᚹ","Вуньо","10/13","радость, лад"],["ᚺ","Хагалаз","10/28","град, слом"],
+  ["ᚾ","Наутиз","11/13","нужда, выдержка"],["ᛁ","Иса","11/28","лёд, затишье"],["ᛃ","Йера","12/13","урожай, цикл"],
+  ["ᛇ","Эйваз","12/28","ось, стойкость"],["ᛈ","Перт","1/13","жребий, тайна"],["ᛉ","Альгиз","1/28","защита, лось"],
+  ["ᛊ","Соулу","2/12","солнце, победа"],["ᛏ","Тейваз","2/27","клятва, правда"],["ᛒ","Беркана","3/14","рост, рождение"],
+  ["ᛖ","Эваз","3/30","движение, пара"],["ᛗ","Манназ","4/14","человек, род"],["ᛚ","Лагуз","4/29","вода, поток"],
+  ["ᛜ","Ингваз","5/14","семя, покой"],["ᛞ","Дагаз","5/29","рассвет, перелом"],["ᛟ","Отала","6/14","наследие, дом"],
+];
+const mdNum = (s) => { const [m,d]=s.split("/").map(Number); return m*100+d; };
+// индекс полумесяца по дате (месяц 1-12, день)
+function runeIndex(month, day){
+  const md = month*100 + day;
+  let best = 12; // Эйваз стартует 12/28 — для дат до 13 января
+  let bestMd = -1;
+  RUNE_HALFMONTHS.forEach((r,i)=>{ const s=mdNum(r[2]); if (s<=md && s>bestMd){ bestMd=s; best=i; } });
+  return best;
+}
+const opposite = (i) => (i+12)%24;
+
+const FESTS = [
+  ["Йоль","~20 дек – 1 янв","Зимнее солнцестояние, поворот тьмы к свету. Двенадцать ночей, Дикая Охота Одина, клятвы на вепре, поминовение предков."],
+  ["Торраблот","конец января","Месяц Торри в разгар зимы. Пир стойкости и чести среди самой долгой стужи; вызов холоду и судьбе."],
+  ["Дисаблот","конец зимы (фев)","Жертва дисам — духам-праматерям рода и норнам. Женская сила, защита семьи, прядение судьбы."],
+  ["Сигрблот / Сумармаль","середина апреля","Начало лета. Жертва Одину «за победу» перед походами; благословение оружия и пути."],
+  ["Мидсумар / Йонсок","~21 июня","Летнее солнцестояние, пик света и силы. Костры, травы наибольшей мощи, бдение самой короткой ночи."],
+  ["Хаустблот","осеннее равноденствие","Урожайный пир, благодарность Фрейру и земле; запас на зиму, равновесие света и тьмы."],
+  ["Зимние ночи (Vetrnætr)","середина октября","Начало зимы и нового года. Альваблот и дисаблот, поминовение павших, врата меж мирами тонки."],
+];
+
+function App(){
+  const [date,setDate]=useState("");
+  let res=null;
+  if(date){ const d=new Date(date+"T12:00:00"); if(!isNaN(d)){ const i=runeIndex(d.getMonth()+1,d.getDate()); const o=opposite(i); res={good:RUNE_HALFMONTHS[i],bad:RUNE_HALFMONTHS[o]}; } }
+  const todayIdx = runeIndex(new Date().getMonth()+1,new Date().getDate());
+  return (
+    <div className="woy-wrap">
+      <h1 className="woy-h"><span className="rune">☼</span> Колесо года</h1>
+      <div className="woy-sub">Праздники северного года и рунический календарь полумесяцев. Даты рождения ложатся на руны: руна полумесяца — «удачная», противоположная (через полгода) — «неудачная». Историческая реконструкция — даты приблизительны.</div>
+
+      <div className="woy-sec"><span className="rune">ᛞ</span> Проверить дату → руна</div>
+      <div className="pick">
+        <input type="date" value={date} onChange={(e)=>setDate(e.target.value)} />
+        {res ? <span className="res">Удачная: <b>{res.good[0]} {res.good[1]}</b> · Неудачная: <b>{res.bad[0]} {res.bad[1]}</b></span>
+             : <span className="res">выбери дату</span>}
+      </div>
+
+      <div className="woy-sec"><span className="rune">ᛁ</span> Праздники</div>
+      <div className="fest-grid">
+        {FESTS.map((f,i)=>(
+          <div className="fest" key={i}><div className="fn">{f[0]}</div><div className="fd">{f[1]}</div><div className="ft">{f[2]}</div></div>
+        ))}
+      </div>
+
+      <div className="woy-sec"><span className="rune">ᚠ</span> Рунический календарь · 24 полумесяца</div>
+      <div className="cal">
+        {RUNE_HALFMONTHS.map((r,i)=>{
+          const next=RUNE_HALFMONTHS[(i+1)%24];
+          return (
+            <div className={"cal-row"+(i===todayIdx?" on":"")} key={i}>
+              <div className="cal-g">{r[0]}</div>
+              <div><span className="cal-n">{r[1]}</span> <span className="cal-k">· {r[3]}</span></div>
+              <div className="cal-d">{r[2]} – {next[2]}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="note">Полумесяцы Старшего Футарка идут от Феху (29 июня) по кругу к Отале. Сегодняшний полумесяц подсвечен. «Неудачная» руна — напротив по колесу (через 12 полумесяцев).</div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

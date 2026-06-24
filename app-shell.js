@@ -57,11 +57,14 @@
     chars:  { label: "Граф богов",        rune: "ᚷ" },
     runes:  { label: "Руны",              rune: "ᚠ" },
     chrono: { label: "Хронология",        rune: "ᛞ" },
+    woy:    { label: "Колесо года",        rune: "ᛊ" },
+    npc:    { label: "Статблоки",          rune: "ᚦ", gm: true },
+    names:  { label: "Имена",              rune: "ᛗ", gm: true },
   };
 
   var NAV = {
-    player: ["portal", "sheet", "tree", "worlds", "chars", "runes", "chrono"],
-    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono"],
+    player: ["portal", "sheet", "tree", "worlds", "chars", "runes", "chrono", "woy"],
+    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono", "woy", "names", "npc"],
     portal: [],
   };
 
@@ -82,6 +85,9 @@
     if (key === "chars")  return "characters.html?role=" + role + cp;
     if (key === "runes")  return "runes.html?role=" + role + cp;
     if (key === "chrono") return "chronology.html?role=" + role + cp;
+    if (key === "woy")    return "wheel-of-year.html?role=" + role + cp;
+    if (key === "npc")    return "npc-gen.html?role=" + role + cp;
+    if (key === "names")  return "name-gen.html?role=" + role + cp;
     return it.href;
   }
 
