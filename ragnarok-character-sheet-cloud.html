@@ -35,6 +35,20 @@ button{font-family:inherit; cursor:pointer;}
 .rune{font-family:var(--rune); line-height:1;}
 .card{background:var(--surf); border:1px solid var(--line); border-radius:11px; padding:18px;}
 .divider{height:1px; background:var(--line-soft); margin:13px 0;}
+/* дата рождения внутри карточки Атрибуты */
+.born-block{margin:2px 0 0;}
+.born-block label{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); font-weight:600;}
+.born-head{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.born-date{max-width:172px; flex:none;}
+.born-runes{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;}
+.born-runes .br{display:flex; flex-direction:column; gap:1px; border:1px solid var(--line); border-radius:8px; padding:5px 11px; line-height:1.2; min-width:0;}
+.born-runes .br .bl{font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint);}
+.born-runes .br b{font-size:14px; color:var(--bronze); font-weight:600;}
+.born-runes .br.bad b{color:var(--ember);}
+.born-runes .br.good{border-color:var(--line-warm);}
+.born-hint{font-size:12px; color:var(--faint); margin-top:9px;}
+/* дата — это удостоверение, не прогрессия: остаётся правимой даже при запертой прогрессии */
+.stele.prog-locked .born-block input{ pointer-events:auto !important; opacity:1 !important; }
 .help{font-size:12px; color:var(--faint); margin:4px 0 2px; line-height:1.6;}
 .top{display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;}
 .wordmark{font-family:var(--disp); font-weight:700; font-size:15px; letter-spacing:.16em; text-transform:uppercase; display:flex; align-items:center; gap:10px;}
@@ -317,6 +331,7 @@ button{font-family:inherit; cursor:pointer;}
   .print-sheet .p-id{flex:1;}
   .print-sheet .p-name{font-family:'Spectral',serif; font-size:24px; font-weight:700; line-height:1.1;}
   .print-sheet .p-cc{font-size:12px; color:#555; margin-top:2px;}
+  .print-sheet .p-born{font-size:11px; color:#555; margin-top:3px;}
   .print-sheet .p-meta{text-align:right; font-size:11px; color:#333;}
   .print-sheet .p-meta .pr{font-family:'Spectral',serif; font-size:14px; font-weight:600; color:#7a5210;}
   .print-sheet .p-attrs{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12.5px; margin-bottom:6px;}
@@ -760,16 +775,6 @@ function App() {
               <input className="t-input" value={data.concept} onChange={(e) => set({ concept: e.target.value })} placeholder="рыбак, студентка-медик…" />
             </div>
           </div>
-          <div className="field"><label>Дата рождения <span className="tip" data-tip="по руническому календарю полумесяцев: руна твоего полумесяца — удачная, напротив по колесу — неудачная" style={{ color: "var(--faint)" }}>?</span></label>
-            <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-              <input type="date" className="t-input" style={{ maxWidth: 190 }} value={data.born || ""} onChange={(e) => set({ born: e.target.value })} />
-              {(() => { const r = runeOfDate(data.born); return r ? (
-                <span style={{ fontSize: 13.5, color: "var(--muted)", display: "flex", gap: 14, alignItems: "center" }}>
-                  <span title="удачная руна" data-tip="удачная руна">☼ <b style={{ color: "var(--bronze)" }}>{r.good[0]} {r.good[1]}</b></span>
-                  <span title="неудачная руна" data-tip="неудачная руна">☓ <b style={{ color: "var(--ember)" }}>{r.bad[0]} {r.bad[1]}</b></span>
-                </span>) : <span style={{ fontSize: 12, color: "var(--faint)" }}>выбери дату — проявятся руны</span>; })()}
-            </div>
-          </div>
           <div className="field"><label>Биография · кратко</label><textarea className="ta" value={data.bio} onChange={(e) => set({ bio: e.target.value })} placeholder="откуда, чем жил до того, как миф постучал" /></div>
           <div className="arc">смертный&nbsp;&rarr;&nbsp;<b>?</b><span className="sh">осколков {data.shards}/9</span></div>
           <div className="adv no-print">
@@ -792,6 +797,19 @@ function App() {
       <div className="grid2">
         <div className="card prog">
           <div className="sec-title"><span className="rune" style={{ color: "var(--steel)" }}>ᚨ</span> Атрибуты</div>
+          <div className="divider" />
+          <div className="born-block">
+            <div className="born-head">
+              <label>Дата рождения <span className="tip" data-tip="по руническому календарю полумесяцев: руна твоего полумесяца — удачная, напротив по колесу — неудачная" style={{ color: "var(--faint)" }}>?</span></label>
+              <input type="date" className="t-input born-date" value={data.born || ""} onChange={(e) => set({ born: e.target.value })} />
+            </div>
+            {(() => { const r = runeOfDate(data.born); return r ? (
+              <div className="born-runes">
+                <span className="br good" title="удачная руна" data-tip="удачная руна"><span className="bl">☼ удачная</span><b>{r.good[0]} {r.good[1]}</b></span>
+                <span className="br bad" title="неудачная руна" data-tip="неудачная руна"><span className="bl">☓ неудачная</span><b>{r.bad[0]} {r.bad[1]}</b></span>
+              </div>
+            ) : <div className="born-hint">выбери дату — проявятся руны полумесяца</div>; })()}
+          </div>
           <div className="divider" />
           {ATTRS.map((at) => {
             const a = attrs[at.key];
@@ -950,6 +968,12 @@ function PrintSheet({ data }) {
         <div className="p-id">
           <div className="p-name">{data.name || "—"}</div>
           <div className="p-cc">{data.concept || ""}</div>
+          {data.born ? (() => {
+            const r = runeOfDate(data.born);
+            const [y, m, dd] = data.born.split("-");
+            const dstr = dd && m && y ? dd + "." + m + "." + y : data.born;
+            return <div className="p-born">Рождение: {dstr}{r ? " · ☼ " + r.good[0] + " " + r.good[1] + " · ☓ " + r.bad[0] + " " + r.bad[1] : ""}</div>;
+          })() : null}
         </div>
         <div className="p-meta">
           <div className="pr">{rankLine}</div>

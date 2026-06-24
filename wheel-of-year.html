@@ -35,6 +35,42 @@
   .pick .res{font-size:13px; color:var(--muted);}
   .pick .res b{color:var(--bronze);}
   .note{font-size:12px; color:var(--faint); margin-top:8px; line-height:1.5;}
+
+  /* ——— колесо года ——— */
+  .pick .woy-clear{background:none; border:1px solid var(--line); color:var(--muted); border-radius:8px; padding:6px 11px; font-size:12.5px; cursor:pointer;}
+  .pick .woy-clear:hover{border-color:var(--bronze); color:var(--bronze);}
+  .woy-legend{display:flex; gap:18px; justify-content:center; flex-wrap:wrap; font-size:12px; color:var(--muted); margin:2px 0 6px;}
+  .woy-legend i{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle;}
+  .woy-wheel-wrap{display:flex; flex-direction:column; align-items:center; gap:12px; margin:6px 0 10px;}
+  .woy-svg{width:100%; max-width:560px; height:auto; display:block; touch-action:manipulation;}
+  .wseg{fill:transparent; stroke:var(--line); stroke-width:1; cursor:pointer; transition:fill .12s;}
+  .wseg:hover{fill:var(--warm-inset);}
+  .wseg.today{fill:var(--warm-inset);}
+  .wseg.sel{fill:var(--choice-on); stroke:var(--steel-soft); stroke-width:1.6;}
+  .wseg.opp{fill:color-mix(in srgb, var(--ember) 12%, transparent); stroke:var(--ember); stroke-dasharray:3 3;}
+  .wglyph{font-family:var(--rune,serif); fill:var(--bronze); font-size:18px; text-anchor:middle; dominant-baseline:central; cursor:pointer;}
+  .wglyph.sel{fill:var(--steel); font-size:21px;}
+  .wglyph.opp{fill:var(--ember);}
+  .woy-season{font-family:var(--sans); font-size:10px; letter-spacing:.22em; text-transform:uppercase; fill:var(--faint); text-anchor:middle; dominant-baseline:central; pointer-events:none;}
+  .wnor-dot{fill:var(--bronze);} .wnor-tick{stroke:var(--bronze); stroke-width:1.4; opacity:.7;}
+  .wcel-dot{fill:var(--steel-soft);}
+  .wcel-lbl{font-family:var(--sans); font-size:10.5px; fill:var(--muted); dominant-baseline:central;}
+  .wneedle{stroke:var(--steel); stroke-width:2; stroke-linecap:round;}
+  .wneedle.opp{stroke:var(--ember); stroke-width:1.6; stroke-dasharray:4 3; opacity:.7;}
+  .whub{fill:var(--surf2); stroke:var(--line-soft); stroke-width:1;}
+  .whub-sun{font-family:var(--sans); font-size:11px; letter-spacing:.06em; fill:var(--faint); text-anchor:middle;}
+  .whub-rune{font-family:var(--rune,serif); font-size:54px; fill:var(--bronze); text-anchor:middle; dominant-baseline:central;}
+  .whub-name{font-family:var(--disp); font-size:17px; fill:var(--ink); text-anchor:middle;}
+  .woy-active{display:flex; gap:13px; align-items:center; justify-content:center; flex-wrap:wrap; text-align:left; max-width:520px;}
+  .woy-active .wa-rune{font-family:var(--rune,serif); font-size:34px; color:var(--bronze); line-height:1;}
+  .woy-active b{color:var(--ink);}
+  .woy-active span{font-size:13.5px; color:var(--muted); line-height:1.5;}
+  .woy-active .wa-range{font-family:var(--mono); font-size:11.5px; color:var(--faint);}
+  .fest .fc{font-size:11.5px; color:var(--bronze); margin-top:6px; letter-spacing:.02em;}
+  .fest.cel .fn-lat{font-family:var(--mono); font-size:11px; color:var(--faint); font-weight:400;}
+  .cal-row{cursor:pointer;}
+  .cal-row:hover{background:var(--warm-inset);}
+  .cal-row.sel{background:var(--choice-on); box-shadow:inset 3px 0 0 var(--steel-soft);}
 </style>
 </head>
 <body>
@@ -48,7 +84,7 @@
 <script type="text/babel" data-presets="react">
 const { useState } = React;
 
-// Рунический календарь полумесяцев (Старший Футарк). Старт каждого получодья [месяц, день].
+// Рунический календарь полумесяцев (Старший Футарк). Старт каждого получодья [месяц/день].
 const RUNE_HALFMONTHS = [
   ["ᚠ","Феху","6/29","изобилие, начало"],["ᚢ","Уруз","7/14","сила, здоровье"],["ᚦ","Турисаз","7/29","шип, защита-угроза"],
   ["ᚨ","Ансуз","8/13","слово, вдох"],["ᚱ","Райдо","8/29","путь, ритм"],["ᚲ","Кеназ","9/13","факел, ремесло"],
@@ -60,47 +96,184 @@ const RUNE_HALFMONTHS = [
   ["ᛜ","Ингваз","5/14","семя, покой"],["ᛞ","Дагаз","5/29","рассвет, перелом"],["ᛟ","Отала","6/14","наследие, дом"],
 ];
 const mdNum = (s) => { const [m,d]=s.split("/").map(Number); return m*100+d; };
-// индекс полумесяца по дате (месяц 1-12, день)
 function runeIndex(month, day){
   const md = month*100 + day;
-  let best = 12; // Эйваз стартует 12/28 — для дат до 13 января
-  let bestMd = -1;
+  let best = 12, bestMd = -1;
   RUNE_HALFMONTHS.forEach((r,i)=>{ const s=mdNum(r[2]); if (s<=md && s>bestMd){ bestMd=s; best=i; } });
   return best;
 }
 const opposite = (i) => (i+12)%24;
 
+// угол по дате: год разложен на круг, 1 января — вверху, дальше по часовой
+const CUM=[0,31,59,90,120,151,181,212,243,273,304,334];
+const doy = (m,d)=> CUM[m-1]+d;            // 1..365
+const angMD = (m,d)=> (doy(m,d)-1)/365*360;
+const angStr = (s)=>{ const [m,d]=s.split("/").map(Number); return angMD(m,d); };
+
+// норвежские блоты — крупные праздники (карточки ниже) + точки на колесе
 const FESTS = [
-  ["Йоль","~20 дек – 1 янв","Зимнее солнцестояние, поворот тьмы к свету. Двенадцать ночей, Дикая Охота Одина, клятвы на вепре, поминовение предков."],
-  ["Торраблот","конец января","Месяц Торри в разгар зимы. Пир стойкости и чести среди самой долгой стужи; вызов холоду и судьбе."],
-  ["Дисаблот","конец зимы (фев)","Жертва дисам — духам-праматерям рода и норнам. Женская сила, защита семьи, прядение судьбы."],
-  ["Сигрблот / Сумармаль","середина апреля","Начало лета. Жертва Одину «за победу» перед походами; благословение оружия и пути."],
-  ["Мидсумар / Йонсок","~21 июня","Летнее солнцестояние, пик света и силы. Костры, травы наибольшей мощи, бдение самой короткой ночи."],
-  ["Хаустблот","осеннее равноденствие","Урожайный пир, благодарность Фрейру и земле; запас на зиму, равновесие света и тьмы."],
-  ["Зимние ночи (Vetrnætr)","середина октября","Начало зимы и нового года. Альваблот и дисаблот, поминовение павших, врата меж мирами тонки."],
+  ["Йоль","~20 дек – 1 янв","12/24","Зимнее солнцестояние, поворот тьмы к свету. Двенадцать ночей, Дикая Охота Одина, клятвы на вепре, поминовение предков.","≈ Йоль / Yule"],
+  ["Торраблот","конец января","1/24","Месяц Торри в разгар зимы. Пир стойкости и чести среди самой долгой стужи; вызов холоду и судьбе.","между Йолем и Имболком"],
+  ["Дисаблот","конец зимы (фев)","2/20","Жертва дисам — духам-праматерям рода и норнам. Женская сила, защита семьи, прядение судьбы.","≈ Имболк / Imbolc"],
+  ["Сигрблот · Сумармаль","середина апреля","4/15","Начало лета. Жертва Одину «за победу» перед походами; благословение оружия и пути.","между Остарой и Белтейном"],
+  ["Мидсумар · Йонсок","~21 июня","6/21","Летнее солнцестояние, пик света и силы. Костры, травы наибольшей мощи, бдение самой короткой ночи.","≈ Лита / Litha"],
+  ["Хаустблот","осеннее равноденствие","9/22","Урожайный пир, благодарность Фрейру и земле; запас на зиму, равновесие света и тьмы.","≈ Мабон / Mabon"],
+  ["Зимние ночи · Vetrnætr","середина октября","10/15","Начало зимы и нового года. Альваблот и дисаблот, поминовение павших, врата меж мирами тонки.","≈ Самайн / Samhain"],
 ];
 
+// кельтское колесо года — восемь сабатов, подсказками по внешнему ободу
+const CELTIC = [
+  ["Самайн","Samhain","11/1","Кельтский новый год, грань меж мирами тонка. Перекликается с Зимними ночами."],
+  ["Йоль","Yule","12/21","Зимнее солнцестояние, возрождение солнца из самой долгой ночи."],
+  ["Имболк","Imbolc","2/1","Первые ростки и очищение, праздник Бригид. Перекликается с Дисаблотом."],
+  ["Остара","Ostara","3/20","Весеннее равноденствие, равновесие света и тьмы, пробуждение."],
+  ["Белтейн","Beltane","5/1","Костры плодородия, врата лета, расцвет жизни."],
+  ["Лита","Litha","6/21","Летнее солнцестояние, пик света. Перекликается с Мидсумаром."],
+  ["Лугнасад","Lughnasadh","8/1","Первый урожай и игры Луга, благодарность за хлеб."],
+  ["Мабон","Mabon","9/22","Осеннее равноденствие, второй урожай. Перекликается с Хаустблотом."],
+];
+
+// сезонный ободок (астрономические границы)
+const SEASONS = [
+  ["Зима","12/21","3/20","var(--steel)"],
+  ["Весна","3/20","6/21","var(--ember)"],
+  ["Лето","6/21","9/22","var(--bronze)"],
+  ["Осень","9/22","12/21","var(--red)"],
+];
+
+// ——— геометрия колеса ———
+const CX=340, CY=340;
+const R_OUT=212, R_IN=150, R_GLYPH=181;
+const SEA_IN=214, SEA_OUT=222;
+const CEL_DOT=234, CEL_LBL=257;
+const NOR_DOT=138, NOR_T0=150, NOR_T1=141;
+const HUB_R=112;
+const pol = (r,deg)=>{ const a=deg*Math.PI/180; return [CX+r*Math.sin(a), CY-r*Math.cos(a)]; };
+function segPath(r0,r1,a0,a1){
+  let span=a1-a0; const large=span>180?1:0;
+  const [xo0,yo0]=pol(r1,a0),[xo1,yo1]=pol(r1,a1),[xi1,yi1]=pol(r0,a1),[xi0,yi0]=pol(r0,a0);
+  return `M${xo0} ${yo0} A${r1} ${r1} 0 ${large} 1 ${xo1} ${yo1} L${xi1} ${yi1} A${r0} ${r0} 0 ${large} 0 ${xi0} ${yi0} Z`;
+}
+
+// сегменты получодий по их датам начала
+const SEGS = RUNE_HALFMONTHS.map((r,i)=>{
+  let a0=angStr(r[2]); let a1=angStr(RUNE_HALFMONTHS[(i+1)%24][2]); if(a1<=a0) a1+=360;
+  return { i, a0, a1, mid:((a0+a1)/2)%360, r };
+});
+
+function Wheel({ selIdx, todayIdx, onPick }){
+  const oppIdx = selIdx==null ? null : opposite(selIdx);
+  return (
+    <svg className="woy-svg" viewBox="0 0 680 680" role="img" aria-label="Колесо года">
+      {/* сезонный ободок */}
+      {SEASONS.map((s,k)=>{ let a0=angStr(s[1]),a1=angStr(s[2]); if(a1<=a0)a1+=360;
+        const [lx,ly]=pol((SEA_IN+SEA_OUT)/2,((a0+a1)/2)%360);
+        return (<g key={"s"+k}>
+          <path d={segPath(SEA_IN,SEA_OUT,a0,a1)} fill={s[3]} opacity="0.16" />
+          <text x={lx} y={ly} className="woy-season">{s[0]}</text>
+        </g>);
+      })}
+
+      {/* сегменты получодий */}
+      {SEGS.map(s=>{
+        const cls = "wseg"+(s.i===selIdx?" sel":"")+(s.i===oppIdx?" opp":"")+(s.i===todayIdx&&s.i!==selIdx?" today":"");
+        return <path key={"seg"+s.i} className={cls} d={segPath(R_IN,R_OUT,s.a0,s.a1)} onClick={()=>onPick(s.i)} />;
+      })}
+      {/* глифы рун */}
+      {SEGS.map(s=>{ const [gx,gy]=pol(R_GLYPH,s.mid);
+        const gcls="wglyph"+(s.i===selIdx?" sel":"")+(s.i===oppIdx?" opp":"");
+        return <text key={"g"+s.i} x={gx} y={gy} className={gcls} onClick={()=>onPick(s.i)}>{s.r[0]}</text>;
+      })}
+
+      {/* норвежские блоты — точки внутри */}
+      {FESTS.map((f,k)=>{ const dg=angStr(f[2]); const [dx,dy]=pol(NOR_DOT,dg); const [t0x,t0y]=pol(NOR_T0,dg); const [t1x,t1y]=pol(NOR_T1,dg);
+        return (<g key={"n"+k}>
+          <line x1={t0x} y1={t0y} x2={t1x} y2={t1y} className="wnor-tick" />
+          <circle cx={dx} cy={dy} r="3.6" className="wnor-dot"><title>{f[0] + " · " + f[1]}</title></circle>
+        </g>);
+      })}
+
+      {/* кельтские сабаты — подсказки снаружи */}
+      {CELTIC.map((c,k)=>{ const dg=angStr(c[2]); const [dx,dy]=pol(CEL_DOT,dg); const [lx,ly]=pol(CEL_LBL,dg);
+        const anchor = Math.sin(dg*Math.PI/180) > 0.25 ? "start" : (Math.sin(dg*Math.PI/180) < -0.25 ? "end" : "middle");
+        return (<g key={"c"+k}>
+          <circle cx={dx} cy={dy} r="3.2" className="wcel-dot"><title>{c[0] + " / " + c[1] + " · " + c[3]}</title></circle>
+          <text x={lx} y={ly} className="wcel-lbl" textAnchor={anchor}>{c[0]}</text>
+        </g>);
+      })}
+
+      {/* стрелки на выбранную/противоположную руну */}
+      {selIdx!=null && (()=>{ const [sx,sy]=pol(R_IN-6,SEGS[selIdx].mid); return <line x1={CX} y1={CY} x2={sx} y2={sy} className="wneedle" />; })()}
+      {oppIdx!=null && (()=>{ const [ox,oy]=pol(R_IN-6,SEGS[oppIdx].mid); return <line x1={CX} y1={CY} x2={ox} y2={oy} className="wneedle opp" />; })()}
+
+      {/* ступица */}
+      <circle cx={CX} cy={CY} r={HUB_R} className="whub" />
+      {(()=>{ const act = selIdx!=null ? selIdx : todayIdx; const r=RUNE_HALFMONTHS[act];
+        return (<g>
+          <text x={CX} y={CY-46} className="whub-sun">{selIdx!=null?"☼ твоя руна":"☼ сейчас"}</text>
+          <text x={CX} y={CY+2} className="whub-rune">{r[0]}</text>
+          <text x={CX} y={CY+52} className="whub-name">{r[1]}</text>
+        </g>);
+      })()}
+    </svg>
+  );
+}
+
 function App(){
+  const today = new Date();
+  const todayIdx = runeIndex(today.getMonth()+1, today.getDate());
   const [date,setDate]=useState("");
-  let res=null;
-  if(date){ const d=new Date(date+"T12:00:00"); if(!isNaN(d)){ const i=runeIndex(d.getMonth()+1,d.getDate()); const o=opposite(i); res={good:RUNE_HALFMONTHS[i],bad:RUNE_HALFMONTHS[o]}; } }
-  const todayIdx = runeIndex(new Date().getMonth()+1,new Date().getDate());
+  let selIdx=null, res=null;
+  if(date){ const d=new Date(date+"T12:00:00"); if(!isNaN(d)){ selIdx=runeIndex(d.getMonth()+1,d.getDate()); res={good:RUNE_HALFMONTHS[selIdx], bad:RUNE_HALFMONTHS[opposite(selIdx)]}; } }
+
+  const pickSeg = (i)=>{
+    // подобрать дату-якорь = старт получодья, чтобы подсветить руну с колеса
+    const [m,dd]=RUNE_HALFMONTHS[i][2].split("/").map(Number);
+    const y = today.getFullYear();
+    const iso = y+"-"+String(m).padStart(2,"0")+"-"+String(dd).padStart(2,"0");
+    setDate(iso);
+  };
+
+  const act = selIdx!=null ? selIdx : todayIdx;
+  const actRune = RUNE_HALFMONTHS[act];
+
   return (
     <div className="woy-wrap">
       <h1 className="woy-h"><span className="rune">☼</span> Колесо года</h1>
-      <div className="woy-sub">Праздники северного года и рунический календарь полумесяцев. Даты рождения ложатся на руны: руна полумесяца — «удачная», противоположная (через полгода) — «неудачная». Историческая реконструкция — даты приблизительны.</div>
+      <div className="woy-sub">Северный год на круге: 24 получодья Старшего Футарка по ободу, норвежские блоты — точки внутри, кельтские сабаты (Самайн, Лита, Белтейн…) — подсказки снаружи. Выбери дату или ткни в руну: руна полумесяца — «удачная», противоположная через полгода — «неудачная». Реконструкция — даты приблизительны.</div>
 
-      <div className="woy-sec"><span className="rune">ᛞ</span> Проверить дату → руна</div>
       <div className="pick">
         <input type="date" value={date} onChange={(e)=>setDate(e.target.value)} />
-        {res ? <span className="res">Удачная: <b>{res.good[0]} {res.good[1]}</b> · Неудачная: <b>{res.bad[0]} {res.bad[1]}</b></span>
-             : <span className="res">выбери дату</span>}
+        {res ? <span className="res">Удачная: <b>{res.good[0]} {res.good[1]}</b> · Неудачная: <b style={{color:"var(--ember)"}}>{res.bad[0]} {res.bad[1]}</b></span>
+             : <span className="res">сейчас на колесе — сегодняшний полумесяц</span>}
+        {date && <button className="woy-clear" onClick={()=>setDate("")}>сбросить</button>}
       </div>
 
-      <div className="woy-sec"><span className="rune">ᛁ</span> Праздники</div>
+      <div className="woy-legend">
+        <span><i style={{background:"var(--bronze)"}}></i>норвежские блоты</span>
+        <span><i style={{background:"var(--steel-soft)"}}></i>кельтские сабаты</span>
+        <span><i style={{background:"var(--warm-inset)",border:"1px solid var(--line-warm)"}}></i>сегодня</span>
+      </div>
+
+      <div className="woy-wheel-wrap">
+        <Wheel selIdx={selIdx} todayIdx={todayIdx} onPick={pickSeg} />
+        <div className="woy-active">
+          <span className="wa-rune">{actRune[0]}</span>
+          <span><b>{actRune[1]}</b> · {actRune[3]}<br/><span className="wa-range">{actRune[2]} – {RUNE_HALFMONTHS[(act+1)%24][2]}{selIdx!=null?" · напротив: "+RUNE_HALFMONTHS[opposite(act)][0]+" "+RUNE_HALFMONTHS[opposite(act)][1]:""}</span></span>
+        </div>
+      </div>
+
+      <div className="woy-sec"><span className="rune">ᛁ</span> Норвежские праздники</div>
       <div className="fest-grid">
         {FESTS.map((f,i)=>(
-          <div className="fest" key={i}><div className="fn">{f[0]}</div><div className="fd">{f[1]}</div><div className="ft">{f[2]}</div></div>
+          <div className="fest" key={i}><div className="fn">{f[0]}</div><div className="fd">{f[1]}</div><div className="ft">{f[3]}</div><div className="fc">{f[4]}</div></div>
+        ))}
+      </div>
+
+      <div className="woy-sec"><span className="rune">ᛜ</span> Кельтские сабаты · подсказки колеса</div>
+      <div className="fest-grid">
+        {CELTIC.map((c,i)=>(
+          <div className="fest cel" key={i}><div className="fn">{c[0]} <span className="fn-lat">{c[1]}</span></div><div className="fd">{c[2]}</div><div className="ft">{c[3]}</div></div>
         ))}
       </div>
 
@@ -108,8 +281,9 @@ function App(){
       <div className="cal">
         {RUNE_HALFMONTHS.map((r,i)=>{
           const next=RUNE_HALFMONTHS[(i+1)%24];
+          const on = i===todayIdx, sel = i===selIdx;
           return (
-            <div className={"cal-row"+(i===todayIdx?" on":"")} key={i}>
+            <div className={"cal-row"+(on?" on":"")+(sel?" sel":"")} key={i} onClick={()=>pickSeg(i)}>
               <div className="cal-g">{r[0]}</div>
               <div><span className="cal-n">{r[1]}</span> <span className="cal-k">· {r[3]}</span></div>
               <div className="cal-d">{r[2]} – {next[2]}</div>
@@ -117,11 +291,13 @@ function App(){
           );
         })}
       </div>
-      <div className="note">Полумесяцы Старшего Футарка идут от Феху (29 июня) по кругу к Отале. Сегодняшний полумесяц подсвечен. «Неудачная» руна — напротив по колесу (через 12 полумесяцев).</div>
+      <div className="note">Полумесяцы Старшего Футарка идут от Феху (29 июня) по кругу к Отале. Зимнее солнцестояние (Йоль) — вверху колеса, летнее (Лита) — внизу. «Неудачная» руна — напротив по колесу, через 12 полумесяцев. Тапни руну или строку — подсветится на колесе.</div>
     </div>
   );
 }
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
 </script>
+<script src="app-shell.js" defer></script>
 </body>
 </html>
