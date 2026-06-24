@@ -264,6 +264,12 @@ function PCard({ c, campaign, danger }) {
         <span className="shtxt">осколков <b>{shards}</b>/9</span>
       </div>
       {c.node && <div className="node">узел: <b>{c.node}</b></div>}
+      {c.notes && c.notes.length > 0 && (
+        <div style={{ marginTop: 8, fontSize: 11.5, color: "var(--muted)", lineHeight: 1.4 }}>
+          <span style={{ color: "var(--faint)" }}>заметок: </span><b>{c.notes.length}</b>
+          {c.notes[0] && c.notes[0].text ? <span style={{ display: "block", color: "var(--faint)", fontStyle: "italic", marginTop: 2 }}>«{c.notes[0].text.slice(0, 90)}{c.notes[0].text.length > 90 ? "…" : ""}»</span> : null}
+        </div>
+      )}
 
       <div className="fork-gm">
         {nf && nf.options ? (

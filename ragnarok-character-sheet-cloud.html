@@ -19,6 +19,18 @@ button{font-family:inherit; cursor:pointer;}
 .stele.prog-locked .prog input, .stele.prog-locked .prog textarea, .stele.prog-locked .prog button{ pointer-events:none; opacity:.9; }
 .iobtn:disabled{ opacity:.45; cursor:default; }
 .stele.view-locked .combat.live button, .stele.view-locked .combat.live input{ pointer-events:auto !important; opacity:1 !important; }
+.stele.view-locked .notes.live button, .stele.view-locked .notes.live input, .stele.view-locked .notes.live textarea{ pointer-events:auto !important; opacity:1 !important; }
+.notes-journal .nj-add{ display:flex; gap:8px; align-items:flex-start; }
+.notes-journal .nj-draft{ flex:1; min-height:50px; }
+.notes-journal .nj-addbtn{ white-space:nowrap; align-self:stretch; }
+.notes-journal .nj-list{ display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+.notes-journal .nj-item{ border:1px solid var(--line-warm); border-radius:9px; background:var(--warm-field); padding:8px 10px; }
+.notes-journal .nj-meta{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.notes-journal .nj-date{ font-family:var(--mono); font-size:10.5px; color:var(--faint); letter-spacing:.02em; }
+.notes-journal .nj-del{ margin-left:auto; background:none; border:none; color:var(--faint); cursor:pointer; font-size:16px; line-height:1; padding:0 2px; }
+.notes-journal .nj-del:hover{ color:var(--ember); }
+.notes-journal .nj-text{ width:100%; min-height:42px; resize:vertical; }
+.notes-journal .nj-text.ro{ white-space:pre-wrap; font-size:13.5px; color:var(--ink); min-height:0; }
 .sec-title{font-family:var(--disp); font-weight:600; font-size:19px; display:flex; align-items:center; gap:10px; color:var(--ink);}
 .rune{font-family:var(--rune); line-height:1;}
 .card{background:var(--surf); border:1px solid var(--line); border-radius:11px; padding:18px;}
@@ -458,7 +470,7 @@ function makeDefaults() {
     shaken: false, wounds: 0, fatigue: 0, incap: false, bennies: 3, conditions: [], weapons: [], armor: "", armorVal: "",
     attrRanks: [],
     spent: 0,
-    boons: [], shardData: [],
+    boons: [], shardData: [], notes: [],
   };
 }
 function loadLocal() {
@@ -619,6 +631,18 @@ function App() {
   };
 
   const set = (patch) => setData((d) => ({ ...d, ...patch }));
+  const notesTimer = useRef(null);
+  // Живые заметки: локалка сразу, облако — дебаунсом и точечным merge, без флага «не сохранено».
+  const setNotes = (notes) => {
+    skipSave.current = true;
+    setData((d) => ({ ...d, notes }));
+    if (cloud && campaign && charId && (!gmview || gmEditing)) {
+      clearTimeout(notesTimer.current);
+      notesTimer.current = setTimeout(() => {
+        db.collection("campaigns").doc(campaign).collection("characters").doc(charId).set({ notes }, { merge: true }).catch((e) => console.error("notes:", e));
+      }, 700);
+    }
+  };
   const setAttrDie = (k, die) => setData((d) => ({ ...d, attrs: { ...d.attrs, [k]: { die, plus: die === 12 ? d.attrs[k].plus : 0 } } }));
   const setAttrPlus = (k, p) => setData((d) => ({ ...d, attrs: { ...d.attrs, [k]: { die: 12, plus: d.attrs[k].plus === p ? 0 : p } } }));
   const setSkill = (k, v) => setData((d) => ({ ...d, skills: { ...d.skills, [k]: v } }));
@@ -824,6 +848,12 @@ function App() {
         </div>
       </div>
 
+      <div className={"card notes" + ((!gmview || gmEditing) ? " live" : "")} style={{ marginTop: 18 }}>
+        <div className="sec-title" style={{ fontSize: 16 }}><span className="rune" style={{ color: "var(--bronze)" }}>ᛜ</span> Заметки</div>
+        <div className="help">Живой журнал: пиши по ходу игры — зацепки, NPC, планы, добычу. Сохраняется само{cloud ? ", в облако" : " на этом устройстве"}; правится и без режима редактирования.</div>
+        <NotesJournal notes={data.notes} editable={!gmview || gmEditing} onChange={setNotes} />
+      </div>
+
       <div className="divine">
         <div className="sec-title"><span className="rune">ᛟ</span> Божественное</div>
         <div className="shard-cap" style={{ marginTop: 6 }}>Осколок истинной природы за каждый из девяти миров. Лит — обретён.</div>
@@ -938,7 +968,9 @@ function PrintSheet({ data }) {
       <div className="p-sec">Божественное</div>
       <div className="p-text">Текущий узел: {data.node || "—"}. Осколков {data.shards}/9. Наследие запечатано до конца девятого мира.</div>
       <div className="p-sec">Заметки</div>
-      <div className="p-notes"></div>
+      {(data.notes && data.notes.length)
+        ? data.notes.map((n, i) => <div className="p-text" key={i} style={{ marginBottom: 4 }}>{n.text}</div>)
+        : <div className="p-notes"></div>}
     </div>
   );
 }
@@ -1398,6 +1430,38 @@ function DivinePath({ completed }) {
           ? <span>Все девять осколков собраны — впереди раскрытие наследия в Рагнарёке.</span>
           : <span><b>Сейчас:</b> шаг {nextStep} · {tierOfStep(nextStep).name}. {tierOfStep(nextStep).hint}</span>}
       </div>
+    </div>
+  );
+}
+
+function NotesJournal({ notes, editable, onChange }) {
+  const [draft, setDraft] = useState("");
+  const list = notes || [];
+  const add = () => { const t = draft.trim(); if (!t) return; onChange([{ t: Date.now(), text: t }, ...list]); setDraft(""); };
+  const editAt = (i, text) => onChange(list.map((n, j) => (j === i ? { ...n, text } : n)));
+  const delAt = (i) => onChange(list.filter((_, j) => j !== i));
+  const fmt = (ms) => { try { return new Date(ms).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
+  return (
+    <div className="notes-journal">
+      {editable && (
+        <div className="nj-add">
+          <textarea className="ta nj-draft" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="новая заметка — зацепка, NPC, план… (Ctrl/⌘+Enter — добавить)"
+            onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); add(); } }} />
+          <button className="iobtn nj-addbtn" onClick={add} disabled={!draft.trim()}><span className="rune">ᛜ</span> Добавить</button>
+        </div>
+      )}
+      {list.length === 0
+        ? <div className="help" style={{ marginTop: 8 }}>{editable ? "Пока пусто. Записывай по ходу игры — всё сохранится живьём." : "Заметок нет."}</div>
+        : <div className="nj-list">
+            {list.map((n, i) => (
+              <div className="nj-item" key={(n.t || 0) + "-" + i}>
+                <div className="nj-meta"><span className="nj-date">{fmt(n.t)}</span>{editable && <button className="nj-del" title="удалить" onClick={() => delAt(i)}>×</button>}</div>
+                {editable
+                  ? <textarea className="ta nj-text" value={n.text} onChange={(e) => editAt(i, e.target.value)} />
+                  : <div className="nj-text ro">{n.text}</div>}
+              </div>
+            ))}
+          </div>}
     </div>
   );
 }
