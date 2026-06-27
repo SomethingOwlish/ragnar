@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Блог</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+</style>
+</head>
+<body>
+<header data-shell data-here="blog"></header>
+<script>
+/* роль для верхней полосы — из адреса */
+(function(){
+  var r = (new URLSearchParams(location.search).get("role")==="gm") ? "gm" : "player";
+  var h = document.querySelector("[data-shell]");
+  if (h) h.setAttribute("data-role", r);
+})();
+</script>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef } = React;
+const { Plus, X, Trash2, Lock, Users, Send } = window.LI;
+
+/* ============================ Облако ============================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCSb7M5IbOql61HIqOUxe3ct4VqdjkhLyE",
+  authDomain: "ragnarau-80866.firebaseapp.com",
+  projectId: "ragnarau-80866",
+  storageBucket: "ragnarau-80866.firebasestorage.app",
+  messagingSenderId: "727752765165",
+  appId: "1:727752765165:web:8c625b7675f022a1b026e4"
+};
+const HAS_FB = !!(window.firebase && firebaseConfig.apiKey);
+let db = null, auth = null;
+if (HAS_FB) {
+  try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); auth = firebase.auth(); }
+  catch (e) { console.error("Firebase init:", e); }
+}
+const BOARD_ID = "blog";
+const CHRON_ID = "chronology";
+const _qs = new URLSearchParams(location.search);
+const ROLE = _qs.get("role") === "gm" ? "gm" : "player";
+function readCampaign() {
+  const u = (_qs.get("c") || _qs.get("campaign") || "").trim();
+  if (u) { try { localStorage.setItem("ragnarok-board-campaign", u); } catch (e) {} return u; }
+  try { const cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null"); if (cur && cur.campaign) return cur.campaign; } catch (e) {}
+  try { return localStorage.getItem("ragnarok-board-campaign") || ""; } catch (e) { return ""; }
+}
+function readCurrent() {
+  try { return JSON.parse(localStorage.getItem("ragnarok-current") || "null"); } catch (e) { return null; }
+}
+
+/* ============================ Токены ============================ */
+const GOLD = "var(--bronze)";
+const INK = "var(--bg)";
+const FONT_DISPLAY = "var(--disp)";
+const FONT_UI = "var(--sans)";
+
+const HOUR = 60 * 60 * 1000;
+let _seq = 0;
+const uid = () => `b-${Date.now()}-${_seq++}`;
+
+const MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+function fmtTime(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${h}:${m}`;
+}
+function minutesLeft(createdAt) {
+  return Math.max(0, Math.ceil((HOUR - (Date.now() - createdAt)) / 60000));
+}
+const norm = (s) => (s || "").trim().toLowerCase();
+
+/* последняя прошедшая сессия из хронологии */
+function lastSessionFrom(chron) {
+  if (!chron) return null;
+  const sessions = Array.isArray(chron.sessions) ? chron.sessions : [];
+  if (!sessions.length) return null;
+  const periods = Array.isArray(chron.periods) ? chron.periods : [];
+  const s = sessions[sessions.length - 1];
+  const p = periods.find((x) => x.id === s.periodId);
+  return {
+    name: s.name || "",
+    timing: s.timing || "",
+    period: p ? p.name : "",
+    participants: Array.isArray(s.participants) ? s.participants : [],
+    desc: s.desc || "",
+  };
+}
+
+/* ============================ Статус облака ============================ */
+function CloudChip({ status, campaign, onBind }) {
+  const base = { fontSize: 11.5, letterSpacing: ".04em", borderRadius: 999, padding: "5px 11px", border: "1px solid var(--line)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 };
+  if (!HAS_FB) return <span style={{ ...base, color: "var(--faint)" }}>локально</span>;
+  if (!campaign) return <button onClick={onBind} style={{ ...base, color: "var(--bronze)", borderColor: "var(--line-warm)", cursor: "pointer", background: "none" }}>привязать кампанию</button>;
+  const map = {
+    loading: { t: "загрузка…", c: "var(--muted)" },
+    cloud:   { t: "облако · " + campaign, c: "var(--steel)" },
+    saving:  { t: "сохранение…", c: "var(--muted)" },
+    saved:   { t: "сохранено ✓", c: "var(--steel)" },
+    error:   { t: "нет связи", c: "var(--red)" },
+  };
+  const s = map[status] || map.cloud;
+  return <button onClick={onBind} title="сменить код кампании" style={{ ...base, color: s.c, cursor: "pointer", background: "none" }}>{s.t}</button>;
+}
+
+/* ============================ Сводка сессии ============================ */
+function SessionBlock({ session, compact }) {
+  if (!session) {
+    return <div style={{ fontSize: 12, color: "var(--faint)", fontStyle: "italic" }}>сессия из хронологии не привязана</div>;
+  }
+  const head = [session.timing, session.period].filter(Boolean).join(" · ");
+  return (
+    <div style={{ borderLeft: "2px solid var(--line-warm)", paddingLeft: 11, marginTop: compact ? 0 : 2 }}>
+      <div style={{ fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: GOLD, marginBottom: 2 }}>
+        по последней сессии{head ? " · " + head : ""}
+      </div>
+      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 15, color: "var(--ink)" }}>{session.name || "сессия"}</div>
+      {session.desc && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, lineHeight: 1.45 }}>{session.desc}</div>}
+      {session.participants && session.participants.length > 0 && (
+        <div className="flex flex-wrap gap-1" style={{ marginTop: 6 }}>
+          {session.participants.map((p, i) => (
+            <span key={i} style={{ fontSize: 11, color: "var(--muted)", background: "var(--surf2)", border: "1px solid var(--line)", borderRadius: 999, padding: "1px 8px" }}>{p}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================ Полоса хрониста ============================ */
+function ChroniclerBar({ isGM, blogger, isBlogger, roster, onChoose }) {
+  if (isGM) {
+    return (
+      <div style={{ background: "var(--warm)", border: "1px solid var(--line-warm)", borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <Users size={16} style={{ color: GOLD }} />
+        <div style={{ fontSize: 13, color: "var(--ink)" }}>
+          Летопись ведёт:
+        </div>
+        <select className="b-select" value={blogger} onChange={(e) => onChoose(e.target.value)}>
+          <option value="">— никто —</option>
+          {roster.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <div style={{ fontSize: 12, color: "var(--muted)", flex: 1, minWidth: 180 }}>
+          Выбранный игрок сможет публиковать и править свои записи в течение часа.
+        </div>
+      </div>
+    );
+  }
+  if (isBlogger) {
+    return (
+      <div style={{ background: "var(--choice-on)", border: "1px solid var(--steel-soft)", borderRadius: 12, padding: "10px 14px", fontSize: 13, color: "var(--ink)" }}>
+        Ты — <b style={{ color: "var(--steel)" }}>хронист</b> кампании. Записывай, что было; править и удалять можно в течение часа после публикации.
+      </div>
+    );
+  }
+  return (
+    <div style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: "10px 14px", fontSize: 13, color: "var(--muted)" }}>
+      {blogger ? <>Летопись ведёт <b style={{ color: "var(--ink)" }}>{blogger}</b>. Здесь можно читать записи.</>
+               : <>Хрониста ещё не назначили — записей пока не будет.</>}
+    </div>
+  );
+}
+
+/* ============================ Композер ============================ */
+function Composer({ chron, onPublish }) {
+  const [title, setTitle] = useState("");
+  const [text, setText] = useState("");
+  const session = lastSessionFrom(chron);
+  const publish = () => {
+    if (!title.trim() && !text.trim()) return;
+    onPublish({ title: title.trim(), text: text.trim(), session });
+    setTitle(""); setText("");
+  };
+  return (
+    <div style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 14, padding: 16 }}>
+      <input className="b-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Заголовок записи" style={{ fontFamily: FONT_DISPLAY, fontSize: 16 }} />
+      <textarea className="b-ta" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="О чём эта запись…" style={{ marginTop: 8 }} />
+      <div style={{ marginTop: 10, padding: "8px 0" }}>
+        <SessionBlock session={session} compact />
+      </div>
+      <div className="flex justify-end" style={{ marginTop: 4 }}>
+        <button className="b-publish" onClick={publish} disabled={!title.trim() && !text.trim()}>
+          <Send size={14} /> Опубликовать
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Карточка записи ============================ */
+function EntryCard({ entry, editable, canEdit, viewerIsBlogger, onSave, onDelete }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(entry.title || "");
+  const [text, setText] = useState(entry.text || "");
+  useEffect(() => { setTitle(entry.title || ""); setText(entry.text || ""); }, [entry.id, entry.title, entry.text]);
+
+  const start = () => { setTitle(entry.title || ""); setText(entry.text || ""); setEditing(true); };
+  const save = () => { onSave(entry.id, { title: title.trim(), text: text.trim() }); setEditing(false); };
+
+  const locked = viewerIsBlogger && !editable && entry.authorRole !== "gm"; // хронист, час вышел
+  const left = entry.createdAt ? minutesLeft(entry.createdAt) : 0;
+
+  return (
+    <article style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 14, padding: 16 }}>
+      <div className="flex items-start justify-between gap-3" style={{ flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 19, color: "var(--ink)", lineHeight: 1.25 }}>
+            {editing ? null : (entry.title || "Без заголовка")}
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 3 }}>
+            {fmtTime(entry.createdAt)}
+            {entry.author && <> · <span style={{ color: entry.authorRole === "gm" ? "var(--bronze)" : "var(--steel)" }}>{entry.author}</span></>}
+            {entry.editedAt && entry.editedAt > entry.createdAt && <> · правлено</>}
+          </div>
+        </div>
+        {!editing && (canEdit || editable) && (
+          <div className="flex items-center gap-1" style={{ flex: "none" }}>
+            <button className="b-mini" onClick={start} title="Править запись">✎ править</button>
+            <button className="b-mini b-danger" onClick={() => onDelete(entry.id)} title="Удалить запись"><Trash2 size={13} /></button>
+          </div>
+        )}
+      </div>
+
+      {editing ? (
+        <div style={{ marginTop: 10 }}>
+          <input className="b-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Заголовок" style={{ fontFamily: FONT_DISPLAY, fontSize: 16 }} />
+          <textarea className="b-ta" rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder="Текст записи…" style={{ marginTop: 8 }} />
+          <div className="flex justify-end gap-2" style={{ marginTop: 8 }}>
+            <button className="b-btn" onClick={() => setEditing(false)}>Отмена</button>
+            <button className="b-publish" onClick={save}>Сохранить</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {entry.text && (
+            <div style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.6, marginTop: 10, whiteSpace: "pre-wrap" }}>{entry.text}</div>
+          )}
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line-soft)" }}>
+            <SessionBlock session={entry.session} />
+          </div>
+          {locked && (
+            <div className="flex items-center gap-1" style={{ marginTop: 10, fontSize: 11.5, color: "var(--faint)" }}>
+              <Lock size={12} /> час истёк — править и удалять может только ведущая
+            </div>
+          )}
+          {editable && entry.authorRole !== "gm" && left > 0 && (
+            <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--muted)" }}>
+              править можно ещё ~{left} {left === 1 ? "минуту" : (left < 5 ? "минуты" : "минут")}
+            </div>
+          )}
+        </>
+      )}
+    </article>
+  );
+}
+
+/* ============================ Компонент ============================ */
+function Blog() {
+  const [gm, setGm] = useState(ROLE === "gm");
+  const [blogger, setBlogger] = useState("");
+  const [entries, setEntries] = useState([]);
+  const [chron, setChron] = useState(null);
+  const [me, setMe] = useState("");
+  const [, setTick] = useState(0);
+
+  const [campaign, setCampaign] = useState(readCampaign);
+  const [status, setStatus] = useState(HAS_FB && readCampaign() ? "loading" : "local");
+  const [loaded, setLoaded] = useState(!(HAS_FB && readCampaign()));
+
+  // имя текущего игрока — чтобы понять, он ли хронист
+  useEffect(() => {
+    if (ROLE !== "player" || !HAS_FB) return;
+    const cur = readCurrent();
+    if (!cur || !cur.campaign || !cur.charId) return;
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) {}
+      try {
+        const d = await db.collection("campaigns").doc(cur.campaign).collection("characters").doc(cur.charId).get();
+        if (d.exists) setMe((d.data().name || "").trim());
+      } catch (e) { console.error("Имя игрока:", e); }
+    })();
+  }, []);
+
+  // загрузка блога + хронологии, живое чтение
+  useEffect(() => {
+    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); setLoaded(true); return; }
+    let unsubB = null, unsubC = null, alive = true;
+    setStatus("loading");
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) {}
+      const bref = db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID);
+      const cref = db.collection("campaigns").doc(campaign).collection("boards").doc(CHRON_ID);
+      try {
+        const bsnap = await bref.get();
+        if (alive && bsnap.exists) {
+          const d = bsnap.data();
+          setBlogger(d.blogger || "");
+          setEntries(Array.isArray(d.entries) ? d.entries : []);
+        } else if (ROLE === "gm") {
+          try { await bref.set({ blogger: "", entries: [], updatedAt: Date.now() }); } catch (e) { console.error("seed:", e); }
+        }
+      } catch (e) { console.error("load blog:", e); if (alive) setStatus("error"); }
+      try { const csnap = await cref.get(); if (alive && csnap.exists) setChron(csnap.data()); } catch (e) { console.error("load chrono:", e); }
+      if (alive) { setStatus("cloud"); setLoaded(true); }
+      unsubB = bref.onSnapshot((s) => {
+        if (!s.exists) return;
+        const d = s.data();
+        setBlogger(d.blogger || "");
+        setEntries(Array.isArray(d.entries) ? d.entries : []);
+      }, (e) => console.error("snapshot blog:", e));
+      unsubC = cref.onSnapshot((s) => { if (s.exists) setChron(s.data()); }, (e) => console.error("snapshot chrono:", e));
+    })();
+    return () => { alive = false; if (unsubB) unsubB(); if (unsubC) unsubC(); };
+  }, [campaign]);
+
+  // живой пересчёт «час истёк»
+  useEffect(() => { const t = setInterval(() => setTick((x) => x + 1), 30000); return () => clearInterval(t); }, []);
+
+  const bind = () => {
+    const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || "");
+    if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} setLoaded(false); setCampaign(c); }
+  };
+
+  // запись мутации (транзакция — не затирает чужие записи)
+  const applyMutation = async (mutator) => {
+    if (HAS_FB && campaign) {
+      const ref = db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID);
+      try {
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(ref);
+          const cur = snap.exists ? snap.data() : { blogger: "", entries: [] };
+          const base = { blogger: cur.blogger || "", entries: Array.isArray(cur.entries) ? cur.entries : [] };
+          const next = mutator(base);
+          tx.set(ref, { blogger: next.blogger, entries: next.entries, updatedAt: Date.now() }, { merge: true });
+        });
+      } catch (e) { console.error("save:", e); alert("Не удалось сохранить — проверь связь и попробуй ещё раз."); }
+    } else {
+      const next = mutator({ blogger, entries });
+      setBlogger(next.blogger); setEntries(next.entries);
+    }
+  };
+
+  const isGM = gm;
+  const isBlogger = !isGM && !!me && !!blogger && norm(me) === norm(blogger);
+  const canCompose = isGM || isBlogger;
+
+  const entryEditable = (e) => {
+    if (isGM) return false; // у ведущей всегда есть доступ — отдельной меткой ниже
+    if (!isBlogger) return false;
+    if (e.authorRole === "gm") return false;
+    return (Date.now() - (e.createdAt || 0)) < HOUR;
+  };
+
+  const roster = useMemo(() => {
+    const set = [];
+    (Array.isArray(chron && chron.players) ? chron.players : []).forEach((p) => { if (p && !set.includes(p)) set.push(p); });
+    if (blogger && !set.includes(blogger)) set.push(blogger);
+    return set;
+  }, [chron, blogger]);
+
+  const chooseBlogger = (name) => applyMutation((s) => ({ blogger: name, entries: s.entries }));
+
+  const publish = ({ title, text, session }) => {
+    const entry = {
+      id: uid(), title, text, createdAt: Date.now(),
+      author: isGM ? "ведущая" : (me || blogger || "хронист"),
+      authorRole: isGM ? "gm" : "player",
+      session: session || null,
+    };
+    applyMutation((s) => ({ blogger: s.blogger, entries: [entry, ...s.entries] }));
+  };
+
+  const saveEntry = (id, patch) => applyMutation((s) => ({
+    blogger: s.blogger,
+    entries: s.entries.map((e) => (e.id === id ? { ...e, title: patch.title, text: patch.text, editedAt: Date.now() } : e)),
+  }));
+
+  const deleteEntry = (id) => {
+    if (!window.confirm("Удалить запись? Это необратимо.")) return;
+    applyMutation((s) => ({ blogger: s.blogger, entries: s.entries.filter((e) => e.id !== id) }));
+  };
+
+  if (!loaded) return <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--muted)", minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }} className="w-full">Загрузка из облака…</div>;
+
+  return (
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
+      <style>{`
+        .b-input{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:9px 11px; outline:none; font-size:14px; width:100%; }
+        .b-input:focus{ border-color:var(--bronze); }
+        .b-ta{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:9px 11px; outline:none; font-size:13.5px; width:100%; resize:vertical; line-height:1.55; font-family:var(--sans); }
+        .b-ta:focus{ border-color:var(--bronze); }
+        .b-select{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:6px 9px; outline:none; font-size:13px; cursor:pointer; }
+        .b-select:focus{ border-color:var(--bronze); }
+        .b-btn{ border:1px solid var(--line); border-radius:8px; padding:7px 13px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); }
+        .b-btn:hover{ background:var(--surf2); border-color:var(--steel-soft); }
+        .b-publish{ display:inline-flex; align-items:center; gap:7px; border:none; border-radius:8px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer; background:var(--bronze); color:var(--on-ink); }
+        .b-publish:hover{ background:var(--ember); }
+        .b-publish:disabled{ opacity:.5; cursor:default; }
+        .b-mini{ display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); border-radius:7px; padding:4px 9px; font-size:12px; cursor:pointer; background:var(--surf); color:var(--muted); }
+        .b-mini:hover{ border-color:var(--steel-soft); color:var(--steel); }
+        .b-danger:hover{ border-color:var(--red); color:var(--red); }
+      `}</style>
+
+      <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+        <div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD }}>Блог</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>летопись кампании · записи хрониста</div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <CloudChip status={status} campaign={campaign} onBind={bind} />
+          {ROLE === "gm" && (
+            <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
+              {[["gm", "Ведущая"], ["player", "Игрок"]].map(([v, label]) => {
+                const active = (gm ? "gm" : "player") === v;
+                return <button key={v} onClick={() => setGm(v === "gm")} style={{ background: active ? GOLD : "transparent", color: active ? "var(--on-ink)" : "var(--muted)", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
+              })}
+            </div>
+          )}
+        </div>
+      </header>
+
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px 48px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <ChroniclerBar isGM={isGM} blogger={blogger} isBlogger={isBlogger} roster={roster} onChoose={chooseBlogger} />
+
+        {canCompose && <Composer chron={chron} onPublish={publish} />}
+
+        {entries.length === 0 ? (
+          <div style={{ textAlign: "center", color: "var(--faint)", padding: "48px 0", fontSize: 14 }}>
+            {canCompose ? "Записей пока нет — начни летопись первой записью выше." : "Записей пока нет."}
+          </div>
+        ) : (
+          entries.map((e) => (
+            <EntryCard
+              key={e.id}
+              entry={e}
+              editable={entryEditable(e)}
+              canEdit={isGM}
+              viewerIsBlogger={isBlogger}
+              onSave={saveEntry}
+              onDelete={deleteEntry}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Blog />);
+</script>
+<script src="app-shell.js" defer></script>
+</body>
+</html>
