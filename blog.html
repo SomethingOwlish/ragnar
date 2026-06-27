@@ -279,6 +279,7 @@ function Blog() {
   const [entries, setEntries] = useState([]);
   const [chron, setChron] = useState(null);
   const [me, setMe] = useState("");
+  const [charNames, setCharNames] = useState([]);
   const [, setTick] = useState(0);
 
   const [campaign, setCampaign] = useState(readCampaign);
@@ -302,7 +303,7 @@ function Blog() {
   // загрузка блога + хронологии, живое чтение
   useEffect(() => {
     if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); setLoaded(true); return; }
-    let unsubB = null, unsubC = null, alive = true;
+    let unsubB = null, unsubC = null, unsubCh = null, alive = true;
     setStatus("loading");
     (async () => {
       try { await auth.signInAnonymously(); } catch (e) {}
@@ -327,8 +328,13 @@ function Blog() {
         setEntries(Array.isArray(d.entries) ? d.entries : []);
       }, (e) => console.error("snapshot blog:", e));
       unsubC = cref.onSnapshot((s) => { if (s.exists) setChron(s.data()); }, (e) => console.error("snapshot chrono:", e));
+      unsubCh = db.collection("campaigns").doc(campaign).collection("characters").onSnapshot((qs) => {
+        const names = [];
+        qs.forEach((d) => { const n = ((d.data() || {}).name || "").trim(); if (n) names.push(n); });
+        setCharNames(names);
+      }, (e) => console.error("snapshot chars:", e));
     })();
-    return () => { alive = false; if (unsubB) unsubB(); if (unsubC) unsubC(); };
+    return () => { alive = false; if (unsubB) unsubB(); if (unsubC) unsubC(); if (unsubCh) unsubCh(); };
   }, [campaign]);
 
   // живой пересчёт «час истёк»
@@ -371,10 +377,13 @@ function Blog() {
 
   const roster = useMemo(() => {
     const set = [];
-    (Array.isArray(chron && chron.players) ? chron.players : []).forEach((p) => { if (p && !set.includes(p)) set.push(p); });
-    if (blogger && !set.includes(blogger)) set.push(blogger);
+    const add = (n) => { const v = (n || "").trim(); if (v && !set.some((x) => norm(x) === norm(v))) set.push(v); };
+    charNames.forEach(add);
+    (Array.isArray(chron && chron.players) ? chron.players : []).forEach(add);
+    add(blogger);
+    set.sort((a, b) => a.localeCompare(b, "ru"));
     return set;
-  }, [chron, blogger]);
+  }, [charNames, chron, blogger]);
 
   const chooseBlogger = (name) => applyMutation((s) => ({ blogger: name, entries: s.entries }));
 
