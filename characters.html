@@ -304,7 +304,7 @@ function Characters() {
 
   /* узлы */
   const patchNode = (id, patch) => setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch } : n)));
-  const addNode = () => { const n = { id: uid("c"), name: "Новый", kind: "люди", role: "", notes: "", vis: true, x: 640, y: 430, ax: 0, ay: 0 }; setNodes((ns) => [...ns, n]); setSelected(n.id); };
+  const addNode = () => { const n = { id: uid("c"), name: "Новый", kind: "люди", role: "", notes: "", img: "", vis: true, x: 640, y: 430, ax: 0, ay: 0 }; setNodes((ns) => [...ns, n]); setSelected(n.id); };
   const delNode = (id) => { setNodes((ns) => ns.filter((n) => n.id !== id)); setEdges((es) => es.filter((e) => e.from !== id && e.to !== id)); setSelected(null); };
 
   /* связи */
@@ -650,6 +650,8 @@ function GridView({ nodes, gm, selected, q, kindFilter, patchNode, onSelect }) {
 /* ============================ Сайдбар персонажа ============================ */
 function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, delNode, toggleEdgeVis, delEdge, ptags, addPlayerTag, delPlayerTag }) {
   const [tagInput, setTagInput] = useState("");
+  const [imgErr, setImgErr] = useState(false);
+  useEffect(() => { setImgErr(false); }, [node.id, node.img]);
   const col = KINDS[node.kind] || "#9aa0aa";
   const rels = edges.filter((e) => (e.from === node.id || e.to === node.id) && (gm || e.vis));
   return (
@@ -677,6 +679,22 @@ function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, d
         </div>
       ) : (
         <span style={{ display: "inline-block", marginBottom: 12, fontSize: 11, color: "var(--bg)", background: col, borderRadius: 12, padding: "2px 10px" }}>{node.kind}</span>
+      )}
+
+      {/* изображение — показывается внутри просмотра, не на графе */}
+      {node.img && !imgErr && (
+        <div style={{ marginBottom: 14, borderRadius: 12, overflow: "hidden", border: "1px solid var(--line)", background: "var(--inset)" }}>
+          <img src={node.img} alt={node.name} onError={() => setImgErr(true)}
+            style={{ display: "block", width: "100%", maxHeight: 300, objectFit: "cover" }} />
+        </div>
+      )}
+
+      {gm && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>Изображение (ссылка)</div>
+          <input className="c-input" value={node.img || ""} onChange={(e) => patchNode(node.id, { img: e.target.value })} placeholder="https://…" style={{ width: "100%" }} />
+          {node.img && imgErr && <div style={{ fontSize: 11, color: "var(--red)", marginTop: 4 }}>Не удалось загрузить изображение по этой ссылке</div>}
+        </div>
       )}
 
       <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 4 }}>Кто это</div>
