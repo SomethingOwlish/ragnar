@@ -57,6 +57,7 @@
     chars:  { label: "Граф богов",        rune: "ᚷ" },
     runes:  { label: "Руны",              rune: "ᚠ" },
     chrono: { label: "Хронология",        rune: "ᛞ" },
+    beasts: { label: "Бестиарий",          rune: "ᛜ" },
     blog:   { label: "Блог",              rune: "ᚨ", href: "blog.html" },
     woy:    { label: "Колесо года",        rune: "ᛊ" },
     npc:    { label: "Статблоки",          rune: "ᚦ", gm: true },
@@ -64,8 +65,8 @@
   };
 
   var NAV = {
-    player: ["portal", "sheet", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy"],
-    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "names", "npc"],
+    player: ["portal", "sheet", "tree", "worlds", "chars", "runes", "chrono", "beasts", "blog", "woy"],
+    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono", "beasts", "blog", "woy", "names", "npc"],
     portal: [],
   };
 
@@ -77,7 +78,7 @@
   };
   // остальное прячем во вложенные выпадашки, чтобы шапка не раздувалась
   var GROUPS = [
-    { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["tree", "worlds", "chars", "runes", "chrono", "blog", "woy"] },
+    { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["tree", "worlds", "chars", "runes", "chrono", "beasts", "blog", "woy"] },
     { id: "forge", label: "Мастерская", rune: "ᚦ", gm: true, keys: ["names", "npc"] },
   ];
 
@@ -98,6 +99,7 @@
     if (key === "chars")  return "characters.html?role=" + role + cp;
     if (key === "runes")  return "runes.html?role=" + role + cp;
     if (key === "chrono") return "chronology.html?role=" + role + cp;
+    if (key === "beasts") return "bestiary.html?role=" + role + cp;
     if (key === "blog")   return "blog.html?role=" + role + cp;
     if (key === "woy")    return "wheel-of-year.html?role=" + role + cp;
     if (key === "npc")    return "npc-gen.html?role=" + role + cp;
@@ -187,7 +189,7 @@
       if ((NAV[role] || []).indexOf(k) < 0) return false;             // только пункты этой роли
       if (ITEMS[k].gm && role !== "gm") return false;                 // gm-пункты только ведущей
       // у игрока вкладки кодекса (кроме портала, карты и колеса) — только после входа в карту
-      if (role === "player" && (k === "tree" || k === "worlds" || k === "chars" || k === "runes" || k === "chrono" || k === "blog") && !isPlayerAuthed()) return false;
+      if (role === "player" && (k === "tree" || k === "worlds" || k === "chars" || k === "runes" || k === "chrono" || k === "beasts" || k === "blog") && !isPlayerAuthed()) return false;
       return true;
     }
 
