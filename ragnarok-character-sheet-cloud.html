@@ -320,6 +320,28 @@ button{font-family:inherit; cursor:pointer;}
 .wiz-finish:hover{background:var(--bronze-deep);}
 .wiz-navright{display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end;}
 .wiz-err{color:var(--red); font-size:12.5px; max-width:330px; text-align:right; line-height:1.4;}
+/* памятка бросков — модалка */
+.hints-modal{max-width:580px;}
+.hints-modal h3{font-family:var(--disp); font-weight:600; font-size:20px; margin:0 0 4px; display:flex; align-items:center; gap:9px;}
+.hints-modal h3 .rune{color:var(--bronze);}
+.hm-sub{font-size:13px; color:var(--muted); margin-bottom:14px; line-height:1.5;}
+.hm-group{margin-top:16px;}
+.hm-group:first-of-type{margin-top:4px;}
+.hm-gh{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--bronze-deep); font-weight:600; margin:0 0 8px; display:flex; align-items:center; gap:8px;}
+.hm-gh .rune{font-size:14px; color:var(--bronze);}
+.hm-item{display:grid; grid-template-columns:128px 1fr; gap:8px 14px; padding:7px 0; border-top:1px solid var(--line-soft); align-items:baseline;}
+.hm-item:first-of-type{border-top:none;}
+.hm-k{font-size:12.5px; font-weight:600; color:var(--ink); overflow-wrap:break-word;}
+.hm-v{font-size:12.5px; color:var(--muted); line-height:1.5; overflow-wrap:break-word;}
+.hm-foot{font-size:11.5px; color:var(--faint); margin-top:16px; line-height:1.5;}
+@media (max-width:520px){ .hm-item{grid-template-columns:1fr; gap:2px;} }
+/* вёрстка — длинные слова не вылезают за рамки ячеек */
+.stele .card, .divine, .dz-card, .boon-card, .fork-opt, .conv-card, .choice,
+.adv-chip, .lock-chip, .cond, .lrow, .cmb-stat, .stat, .born-runes .br,
+.bc-eff, .eff, .lh, .lt, .cd, .conv-card .ct, .hm-v{ min-width:0; overflow-wrap:break-word; }
+.weap-table{ table-layout:fixed; }
+.weap-table td input{ min-width:0; }
+.stat .k{ letter-spacing:.08em; }
 .print-sheet{display:none;}
 @media print{
   @page{ margin:12mm; }
@@ -359,6 +381,9 @@ button{font-family:inherit; cursor:pointer;}
   .print-sheet .p-weap th:first-child, .print-sheet .p-weap td:first-child{width:42%;}
   .print-sheet .p-armor{font-size:11px; color:#444; margin-top:6px;}
   .print-sheet .p-notes{border:1px solid #ddd; min-height:70px; border-radius:4px; margin-top:2px;}
+  .print-sheet .p-rolls{font-size:10.5px; color:#444; line-height:1.55; border:1px solid #ddd; border-radius:4px; padding:7px 9px; margin-top:2px; break-inside:avoid;}
+  .print-sheet .p-rolls > div + div{margin-top:4px;}
+  .print-sheet .p-rolls b{color:#2F6090;}
 }
 </style>
 </head>
@@ -570,6 +595,7 @@ function App() {
   const [dirty, setDirty] = useState(false);              // есть правки, не отправленные в облако
   const [applying, setApplying] = useState(false);        // идёт отправка в облако
   const [advOpen, setAdvOpen] = useState(false);          // открыта модалка прокачки (DEV-1)
+  const [hintsOpen, setHintsOpen] = useState(false);      // открыта памятка бросков
   const [editing, setEditing] = useState(false);          // правка карточки — за кнопкой
   const [gmEditing, setGmEditing] = useState(false);      // ведущая правит карту игрока
   const canEdit = !gmview && editing;                     // игрок правит обычные поля
@@ -757,6 +783,7 @@ function App() {
           {cloud ? <span className="mode cloud">облако · {campaign}</span> : <span className="mode local">локально</span>}
           <button className="iobtn" onClick={exportJSON}><span className="rune">ᛟ</span> Экспорт</button>
           {!gmview && <label className="iobtn"><span className="rune">ᛟ</span> Импорт<input type="file" accept="application/json" onChange={importJSON} style={{ display: "none" }} /></label>}
+          <button className="iobtn" onClick={() => setHintsOpen(true)}><span className="rune">ᚦ</span> Броски</button>
           <button className="iobtn" onClick={() => window.print()}><span className="rune">ᛚ</span> Печать</button>
           {!gmview && <button className="iobtn" onClick={resetAll}>Сброс</button>}
         </div>
@@ -945,6 +972,7 @@ function App() {
       <div className="footnote">v0.7 · экран игрока. {cloud ? "Облако подключено — карта пишется в Firebase." : "Облако не настроено — карта живёт локально в браузере."} Кубики и руны кидаются вживую. Кнопка «Печать» даёт отдельный компактный лист.</div>
     </div>
     {advOpen && !gmview && <AdvanceModal data={data} lists={lists} onApply={applyAdvance} onClose={() => setAdvOpen(false)} />}
+    {hintsOpen && <HintsModal onClose={() => setHintsOpen(false)} />}
     <PrintSheet data={data} />
     </React.Fragment>
   );
@@ -999,6 +1027,12 @@ function PrintSheet({ data }) {
       <div className="p-sec">Оружие и броня</div>
       <table className="p-weap"><thead><tr><th>Оружие</th><th>Урон</th><th>Дальн.</th><th>Прим.</th></tr></thead><tbody><tr><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td></tr></tbody></table>
       <div className="p-armor">Броня: ____________________ · Защита: ______</div>
+      <div className="p-sec">Памятка бросков</div>
+      <div className="p-rolls">
+        <div><b>Черта:</b> кость черты + рунический d6, берёшь больший. Максимум — взрыв (кидай ещё). TN&nbsp;4, каждые +4 — рейз. Взрыв руны — омен.</div>
+        <div><b>Инициатива:</b> тяни руну, порядок по Футарку. <b>Перт — Джокер:</b> ходишь когда хочешь, +2 к чертам и урону в раунде.</div>
+        <div><b>Бой:</b> атака против Парирования; урон против Стойкости — превысил: Контужен, за каждый рейз — рана. <b>Бенни:</b> переброс, снять контузию, соак ран (Выносливость).</div>
+      </div>
       <div className="p-cols">
         <div><div className="p-sec">Эджи</div>{renderList(data.edges)}</div>
         <div><div className="p-sec">Хиндрансы</div>{renderList(data.hindrances)}</div>
@@ -1353,6 +1387,55 @@ function AdvanceModal({ data, lists, onApply, onClose }) {
         <div className="adv-foot">
           <button className="wiz-back" onClick={onClose}>Отмена</button>
           <button className="wiz-next" onClick={apply} disabled={!valid || avail <= 0}>Применить улучшение</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HintsModal({ onClose }) {
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const groups = [
+    { h: "Основные броски", rune: "ᚠ", items: [
+      ["Целевое число", "TN 4. Равно или больше — успех. Каждые полные +4 — рейз (доп. эффект)."],
+      ["Бросок черты", "Кость навыка/атрибута + рунический d6 рядом. Берёшь больший из двух."],
+      ["Взрыв", "Выпал максимум на кости — кидаешь её снова и складываешь, без предела."],
+      ["Омен", "Когда взрывается рунический d6 — выпавшая руна даёт омен (благой или грозный)."],
+      ["Дикая карта", "Герои и важные NPC кидают рунический d6; статисты — только свою кость."],
+    ]},
+    { h: "Бой", rune: "ᚦ", items: [
+      ["Инициатива", "Тяни руну из мешочка. Порядок хода — по Футарку."],
+      ["Перт — Джокер", "Ходишь когда хочешь. +2 ко всем чертам и урону в этом раунде."],
+      ["Атака", "Ближний бой — против Парирования цели. Дальний — TN 4 с поправкой на дистанцию."],
+      ["Урон", "Кость урона против Стойкости. Превысил — Контужен; за каждый рейз — рана."],
+      ["Контужен", "Действуешь ограниченно. Снять — бенни или бросок Духа в свой ход."],
+    ]},
+    { h: "Бенни", rune: "ᚷ", items: [
+      ["Перебросить", "За один бенни перекидываешь весь бросок черты целиком."],
+      ["Снять контузию", "Бенни сразу убирает «Контужен»."],
+      ["Соак ран", "Бенни → бросок Выносливости: каждый успех и рейз снимает рану."],
+    ]},
+  ];
+  return (
+    <div className="adv-back" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="adv-modal hints-modal" role="dialog" aria-modal="true">
+        <h3><span className="rune">ᚦ</span> Памятка бросков</h3>
+        <div className="hm-sub">Коротко: что, куда и когда тянуть. По деталям сверяйся с ведущей.</div>
+        {groups.map((g) => (
+          <div className="hm-group" key={g.h}>
+            <div className="hm-gh"><span className="rune">{g.rune}</span> {g.h}</div>
+            {g.items.map(([k, v]) => (
+              <div className="hm-item" key={k}><div className="hm-k">{k}</div><div className="hm-v">{v}</div></div>
+            ))}
+          </div>
+        ))}
+        <div className="hm-foot">Эта же памятка печатается на листе (кнопка «Печать»).</div>
+        <div className="adv-foot" style={{ justifyContent: "flex-end" }}>
+          <button className="wiz-next" onClick={onClose}>Закрыть</button>
         </div>
       </div>
     </div>

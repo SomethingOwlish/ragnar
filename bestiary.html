@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Бестиарий</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+</style>
+</head>
+<body>
+<header data-shell data-here="bestiary"></header>
+<script>
+/* роль для верхней полосы — из адреса */
+(function(){
+  var r = (new URLSearchParams(location.search).get("role")==="gm") ? "gm" : "player";
+  var h = document.querySelector("[data-shell]");
+  if (h) h.setAttribute("data-role", r);
+})();
+</script>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef } = React;
+const { X, Database, Search, Eye, EyeOff, Plus, Trash2 } = window.LI;
+
+/* ============================ Облако ============================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCSb7M5IbOql61HIqOUxe3ct4VqdjkhLyE",
+  authDomain: "ragnarau-80866.firebaseapp.com",
+  projectId: "ragnarau-80866",
+  storageBucket: "ragnarau-80866.firebasestorage.app",
+  messagingSenderId: "727752765165",
+  appId: "1:727752765165:web:8c625b7675f022a1b026e4"
+};
+const HAS_FB = !!(window.firebase && firebaseConfig.apiKey);
+let db = null, auth = null;
+if (HAS_FB) {
+  try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); auth = firebase.auth(); }
+  catch (e) { console.error("Firebase init:", e); }
+}
+const BOARD_ID = "bestiary";
+const _qs = new URLSearchParams(location.search);
+const ROLE = _qs.get("role") === "gm" ? "gm" : "player";
+function readCampaign() {
+  const u = (_qs.get("c") || _qs.get("campaign") || "").trim();
+  if (u) { try { localStorage.setItem("ragnarok-board-campaign", u); } catch (e) {} return u; }
+  try { const cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null"); if (cur && cur.campaign) return cur.campaign; } catch (e) {}
+  try { return localStorage.getItem("ragnarok-board-campaign") || ""; } catch (e) { return ""; }
+}
+
+/* ============================ Токены ============================ */
+const GOLD = "var(--bronze)";
+const INK = "var(--bg)";
+const FONT_DISPLAY = "var(--disp)";
+const FONT_UI = "var(--sans)";
+
+const KINDS = ["Нежить", "Ётун", "Ётун инея", "Ётун огня", "Тролль", "Зверь", "Дракон", "Сокрытый народ", "Лесной дух", "Водяной", "Домовой", "Дух", "Чудовище"];
+
+/* ============================ Стартовый бестиарий ============================ */
+let _seq = 0;
+const C = (name, kind, o = {}) => ({
+  id: o.id || (kind.slice(0, 3).toLowerCase().replace(/\s/g, "") + "-" + (++_seq)),
+  name, kind,
+  wc: !!o.wc,
+  pace: o.pace || "6", parry: o.parry || "", tough: o.tough || "",
+  attrs: o.attrs || "", skills: o.skills || "",
+  abilities: o.abilities || "", habitat: o.habitat || "",
+  lore: o.lore || "", tactics: o.tactics || "",
+  img: o.img || "", hidden: !!o.hidden, powersShown: !!o.powersShown
+});
+
+const initialBeasts = [
+  C("Драуг", "Нежить", { wc: true, pace: "6", parry: "7", tough: "12 (2)",
+    attrs: "Лов к6 · Смек к6 · Дух к8 · Сил к12 · Вын к12",
+    skills: "Драка к10 · Запугивание к10 · Внимание к6 · Атлетика к6",
+    abilities: "Нежить: +2 Стойкости, не ведает страха, иммунен к яду и болезни. Леденящая хватка — Вын или −1 кость на сцену. Тяжелеет как камень: можно прижать, но не утомить.",
+    habitat: "Курганы, разорённые могильники, палубы затонувших кораблей.",
+    lore: "Мертвец, не принявший смерти. Стережёт золото, что взял с собой под землю, и ненавидит живых за то, что дышат.",
+    tactics: "Бьёт на измор, не отступает. Боится не оружия, а костра: отруби голову, положи к бёдрам и вынеси тело из кургана." }),
+  C("Хримтурс", "Ётун инея", { wc: true, pace: "6", parry: "6", tough: "14 (2)",
+    attrs: "Лов к6 · Смек к4 · Дух к6 · Сил к14 · Вын к12",
+    skills: "Драка к8 · Запугивание к10 · Метание к8 · Атлетика к6",
+    abilities: "Размер +3 (в Стойкости), Громадина. Дыхание стужи (Конус): Вын или Уязвим и −2 Шага от наледи. Удар отбрасывает на 1к6″.",
+    habitat: "Йотунхейм, ледники, перевалы Нифльхейма.",
+    lore: "Дети Имира, что были прежде богов. Холодны рассудком и телом, помнят древние обиды и взыщут их в Рагнарёк.",
+    tactics: "Держит дистанцию, мечет глыбы, потом сходится. Тепло и огонь злят и ранят его." }),
+  C("Волк Фенрирова рода", "Зверь", { pace: "8", parry: "6", tough: "7",
+    attrs: "Лов к8 · Смек к4 (звер.) · Дух к6 · Сил к8 · Вын к8",
+    skills: "Драка к8 · Внимание к8 · Скрытность к8 · Атлетика к8",
+    abilities: "Бег к12. Клыки (Сила+к6). Стая: +1 к атаке за каждого союзника по той же цели (до +4). Чует кровь за версту.",
+    habitat: "Железный лес Ярнвид, пустоши на границе миров.",
+    lore: "Потомки Фенрира и ведьмы Ангрбоды. Двое из них однажды проглотят солнце и луну.",
+    tactics: "Окружают, разделяют, валят слабейшего. Огонь и строй щитов сбивают стаю." }),
+  C("Тролль", "Тролль", { wc: true, pace: "6", parry: "6", tough: "13 (1)",
+    attrs: "Лов к6 · Смек к4 · Дух к6 · Сил к12+1 · Вын к12",
+    skills: "Драка к8 · Запугивание к8 · Внимание к6",
+    abilities: "Регенерация: снимает рану каждый раунд. Уязвимость к солнцу: на дневном свету Вын/раунд или каменеет. Огонь не даёт регенерировать.",
+    habitat: "Горные пещеры, мосты, чащи — всё, куда не достаёт солнце.",
+    lore: "Каменное отродье ночи, жадное до золота, мяса и загадок. Глупо, но хитро на свой лад.",
+    tactics: "Прёт напролом, пока цело. Гони к рассвету или жги — иначе встаёт снова." }),
+  C("Линдворм", "Дракон", { wc: true, pace: "7", parry: "7", tough: "15 (3)", hidden: true,
+    attrs: "Лов к8 · Смек к6 · Дух к8 · Сил к12+2 · Вын к12+1",
+    skills: "Драка к10 · Запугивание к10 · Внимание к8 · Скрытность к6",
+    abilities: "Размер +4, бронированная чешуя (+3). Ядовитое дыхание (Конус): Вын или 2к6 урона и Отравлен. Хвост сшибает с ног.",
+    habitat: "Глубокие пещеры на кладах, болота, корни старых гор.",
+    lore: "Бескрылый змей, что растёт вокруг сокровища, пока не станет с холм. Чем больше золота — тем чернее сердце.",
+    tactics: "Бережёт клад, бьёт из засады, травит. Подбрюшье мягче спины." }),
+  C("Отродье Нидхёгга", "Дракон", { pace: "5", parry: "5", tough: "10", hidden: true,
+    attrs: "Лов к6 · Смек к4 · Дух к6 · Сил к10 · Вын к10",
+    skills: "Драка к8 · Скрытность к8 · Атлетика к6",
+    abilities: "Грызёт корни и кости: Сила+к6, игнорирует 2 брони из дерева/камня. Сочится трупным ядом — рана гниёт (−1 к исцелению).",
+    habitat: "Корни Иггдрасиля, Нифльхейм, провалы под Хельхеймом.",
+    lore: "Малые змеи при великом Нидхёгге, что гложет мировое древо снизу. Питаются падалью клятвопреступников.",
+    tactics: "Подтачивают опоры, рушат, добивают упавших. Бегут от пламени." }),
+  C("Нёкк", "Водяной", { wc: true, pace: "6", parry: "6", tough: "6", hidden: true,
+    attrs: "Лов к8 · Смек к8 · Дух к10 · Сил к6 · Вын к6",
+    skills: "Выступление к10 · Убеждение к8 · Скрытность к8 · Колдовство к8",
+    abilities: "Меняет облик (конь, юноша, струи воды). Песнь-морок: Дух против цели — заворожён и идёт к воде. В воде силён, на суше слабеет.",
+    habitat: "Омуты, водопады, мельничные запруды, броды.",
+    lore: "Водяной дух-музыкант. Манит дивной игрой и топит заслушавшихся; знающий может выторговать у него песнь.",
+    tactics: "Не дерётся — заманивает. Назови его имя или брось сталь в воду — потеряет власть." }),
+  C("Эльдтурс", "Ётун огня", { wc: true, pace: "6", parry: "7", tough: "13 (2)", hidden: true,
+    attrs: "Лов к6 · Смек к6 · Дух к8 · Сил к12+1 · Вын к12",
+    skills: "Драка к10 · Запугивание к10 · Атлетика к6",
+    abilities: "Пылающий клинок (Сила+к8, поджигает). Тело — жар: кто бьёт вплотную, Вын или Горит. Иммунен к огню, уязвим к холоду и воде.",
+    habitat: "Муспельхейм, кальдеры, кузни на разломах.",
+    lore: "Сыны Сурта, что в Рагнарёк выйдут палить миры. Где ступают — трескается камень.",
+    tactics: "Жжёт, теснит в узости, поджигает всё вокруг. Вода и стужа — против них." }),
+  C("Валравн", "Чудовище", { wc: true, pace: "4", parry: "6", tough: "8", hidden: true,
+    attrs: "Лов к10 · Смек к6 · Дух к8 · Сил к6 · Вын к8",
+    skills: "Драка к8 · Внимание к10 · Скрытность к8 · Запугивание к8",
+    abilities: "Полёт 12. Клюёт сердце павшего и принимает облик получеловека-полуворона. Вещает дурное: услышавший — Дух или Потрясён.",
+    habitat: "Поля битв, виселицы, вороньи камни.",
+    lore: "Ворон, что наелся королевской крови с поля брани и стал больше, чем птица. Жаждет золота и людской плоти.",
+    tactics: "Кружит, бьёт сверху, добивает раненых. Гонится за самым ярким — золотом, кровью." }),
+  C("Мёртвые Хель", "Нежить", { pace: "5", parry: "5", tough: "9", hidden: true,
+    attrs: "Лов к6 · Смек к4 · Дух к6 · Сил к8 · Вын к8",
+    skills: "Драка к6 · Внимание к4 · Атлетика к4",
+    abilities: "Нежить (+2 Стойкости, без страха, иммун к яду и болезни). Числом берут: статисты, но прибывают волнами. Прикосновение стужи Хельхейма.",
+    habitat: "Хельхейм, берег Накели, дороги мёртвых.",
+    lore: "Те, кто умер не в бою — от хвори и старости. Бредут к чертогам Хель и не любят, когда живой идёт против течения.",
+    tactics: "Накатывают толпой, теснят, хватают. Свет и тепло замедляют их." }),
+
+  // — Сокрытый народ —
+  C("Хульдуфоулк", "Сокрытый народ", { pace: "6", parry: "5", tough: "6",
+    attrs: "Лов к8 · Смек к8 · Дух к10 · Сил к6 · Вын к6",
+    skills: "Скрытность к10 · Колдовство к8 · Убеждение к8 · Внимание к8",
+    abilities: "Невидимы по воле. Живут в камнях и холмах. Учтивым — удача и тайны, рушащим их жилища — морок, хворь скоту, беда на стройку.",
+    habitat: "Лавовые поля, холмы и валуны Исландии.",
+    lore: "Сокрытый народ, что был прежде людей. Альвы этого мира; не тревожь их камни и не строй поперёк их троп.",
+    tactics: "Не дерутся — наказывают исподволь. Дар и уважение обращают их в союзников." }),
+  C("Виттра", "Сокрытый народ", { pace: "6", parry: "5", tough: "6",
+    attrs: "Лов к8 · Смек к8 · Дух к8 · Сил к6 · Вын к6",
+    skills: "Скрытность к10 · Внимание к8 · Колдовство к6",
+    abilities: "Незримый скот и тропы под землёй. Гневаются на тех, кто перекрыл их путь домом или хлевом — порча скоту и снам.",
+    habitat: "Под землёй северной Швеции, у старых выпасов.",
+    lore: "Подземный народ. Договоришься — помогут с урожаем и стадом; обидишь — разорят втихую.",
+    tactics: "Мстят порчей и невезением, а не оружием. Перенеси постройку — отступят." }),
+
+  // — Лесные духи —
+  C("Хульдра", "Лесной дух", { wc: true, pace: "6", parry: "5", tough: "5",
+    attrs: "Лов к8 · Смек к8 · Дух к10 · Сил к6 · Вын к6",
+    skills: "Убеждение к10 · Скрытность к8 · Внимание к8 · Колдовство к6",
+    abilities: "Морок красоты: Дух или очарован и идёт за ней. Прячет коровий хвост и дуплистую спину. Власть над лесным зверьём.",
+    habitat: "Леса и горные пастбища Норвегии и Швеции.",
+    lore: "Лесная дева скрытого народа. Добра к учтивым, гибельна к наглым; кто возьмёт её в жёны по-доброму — теряет она хвост.",
+    tactics: "Уводит в чащу поодиночке. Боится железа и своего истинного имени." }),
+  C("Скогсро", "Лесной дух", { wc: true, pace: "6", parry: "5", tough: "6",
+    attrs: "Лов к8 · Смек к8 · Дух к10 · Сил к6 · Вын к6",
+    skills: "Убеждение к10 · Скрытность к10 · Внимание к8",
+    abilities: "Хозяйка делянки и зверья. Дарует удачу охотнику и угольщику за дань; разозлишь — заплутаешь и вернёшься ни с чем, а то и вовсе.",
+    habitat: "Глухие шведские боры, угольные ямы, охотничьи тропы.",
+    lore: "Лесная владычица-хранительница: ни добра, ни зла, но своего не упустит. Оставь ей долю добычи.",
+    tactics: "Путает тропы и насылает лесную оторопь. Дар примиряет." }),
+  C("Шрат", "Лесной дух", { pace: "6", parry: "6", tough: "8",
+    attrs: "Лов к6 · Смек к6 · Дух к8 · Сил к8 · Вын к8",
+    skills: "Скрытность к8 · Внимание к8 · Драка к6",
+    abilities: "Косматый хозяин чащи. Насылает блуждание — путник кружит на месте. Дружит с тем, кто чтит лес и не рубит сверх нужды.",
+    habitat: "Дремучие германские леса, бурелом, старые дубравы.",
+    lore: "Древний дух леса ещё доримских времён. Ни добрый, ни злой — лесной.",
+    tactics: "Сбивает с пути, разделяет, пугает. Дар и поклон чаще оружия." }),
+
+  // — Водяные —
+  C("Фоссегрим", "Водяной", { wc: true, pace: "6", parry: "5", tough: "5",
+    attrs: "Лов к8 · Смек к8 · Дух к10 · Сил к6 · Вын к6",
+    skills: "Выступление к12 · Убеждение к8 · Колдовство к8",
+    abilities: "Игра на скрипке, под которую пляшет всё живое (Дух или пускается в пляс до изнеможения). Учит мастерству за мясо, брошенное в водопад.",
+    habitat: "Водопады, пороги, мельничные запруды.",
+    lore: "Водяной музыкант. Щедрому ученику отдаёт нездешнее умение, скупого водит за нос.",
+    tactics: "Не боец. Завораживает музыкой; назови по имени или брось сталь в струю — смолкнет." }),
+  C("Никур", "Водяной", { wc: true, pace: "8", parry: "6", tough: "9",
+    attrs: "Лов к8 · Смек к6 · Дух к8 · Сил к12 · Вын к10",
+    skills: "Драка к8 · Скрытность к8 · Атлетика к8",
+    abilities: "Является дивным конём (плавание 12). Кто сядет — прилипает, и конь несётся топить в воде. Копыта повёрнуты задом наперёд.",
+    habitat: "Реки, озёра и броды Исландии и Скандинавии (бэккахест — швед.).",
+    lore: "Водяной конь, что ловит усталых и доверчивых. Знающий выкрикнет «никур!» — и тот сбросит, не утопив.",
+    tactics: "Заманивает кротостью, топит силой. Имя и крест-накрест сталь ломают его власть." }),
+  C("Драуген морской", "Нежить", { wc: true, pace: "5", parry: "6", tough: "9",
+    attrs: "Лов к6 · Смек к6 · Дух к8 · Сил к10 · Вын к10",
+    skills: "Драка к8 · Запугивание к10 · Лодочное дело к10",
+    abilities: "Голова — ком водорослей, глаз нет. Вопль предвещает гибель (Дух или Потрясён). Правит половиной лодки против ветра, тащит на дно.",
+    habitat: "Северные фьорды, отмели, штормовое море.",
+    lore: "Неупокоенный утопленник, не погребённый в земле. Встретить его в море — знак скорой смерти.",
+    tactics: "Догоняет в шторм, опрокидывает, утаскивает. Земля и погребение упокаивают его." }),
+  C("Марбендиль", "Водяной", { wc: true, pace: "4", parry: "5", tough: "7",
+    attrs: "Лов к6 · Смек к10 · Дух к10 · Сил к8 · Вын к8",
+    skills: "Знание судеб к10 · Внимание к10 · Убеждение к8",
+    abilities: "Морской мудрец. Знает клады и судьбы вод; смеётся трижды над тем, чего люди не видят. Пленишь — упрям и зол, отпустишь — наградит.",
+    habitat: "Глубины у берегов Исландии.",
+    lore: "Получеловек-полурыба древних морей. Кто вернёт его волне по-доброму — узнает, где лежит удача.",
+    tactics: "Не нападает; ценность его — в загадке и награде, а не в бою." }),
+
+  // — Домовые духи —
+  C("Нисс", "Домовой", { pace: "6", parry: "4", tough: "5",
+    attrs: "Лов к8 · Смек к8 · Дух к8 · Сил к8 · Вын к6",
+    skills: "Скрытность к10 · Ремесло к8 · Внимание к8",
+    abilities: "Размер −1, но силён не по росту. Бережёт двор и скот; требует кашу с маслом по праздникам. Обидишь скупостью или грязью — путает скот, скисает молоко, мелко и зло мстит.",
+    habitat: "Хутора, хлева и амбары Скандинавии (томте — швед., ниссе — норв./дат.).",
+    lore: "Дух первого хозяина двора. Чтят его — двор в достатке; забудут — удача уходит.",
+    tactics: "Не боец, но проклятье нерадивому. Уважение и каша — лучшая защита." }),
+  C("Клабаутерман", "Домовой", { pace: "6", parry: "5", tough: "6",
+    attrs: "Лов к8 · Смек к8 · Дух к8 · Сил к8 · Вын к8",
+    skills: "Ремесло к10 · Внимание к10 · Лодочное дело к8",
+    abilities: "Бережёт корабль: латает течь, стучит там, где зреет гниль, гонит команду от беды. Дурной знак — увидеть его целиком: значит, судну конец.",
+    habitat: "Трюмы, мачты и носовые фигуры кораблей.",
+    lore: "Корабельный дух, вырезанный из дерева носовой фигуры. Хранитель, пока его чтят.",
+    tactics: "Не враг, а оберег. Небрежение гонит его прочь — и тогда судно сгинет." }),
+
+  // — Звери и оборотни —
+  C("Варульв", "Зверь", { wc: true, pace: "8", parry: "6", tough: "8",
+    attrs: "Лов к8 · Смек к6 · Дух к6 · Сил к10 · Вын к10",
+    skills: "Драка к10 · Внимание к8 · Скрытность к8 · Запугивание к8",
+    abilities: "Оборот в волка под шкурой-поясом. Нечеловечья сила и ярость, раны затягиваются. Сталь и огонь берут его, но вернее — сорвать шкуру или назвать человеком по имени.",
+    habitat: "Пустоши и леса, особенно в полнолуние.",
+    lore: "Человек, что надел волчью шкуру (úlfheðinn) и потерял в ней себя. Зверем правит голод, не разум.",
+    tactics: "Бьёт ночью, по одному, из засады. Гонит к огню или к людным местам." }),
+  C("Скуггабальдур", "Зверь", { pace: "8", parry: "6", tough: "6",
+    attrs: "Лов к10 · Смек к4 · Дух к6 · Сил к6 · Вын к6",
+    skills: "Драка к8 · Скрытность к10 · Атлетика к8 · Внимание к8",
+    abilities: "Помесь кота и лиса, неуязвим почти для всего. Прыгает в горло. Сразить можно лишь хитростью — не сталью; глянет умирая в глаза — заберёт с собой.",
+    habitat: "Исландские пустоши, овчарни, скалистые ущелья.",
+    lore: "Порождение кота и лисицы, гроза овечьих отар. О его смерти молчат, чтоб не накликать беду.",
+    tactics: "Режет скот по ночам, уходит от погони. Не смотри ему в глаза в его последний миг." }),
+
+  // — Нежить и предвестники —
+  C("Нахцерер", "Нежить", { wc: true, pace: "5", parry: "5", tough: "10",
+    attrs: "Лов к6 · Смек к4 · Дух к6 · Сил к10 · Вын к12",
+    skills: "Драка к8 · Запугивание к8 · Внимание к4",
+    abilities: "Нежить (+2 Стойкости, без страха, иммун к яду). Грызёт себя в могиле — и тем тянет жизнь из родни (хворь идёт по семье). Встаёт по ночам. Упокоить — камень в рот, лицом вниз.",
+    habitat: "Свежие могилы, погосты после мора.",
+    lore: "Германский мертвец, что не насытился и в смерти. Тянет за собой кровных, пока род не угаснет.",
+    tactics: "Сперва губит родню издали, потом встаёт. Раскопай и обезглавь, пока не окреп." }),
+  C("Хельхест", "Нежить", { pace: "8", parry: "5", tough: "9",
+    attrs: "Лов к6 · Смек к4 · Дух к8 · Сил к10 · Вын к10",
+    skills: "Атлетика к10 · Внимание к8 · Запугивание к8",
+    abilities: "Трёхногий конь Хель. Поступь его слышна перед чьей-то смертью. Обходит дозором погосты; кому явится — тому знак.",
+    habitat: "Погосты, дороги мёртвых, деревни перед мором.",
+    lore: "Конь владычицы Хель, вестник гибели. Встреча с ним — не бой, а пророчество.",
+    tactics: "Редко нападает — предвещает. Если ринется, бьёт копытами и исчезает в тумане." }),
+  C("Глосо", "Чудовище", { wc: true, pace: "10", parry: "6", tough: "9",
+    attrs: "Лов к8 · Смек к4 · Дух к6 · Сил к10 · Вын к10",
+    skills: "Драка к8 · Атлетика к10 · Запугивание к8",
+    abilities: "Огненная щетина-лезвие вдоль хребта. Мчит по межам в зимние праздники; рассекает надвое того, кто зазевается у неё на пути.",
+    habitat: "Поля, межи и погосты в ночи Йоля.",
+    lore: "Дух, рождённый неправо проведённой межой и пролитой кровью. Бежит там, где попрана честь земли.",
+    tactics: "Несётся по прямой межи, не сворачивая. Уйди с её тропы — пронесётся мимо." }),
+  C("Маре", "Дух", { wc: true, pace: "6", parry: "5", tough: "5",
+    attrs: "Лов к8 · Смек к8 · Дух к10 · Сил к4 · Вын к6",
+    skills: "Скрытность к10 · Колдовство к8 · Внимание к8",
+    abilities: "Просачивается сквозь щель. Садится на грудь спящего (Вын или нет сна, истощение наутро). Ездит на людях и конях ночь напролёт до изнеможения.",
+    habitat: "Спальни и конюшни, любая щель в стене.",
+    lore: "Дух удушливых снов; порой — отлетевшая душа живого колдуна. От неё — затычки щелей и сталь в изголовье.",
+    tactics: "Не выходит на бой; берёт спящего и беззащитного. Перекрой ей лазейку." }),
+
+  // — Драконы и змеи —
+  C("Лагарфльотсормур", "Дракон", { wc: true, pace: "6", parry: "7", tough: "16 (3)", hidden: true,
+    attrs: "Лов к6 · Смек к6 · Дух к8 · Сил к12+3 · Вын к12+2",
+    skills: "Драка к10 · Атлетика к8 · Запугивание к10",
+    abilities: "Размер +5. Вздымает воды и ломает лёд. Кольца, встающие над озером, — к беде; удар тела опрокидывает лодки.",
+    habitat: "Глубокие озёра и фьордовые воды Исландии.",
+    lore: "Змей, что рос в сундуке на золотом кольце, пока не заполонил собою целое озеро.",
+    tactics: "Бьёт из глубины, топит, уходит на дно. На суше беспомощен — выманивай к берегу." }),
+  C("Тацельвурм", "Дракон", { pace: "7", parry: "6", tough: "9", hidden: true,
+    attrs: "Лов к8 · Смек к4 · Дух к6 · Сил к10 · Вын к8",
+    skills: "Драка к8 · Скрытность к8 · Атлетика к8",
+    abilities: "Коротколапый змей с кошачьей мордой. Ядовитый укус и смрадное дыхание (Вын или Уязвим). Прыгает на скот и путника со скал.",
+    habitat: "Горные осыпи, альпийские луга и пещеры древних германских гор.",
+    lore: "Змей-кот горных круч, гроза пастухов высокогорья. Видят его редко, боятся часто.",
+    tactics: "Налетает из засады на склоне, кусает и уходит в камни. Бойся его дыхания, не клыков." }),
+
+  // — Воинство —
+  C("Оскорей", "Дух", { wc: true, pace: "12", parry: "6", tough: "10", hidden: true,
+    attrs: "Лов к8 · Смек к6 · Дух к10 · Сил к10 · Вын к10",
+    skills: "Драка к10 · Верховая езда к10 · Запугивание к12",
+    abilities: "Призрачная кавалькада мёртвых в небе во главе с Охотником-Одином. Кто попадётся — затоптан или унесён прочь из этого мира. Предвещает войну и мор.",
+    habitat: "Зимнее ночное небо, перепутья, ночи Йоля.",
+    lore: "Дикая Охота — воинство павших, что мчит меж мирами за своим вождём. Не воюй с ним: пади ниц лицом в землю — и оно пронесётся мимо.",
+    tactics: "Не сразить — переждать. Не смотри вверх, не отзывайся на зов по имени." }),
+];
+
+/* ============================ Статус облака ============================ */
+function CloudChip({ status, campaign, onBind }) {
+  const base = { fontSize: 11.5, letterSpacing: ".04em", borderRadius: 999, padding: "5px 11px", border: "1px solid var(--line)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 };
+  if (!HAS_FB) return <span style={{ ...base, color: "var(--faint)" }}>локально</span>;
+  if (!campaign) return <button onClick={onBind} style={{ ...base, color: "var(--bronze)", borderColor: "var(--line-warm)", cursor: "pointer", background: "none" }}>привязать кампанию</button>;
+  const map = {
+    loading: { t: "загрузка…", c: "var(--muted)" },
+    cloud:   { t: "облако · " + campaign, c: "var(--steel)" },
+    saving:  { t: "сохранение…", c: "var(--muted)" },
+    saved:   { t: "сохранено ✓", c: "var(--steel)" },
+    error:   { t: "нет связи", c: "var(--red)" },
+  };
+  const s = map[status] || map.cloud;
+  return <button onClick={onBind} title="сменить код кампании" style={{ ...base, color: s.c, cursor: "pointer", background: "none" }}>{s.t}</button>;
+}
+
+/* ============================ Карточка существа ============================ */
+function StatPip({ k, v }) {
+  if (!v) return null;
+  return <div className="bs-d"><b>{v}</b><span>{k}</span></div>;
+}
+
+function BeastCard({ b, gm, onEdit, onToggleHide, onDelete }) {
+  return (
+    <div className={"bs-card" + (b.hidden ? " is-hidden" : "")}>
+      {b.img ? <div className="bs-av" style={{ backgroundImage: "url(" + b.img + ")" }} /> : null}
+      <div className="bs-body">
+        <div className="bs-head">
+          <div className="bs-name">{b.name || "—"}</div>
+          <div className="bs-tags">
+            <span className="bs-kind">{b.kind}</span>
+            {gm && b.wc && <span className="bs-wc">★ Wild Card</span>}
+            {gm && b.hidden && <span className="bs-hid"><EyeOff size={11} /> скрыто</span>}
+            {gm && b.abilities && <span className="bs-hid">{b.powersShown ? <span><Eye size={11} /> силы видны</span> : <span><EyeOff size={11} /> силы скрыты</span>}</span>}
+          </div>
+        </div>
+        {gm && (b.pace || b.parry || b.tough) && (
+          <div className="bs-stats">
+            <StatPip k="Шаг" v={b.pace} />
+            <StatPip k="Парир." v={b.parry} />
+            <StatPip k="Стойкость" v={b.tough} />
+          </div>
+        )}
+        {gm && b.attrs && <div className="bs-line"><span className="bs-l">Атрибуты</span> {b.attrs}</div>}
+        {gm && b.skills && <div className="bs-line"><span className="bs-l">Навыки</span> {b.skills}</div>}
+        {(gm || b.powersShown) && b.abilities && <div className="bs-block"><span className="bs-l">Особое</span><p>{b.abilities}</p></div>}
+        {b.habitat && <div className="bs-line"><span className="bs-l">Где</span> {b.habitat}</div>}
+        {b.lore && <div className="bs-lore">{b.lore}</div>}
+        {gm && b.tactics && <div className="bs-tact"><span className="bs-l">Тактика ведущей</span><p>{b.tactics}</p></div>}
+        {gm && (
+          <div className="bs-actions">
+            <button className="bs-btn" onClick={() => onEdit(b)}>Править</button>
+            <button className="bs-btn" onClick={() => onToggleHide(b)}>{b.hidden ? <span><Eye size={13} /> показать</span> : <span><EyeOff size={13} /> скрыть</span>}</button>
+            <button className="bs-btn danger" onClick={() => onDelete(b)}><Trash2 size={13} /></button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Редактор существа ============================ */
+const blank = () => ({ id: "b-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(16).slice(2)), name: "", kind: KINDS[0], wc: false, pace: "6", parry: "", tough: "", attrs: "", skills: "", abilities: "", habitat: "", lore: "", tactics: "", img: "", hidden: true, powersShown: false });
+
+function EditModal({ beast, onSave, onClose }) {
+  const [b, setB] = useState(beast);
+  const f = (k) => (e) => setB((x) => ({ ...x, [k]: e.target.value }));
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 50 }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 16, padding: 20, width: "100%", maxWidth: 600, maxHeight: "88vh", overflow: "auto" }}>
+        <div className="flex items-center justify-between mb-3">
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 19, color: GOLD }}>{beast._new ? "Новое существо" : "Править существо"}</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={18} /></button>
+        </div>
+        <div className="bs-form">
+          <div className="ff wide"><label>Имя</label><input className="bs-in" value={b.name} onChange={f("name")} placeholder="как зовут существо" /></div>
+          <div className="ff"><label>Вид</label>
+            <select className="bs-in" value={b.kind} onChange={f("kind")}>{KINDS.map((k) => <option key={k} value={k}>{k}</option>)}</select>
+          </div>
+          <div className="ff"><label>Тип</label>
+            <button className={"bs-toggle" + (b.wc ? " on" : "")} onClick={() => setB((x) => ({ ...x, wc: !x.wc }))}>{b.wc ? "★ Wild Card" : "Статист (Extra)"}</button>
+          </div>
+          <div className="ff wide"><div className="bs-cap">Статблок и тактика — только для ведущей. Игрок видит вид, «где водится», лор и силы (если открыты).</div></div>
+          <div className="ff sm"><label>Шаг</label><input className="bs-in" value={b.pace} onChange={f("pace")} placeholder="6" /></div>
+          <div className="ff sm"><label>Парирование</label><input className="bs-in" value={b.parry} onChange={f("parry")} placeholder="5" /></div>
+          <div className="ff sm"><label>Стойкость</label><input className="bs-in" value={b.tough} onChange={f("tough")} placeholder="8 (2)" /></div>
+          <div className="ff wide"><label>Атрибуты</label><input className="bs-in" value={b.attrs} onChange={f("attrs")} placeholder="Лов к6 · Смек к6 · Дух к6 · Сил к8 · Вын к8" /></div>
+          <div className="ff wide"><label>Навыки</label><input className="bs-in" value={b.skills} onChange={f("skills")} placeholder="Драка к8 · Внимание к6 · …" /></div>
+          <div className="ff wide"><label>Особое / силы <span className="hint warn">скрыто по умолчанию</span></label><textarea className="bs-in" rows={3} value={b.abilities} onChange={f("abilities")} placeholder="особые способности, иммунитеты, уязвимости" /></div>
+          <div className="ff wide"><label className="row-lbl"><button className={"bs-toggle" + (b.powersShown ? " on" : "")} onClick={() => setB((x) => ({ ...x, powersShown: !x.powersShown }))}>{b.powersShown ? "Силы видны игрокам" : "Силы скрыты от игроков"}</button></label></div>
+          <div className="ff wide"><label>Где водится <span className="hint">видно игроку</span></label><input className="bs-in" value={b.habitat} onChange={f("habitat")} placeholder="места обитания" /></div>
+          <div className="ff wide"><label>Лор <span className="hint">видно игроку</span></label><textarea className="bs-in" rows={2} value={b.lore} onChange={f("lore")} placeholder="что говорят сказания" /></div>
+          <div className="ff wide"><label>Тактика ведущей <span className="hint warn">только ведущая</span></label><textarea className="bs-in" rows={2} value={b.tactics} onChange={f("tactics")} placeholder="как ведёт себя в бою, слабые места" /></div>
+          <div className="ff wide"><label>Изображение (ссылка)</label><input className="bs-in" value={b.img} onChange={f("img")} placeholder="https://…" /></div>
+          <div className="ff wide"><label className="row-lbl"><button className={"bs-toggle" + (b.hidden ? " on warn" : "")} onClick={() => setB((x) => ({ ...x, hidden: !x.hidden }))}>{b.hidden ? "Скрыто от игроков" : "Видно игрокам"}</button></label></div>
+        </div>
+        <div className="flex justify-end gap-2 mt-4">
+          <button className="bs-btn" onClick={onClose}>Отмена</button>
+          <button onClick={() => onSave(b)} style={{ background: GOLD, color: "var(--on-ink)", border: "none", borderRadius: 8, padding: "8px 18px", fontWeight: 600, cursor: "pointer" }} disabled={!b.name.trim()}>Сохранить</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Данные (ручной бэкап) ============================ */
+function DataModal({ beasts, onClose, onApply }) {
+  const [text, setText] = useState(JSON.stringify({ beasts }, null, 2));
+  const [err, setErr] = useState("");
+  const apply = () => { try { const d = JSON.parse(text); if (!Array.isArray(d.beasts)) throw new Error("нужно поле beasts (массив)"); setErr(""); onApply(d.beasts); } catch (e) { setErr("Не разобрал JSON: " + e.message); } };
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 50 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
+        <div className="flex items-center justify-between mb-3">
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Данные бестиария</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={18} /></button>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>Ручной бэкап. Данные и так сохраняются в облако автоматически (для ведущей). Тут можно скопировать JSON или вставить свой и «Применить».</div>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
+          style={{ width: "100%", height: 300, background: "var(--inset)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, fontFamily: "var(--mono)", fontSize: 12 }} />
+        {err && <div style={{ color: "var(--red)", fontSize: 12, marginTop: 6 }}>{err}</div>}
+        <div className="flex justify-end gap-2 mt-3">
+          <button className="bs-btn" onClick={onClose}>Закрыть</button>
+          <button onClick={apply} style={{ background: GOLD, color: "var(--on-ink)", border: "none", borderRadius: 8, padding: "6px 16px", fontWeight: 600, cursor: "pointer" }}>Применить</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Компонент ============================ */
+function Bestiary() {
+  const [beasts, setBeasts] = useState(initialBeasts);
+  const [gm, setGm] = useState(ROLE === "gm");
+  const [query, setQuery] = useState("");
+  const [kindF, setKindF] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [showData, setShowData] = useState(false);
+  const [campaign, setCampaign] = useState(readCampaign);
+  const [status, setStatus] = useState(HAS_FB && readCampaign() ? "loading" : "local");
+  const [loaded, setLoaded] = useState(!(HAS_FB && readCampaign()));
+
+  const skip = useRef(true);
+  const ready = useRef(false);
+
+  // загрузка + живая подписка
+  useEffect(() => {
+    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); setLoaded(true); return; }
+    let unsub = null, alive = true;
+    setStatus("loading");
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) { console.error("auth:", e); }
+      const ref = db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID);
+      try {
+        const snap = await ref.get();
+        if (alive && snap.exists && Array.isArray(snap.data().beasts)) { skip.current = true; setBeasts(snap.data().beasts); }
+        else if (ROLE === "gm") { try { await ref.set({ beasts: initialBeasts, updatedAt: Date.now() }); } catch (e) { console.error("seed:", e); } }
+      } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
+      ready.current = true;
+      if (alive) { setStatus("cloud"); setLoaded(true); }
+      unsub = ref.onSnapshot((snap) => {
+        if (!snap.exists || snap.metadata.hasPendingWrites) return;
+        if (Array.isArray(snap.data().beasts)) { skip.current = true; setBeasts(snap.data().beasts); }
+      }, (e) => console.error("snapshot:", e));
+    })();
+    return () => { alive = false; if (unsub) unsub(); };
+  }, [campaign]);
+
+  // автосейв (только ведущая)
+  useEffect(() => {
+    if (!HAS_FB || !campaign || ROLE !== "gm") return;
+    if (!ready.current) return;
+    if (skip.current) { skip.current = false; return; }
+    setStatus("saving");
+    const t = setTimeout(async () => {
+      try {
+        await db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID).set({ beasts, updatedAt: Date.now() }, { merge: true });
+        setStatus("saved"); setTimeout(() => setStatus("cloud"), 1200);
+      } catch (e) { console.error("save:", e); setStatus("error"); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [beasts, campaign]);
+
+  const bind = () => {
+    const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || "");
+    if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} ready.current = false; skip.current = true; setLoaded(false); setCampaign(c); }
+  };
+
+  const saveBeast = (b) => {
+    const clean = { ...b }; delete clean._new;
+    setBeasts((list) => list.some((x) => x.id === clean.id) ? list.map((x) => (x.id === clean.id ? clean : x)) : [...list, clean]);
+    setEditing(null);
+  };
+  const toggleHide = (b) => setBeasts((list) => list.map((x) => (x.id === b.id ? { ...x, hidden: !x.hidden } : x)));
+  const delBeast = (b) => { if (window.confirm("Удалить «" + (b.name || "существо") + "» из бестиария?")) setBeasts((list) => list.filter((x) => x.id !== b.id)); };
+
+  const visible = gm ? beasts : beasts.filter((b) => !b.hidden);
+  const q = query.trim().toLowerCase();
+  const filtered = useMemo(() => visible.filter((b) =>
+    (!kindF || b.kind === kindF) &&
+    (!q || (b.name + " " + b.kind + " " + b.abilities + " " + b.lore + " " + b.habitat).toLowerCase().includes(q))
+  ), [visible, q, kindF]);
+
+  const order = [...KINDS, ...Array.from(new Set(beasts.map((b) => b.kind))).filter((k) => !KINDS.includes(k))];
+  const groups = order.map((k) => ({ kind: k, items: filtered.filter((b) => b.kind === k) })).filter((g) => g.items.length);
+  const kindsPresent = order.filter((k) => visible.some((b) => b.kind === k));
+
+  if (!loaded) return <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--muted)", minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }} className="w-full">Загрузка из облака…</div>;
+
+  return (
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
+      <style>{`
+        .bs-btn{ border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); display:inline-flex; align-items:center; gap:6px; }
+        .bs-btn:hover{ background:var(--surf2); border-color:var(--steel-soft); }
+        .bs-btn.danger:hover{ border-color:var(--red); color:var(--red); }
+        .bs-chip{ border:1px solid var(--line); border-radius:999px; padding:5px 13px; font-size:12.5px; cursor:pointer; background:var(--surf); color:var(--muted); }
+        .bs-chip:hover{ border-color:var(--bronze); color:var(--ink); }
+        .bs-chip.on{ background:var(--bronze); border-color:var(--bronze); color:var(--on-ink); font-weight:600; }
+        .bs-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:14px; }
+        .bs-card{ display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:var(--surf); overflow:hidden; min-width:0; }
+        .bs-card.is-hidden{ opacity:.62; border-style:dashed; }
+        .bs-av{ height:150px; background-size:cover; background-position:center; border-bottom:1px solid var(--line); }
+        .bs-body{ padding:14px 15px; display:flex; flex-direction:column; gap:8px; min-width:0; }
+        .bs-head{ display:flex; flex-direction:column; gap:6px; }
+        .bs-name{ font-family:var(--disp); font-weight:600; font-size:18px; color:var(--ink); line-height:1.15; overflow-wrap:break-word; }
+        .bs-tags{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+        .bs-kind{ font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--bronze); border:1px solid var(--line-warm); border-radius:999px; padding:2px 9px; }
+        .bs-wc{ font-size:10.5px; letter-spacing:.06em; color:var(--steel); border:1px solid var(--steel-soft); border-radius:999px; padding:2px 9px; }
+        .bs-hid{ font-size:10.5px; color:var(--faint); display:inline-flex; align-items:center; gap:4px; }
+        .bs-stats{ display:flex; gap:8px; flex-wrap:wrap; }
+        .bs-d{ background:var(--surf2); border:1px solid var(--line-soft); border-radius:8px; padding:6px 10px; text-align:center; min-width:60px; }
+        .bs-d b{ display:block; font-family:var(--mono); font-size:16px; color:var(--steel); font-weight:700; }
+        .bs-d span{ font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); }
+        .bs-line{ font-size:12.5px; color:var(--ink); line-height:1.5; overflow-wrap:break-word; }
+        .bs-block p{ font-size:12.5px; color:var(--ink); line-height:1.5; margin:3px 0 0; overflow-wrap:break-word; }
+        .bs-l{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); font-weight:600; margin-right:6px; }
+        .bs-block .bs-l, .bs-tact .bs-l{ display:block; margin-bottom:0; }
+        .bs-lore{ font-size:12.5px; color:var(--muted); font-style:italic; line-height:1.5; border-left:2px solid var(--line-warm); padding-left:10px; overflow-wrap:break-word; }
+        .bs-tact{ background:var(--warm); border:1px solid var(--line-warm); border-radius:8px; padding:8px 10px; }
+        .bs-tact p{ font-size:12px; color:var(--ink); line-height:1.5; margin:3px 0 0; overflow-wrap:break-word; }
+        .bs-actions{ display:flex; gap:7px; flex-wrap:wrap; margin-top:4px; border-top:1px solid var(--line-soft); padding-top:10px; }
+        .bs-actions .bs-btn span{ display:inline-flex; align-items:center; gap:5px; }
+        .bs-form{ display:grid; grid-template-columns:1fr 1fr; gap:12px 14px; }
+        .bs-form .ff{ display:flex; flex-direction:column; gap:5px; min-width:0; }
+        .bs-form .ff.wide{ grid-column:1 / -1; }
+        .bs-form .ff.sm{ grid-column:span 1; }
+        .bs-form label{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); font-weight:600; display:flex; align-items:center; gap:8px; }
+        .bs-form .hint{ font-size:9.5px; letter-spacing:.04em; text-transform:none; color:var(--steel); border:1px solid var(--steel-soft); border-radius:999px; padding:1px 7px; font-weight:500; }
+        .bs-form .hint.warn{ color:var(--bronze); border-color:var(--line-warm); }
+        .bs-in{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:8px 10px; outline:none; font-size:13px; width:100%; font-family:inherit; resize:vertical; line-height:1.45; }
+        .bs-in:focus{ border-color:var(--bronze); }
+        .bs-toggle{ background:var(--surf2); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:8px 12px; font-size:13px; cursor:pointer; text-align:left; }
+        .bs-toggle.on{ border-color:var(--steel); color:var(--steel); font-weight:600; }
+        .bs-toggle.on.warn{ border-color:var(--bronze); color:var(--bronze); }
+        .bs-cap{ font-size:11.5px; color:var(--muted); line-height:1.5; background:var(--warm); border:1px solid var(--line-warm); border-radius:8px; padding:8px 11px; }
+        .bs-grp{ font-family:var(--disp); font-size:15px; color:var(--muted); letter-spacing:.04em; margin:22px 0 10px; display:flex; align-items:center; gap:10px; }
+        .bs-grp::after{ content:""; flex:1; height:1px; background:var(--line-soft); }
+      `}</style>
+
+      <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+        <div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD }}>Бестиарий</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>существа девяти миров · {visible.length}{gm ? " (" + beasts.filter((b) => b.hidden).length + " скрыто)" : ""}</div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <CloudChip status={status} campaign={campaign} onBind={bind} />
+          <div className="flex items-center gap-2" style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 9, padding: "5px 9px" }}>
+            <Search size={14} style={{ color: "var(--muted)" }} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="поиск…" style={{ background: "none", border: "none", outline: "none", color: "var(--ink)", fontSize: 13, width: 110 }} />
+            {query && <button onClick={() => setQuery("")} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={13} /></button>}
+          </div>
+          {ROLE === "gm" && (
+            <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
+              {[["gm", "Ведущая"], ["player", "Игрок"]].map(([v, label]) => {
+                const active = (gm ? "gm" : "player") === v;
+                return <button key={v} onClick={() => setGm(v === "gm")} style={{ background: active ? GOLD : "transparent", color: active ? "var(--on-ink)" : "var(--muted)", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
+              })}
+            </div>
+          )}
+          {gm && <button className="bs-btn" onClick={() => setEditing({ ...blank(), _new: true })}><Plus size={14} /> Существо</button>}
+          {gm && <button className="bs-btn" onClick={() => setShowData(true)}><Database size={14} /> Данные</button>}
+        </div>
+      </header>
+
+      <div style={{ padding: "6px 18px 40px" }}>
+        {kindsPresent.length > 1 && (
+          <div className="flex flex-wrap gap-2" style={{ margin: "12px 0 4px" }}>
+            <button className={"bs-chip" + (!kindF ? " on" : "")} onClick={() => setKindF("")}>Все</button>
+            {kindsPresent.map((k) => <button key={k} className={"bs-chip" + (kindF === k ? " on" : "")} onClick={() => setKindF(kindF === k ? "" : k)}>{k}</button>)}
+          </div>
+        )}
+
+        {groups.length === 0 && <div style={{ padding: 24, color: "var(--muted)" }}>{gm ? "Пусто. Добавь существо кнопкой «+ Существо»." : "Здесь пока ничего не открыто."}</div>}
+
+        {groups.map((g) => (
+          <div key={g.kind}>
+            <div className="bs-grp">{g.kind}</div>
+            <div className="bs-grid">
+              {g.items.map((b) => <BeastCard key={b.id} b={b} gm={gm} onEdit={setEditing} onToggleHide={toggleHide} onDelete={delBeast} />)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {editing && <EditModal beast={editing} onSave={saveBeast} onClose={() => setEditing(null)} />}
+      {showData && <DataModal beasts={beasts} onClose={() => setShowData(false)} onApply={(d) => { setBeasts(d); setShowData(false); }} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Bestiary />);
+</script>
+<script src="app-shell.js" defer></script>
+</body>
+</html>
