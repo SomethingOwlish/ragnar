@@ -57,7 +57,6 @@
     chars:  { label: "Граф богов",        rune: "ᚷ" },
     runes:  { label: "Руны",              rune: "ᚠ" },
     chrono: { label: "Хронология",        rune: "ᛞ" },
-    beasts: { label: "Бестиарий",          rune: "ᛜ" },
     blog:   { label: "Блог",              rune: "ᚨ", href: "blog.html" },
     woy:    { label: "Колесо года",        rune: "ᛊ" },
     npc:    { label: "Статблоки",          rune: "ᚦ", gm: true },
@@ -65,8 +64,8 @@
   };
 
   var NAV = {
-    player: ["portal", "sheet", "tree", "worlds", "chars", "runes", "chrono", "beasts", "blog", "woy"],
-    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono", "beasts", "blog", "woy", "names", "npc"],
+    player: ["portal", "sheet", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy"],
+    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "names", "npc"],
     portal: [],
   };
 
@@ -78,7 +77,7 @@
   };
   // остальное прячем во вложенные выпадашки, чтобы шапка не раздувалась
   var GROUPS = [
-    { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["tree", "worlds", "chars", "runes", "chrono", "beasts", "blog", "woy"] },
+    { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["tree", "worlds", "chars", "runes", "chrono", "blog", "woy"] },
     { id: "forge", label: "Мастерская", rune: "ᚦ", gm: true, keys: ["names", "npc"] },
   ];
 
@@ -99,7 +98,6 @@
     if (key === "chars")  return "characters.html?role=" + role + cp;
     if (key === "runes")  return "runes.html?role=" + role + cp;
     if (key === "chrono") return "chronology.html?role=" + role + cp;
-    if (key === "beasts") return "bestiary.html?role=" + role + cp;
     if (key === "blog")   return "blog.html?role=" + role + cp;
     if (key === "woy")    return "wheel-of-year.html?role=" + role + cp;
     if (key === "npc")    return "npc-gen.html?role=" + role + cp;
@@ -158,7 +156,13 @@
       e.stopPropagation();
       var wasOpen = wrap.classList.contains("open");
       closeAllMenus();
-      if (!wasOpen) wrap.classList.add("open");
+      if (!wasOpen) {
+        wrap.classList.add("open");
+        // если панель упирается в правый край окна — раскрываем её влево
+        wrap.classList.remove("flip");
+        var r = menu.getBoundingClientRect();
+        if (r.right > window.innerWidth - 8) wrap.classList.add("flip");
+      }
     });
 
     var menu = document.createElement("div");
@@ -189,7 +193,7 @@
       if ((NAV[role] || []).indexOf(k) < 0) return false;             // только пункты этой роли
       if (ITEMS[k].gm && role !== "gm") return false;                 // gm-пункты только ведущей
       // у игрока вкладки кодекса (кроме портала, карты и колеса) — только после входа в карту
-      if (role === "player" && (k === "tree" || k === "worlds" || k === "chars" || k === "runes" || k === "chrono" || k === "beasts" || k === "blog") && !isPlayerAuthed()) return false;
+      if (role === "player" && (k === "tree" || k === "worlds" || k === "chars" || k === "runes" || k === "chrono" || k === "blog") && !isPlayerAuthed()) return false;
       return true;
     }
 
@@ -311,7 +315,7 @@
     if (document.getElementById("shell-menu-css")) return;
     var css = [
       ".shell{ position:sticky; }",
-      ".shell-nav{ position:relative; }",
+      ".shell-nav{ position:relative; min-width:0; max-width:100%; }",
       ".shell-group{ position:relative; }",
       ".shell-gbtn{ display:inline-flex; align-items:center; gap:7px; cursor:pointer; background:var(--surf); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:6px 12px; font-size:12.5px; letter-spacing:.02em; font-family:var(--sans); }",
       ".shell-gbtn .rune{ font-family:var(--rune); font-size:14px; color:var(--faint); line-height:1; }",
@@ -325,11 +329,12 @@
       ".shell-gbtn.gm:hover .rune, .shell-gbtn.gm.has-here .rune{ color:var(--bronze); }",
       ".shell-gmenu{ display:none; position:absolute; top:calc(100% + 6px); left:0; z-index:60; flex-direction:column; gap:6px; min-width:194px; padding:8px; background:var(--surf); border:1px solid var(--line); border-radius:10px; box-shadow:0 14px 34px -12px rgba(0,0,0,.55); }",
       ".shell-group.open .shell-gmenu{ display:flex; }",
+      ".shell-group.flip .shell-gmenu{ left:auto; right:0; }",
       ".shell-gmenu .shell-link{ width:100%; }",
       ".shell-burger{ display:none; align-items:center; gap:8px; cursor:pointer; background:var(--surf); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:6px 12px; font-size:13px; font-family:var(--sans); }",
       ".shell-burger:hover{ border-color:var(--steel-soft); color:var(--steel); }",
       ".shell-burger .bg-ico{ font-size:15px; line-height:1; }",
-      "@media (max-width:760px){",
+      "@media (max-width:900px){",
       "  .shell-burger{ display:inline-flex; }",
       "  .shell-nav{ display:none; position:absolute; top:100%; left:0; right:0; z-index:55; flex-direction:column; align-items:stretch; gap:8px; padding:12px; margin:0; background:color-mix(in srgb, var(--bg) 96%, var(--surf)); border-bottom:1px solid var(--line); box-shadow:0 18px 34px -16px rgba(0,0,0,.6); }",
       "  .shell.nav-open .shell-nav{ display:flex; }",

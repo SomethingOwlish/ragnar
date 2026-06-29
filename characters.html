@@ -304,7 +304,7 @@ function Characters() {
 
   /* узлы */
   const patchNode = (id, patch) => setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch } : n)));
-  const addNode = () => { const n = { id: uid("c"), name: "Новый", kind: "люди", role: "", notes: "", img: "", vis: true, x: 640, y: 430, ax: 0, ay: 0 }; setNodes((ns) => [...ns, n]); setSelected(n.id); };
+  const addNode = () => { const n = { id: uid("c"), name: "Новый", kind: "люди", role: "", notes: "", img: "", vis: true, x: 640, y: 430, ax: 0, ay: 0, loyalty: [] }; setNodes((ns) => [...ns, n]); setSelected(n.id); };
   const delNode = (id) => { setNodes((ns) => ns.filter((n) => n.id !== id)); setEdges((es) => es.filter((e) => e.from !== id && e.to !== id)); setSelected(null); };
 
   /* связи */
@@ -650,8 +650,13 @@ function GridView({ nodes, gm, selected, q, kindFilter, patchNode, onSelect }) {
 /* ============================ Сайдбар персонажа ============================ */
 function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, delNode, toggleEdgeVis, delEdge, ptags, addPlayerTag, delPlayerTag }) {
   const [tagInput, setTagInput] = useState("");
+  const [loyInput, setLoyInput] = useState("");
   const [imgErr, setImgErr] = useState(false);
   useEffect(() => { setImgErr(false); }, [node.id, node.img]);
+  useEffect(() => { setLoyInput(""); }, [node.id]);
+  // подсказки лояльности — все уже использованные в графе значения (консистентные ярлыки для вида по зонам)
+  const loySuggest = useMemo(() => Array.from(new Set(Object.values(nodeMap).flatMap((n) => n.loyalty || []))).sort((a, b) => a.localeCompare(b)), [nodeMap]);
+  const addLoy = () => { const v = loyInput.trim(); if (v && !(node.loyalty || []).some((x) => x.toLowerCase() === v.toLowerCase())) patchNode(node.id, { loyalty: [...(node.loyalty || []), v] }); setLoyInput(""); };
   const col = KINDS[node.kind] || "#9aa0aa";
   const rels = edges.filter((e) => (e.from === node.id || e.to === node.id) && (gm || e.vis));
   return (
@@ -752,6 +757,30 @@ function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, d
           value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { addPlayerTag(node.id, tagInput); setTagInput(""); } }} />
         <button className="c-btn" style={{ padding: "4px 10px" }} onClick={() => { addPlayerTag(node.id, tagInput); setTagInput(""); }}><Plus size={13} /></button>
       </div>
+
+      {gm && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>
+            Лояльность <span style={{ textTransform: "none", letterSpacing: 0, color: "var(--faint)" }}>· скрыто от игроков</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5" style={{ marginBottom: 8 }}>
+            {(node.loyalty || []).map((t, i) => (
+              <span key={i} className="flex items-center gap-1" title="кому верен"
+                style={{ fontSize: 11, background: "var(--surf2)", border: "1px solid var(--line-warm)", color: "var(--bronze)", borderRadius: 20, padding: "2px 9px" }}>
+                {t}
+                <button onClick={() => patchNode(node.id, { loyalty: (node.loyalty || []).filter((_, k) => k !== i) })} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--bronze)", lineHeight: 1 }}><X size={11} /></button>
+              </span>
+            ))}
+            {(node.loyalty || []).length === 0 && <span style={{ fontSize: 11, color: "var(--muted)" }}>кому верен — не задано</span>}
+          </div>
+          <div className="flex gap-1.5">
+            <input className="c-input" list="loy-suggest" style={{ flex: 1, fontSize: 12, padding: "4px 8px" }} placeholder="+ кому верен"
+              value={loyInput} onChange={(e) => setLoyInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addLoy(); }} />
+            <button className="c-btn" style={{ padding: "4px 10px" }} onClick={addLoy}><Plus size={13} /></button>
+          </div>
+          <datalist id="loy-suggest">{loySuggest.map((s) => <option key={s} value={s} />)}</datalist>
+        </div>
+      )}
 
       {gm && (
         <>
