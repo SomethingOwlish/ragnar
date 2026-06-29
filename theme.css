@@ -67,9 +67,14 @@ html.theme-ready button{ transition:var(--theme-fade); }
    ОБОЛОЧКА: верхняя полоса (навигация между кабинетами + тема).
    Одинаковая на всех страницах, наполняется из app-shell.js.
    ============================================================ */
+/* страница никогда не шире вьюпорта — иначе sticky-шапка растягивается
+   по ширине документа и правый кластер (роль + тема) уезжает за край.
+   Внутренние ленты (overflowX:auto) скроллятся сами и не задеты. */
+html{ overflow-x:clip; }
 .shell{
-  position:sticky; top:0; z-index:40;
+  position:sticky; top:0; left:0; z-index:40;
   display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  max-width:100%;
   padding:9px 18px; background:color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter:saturate(1.1) blur(8px);
   border-bottom:1px solid var(--line-soft);
