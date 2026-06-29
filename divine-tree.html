@@ -308,6 +308,16 @@ function DivineTree() {
     return () => clearTimeout(t);
   }, [nodes, campaign]);
   const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); localStorage.setItem("ragnarok-campaign", c); } catch (e) {} _ready.current = false; _skip.current = true; setCampaign(c); } };
+  const reseedTree = async () => {
+    if (!window.confirm("Пересобрать древо встроенной раскладкой (9 шагов, " + initialNodes.length + " узлов)? Текущее древо в облаке будет перезаписано без возможности отмены.")) return;
+    _skip.current = false;
+    setSelected(null); setPlayerAt("r"); setReleased(false);
+    setNodes(initialNodes);
+    if (_DT_HAS_FB && campaign) {
+      try { await window._fbdb.collection("campaigns").doc(campaign).collection("boards").doc("divineTree").set({ nodes: initialNodes, updatedAt: Date.now() }, { merge: true }); }
+      catch (e) { console.error("reseed:", e); }
+    }
+  };
 
   // игроки кампании — для фишек на древе и панели выдачи (только ведущая)
   const [players, setPlayers] = useState([]);
@@ -423,6 +433,7 @@ function DivineTree() {
             })}
           </div>
           {gm && <button className="t-btn flex items-center gap-1" onClick={() => { setLinkMode((m) => !m); setLinkSrc(null); setSelected(null); }} style={linkMode ? { borderColor: "#38bdf8", color: "#38bdf8", background: "rgba(56,189,248,.12)" } : undefined}><Link2 size={14} /> {linkMode ? "Соединяю…" : "Соединить"}</button>}
+          {gm && <button className="t-btn flex items-center gap-1" onClick={reseedTree} title="перезаписать древо встроенной 9-шаговой раскладкой"><RotateCcw size={14} /> Пересобрать</button>}
           {gm && <button className="t-btn flex items-center gap-1" onClick={() => setShowData(true)}><Database size={14} /> Данные</button>}
         </div>
       </header>
