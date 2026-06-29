@@ -36,7 +36,7 @@
 <script src="tool-icons.js"></script>
 <script type="text/babel" data-presets="react">
 const { useState, useRef, useMemo, useEffect } = React;
-const { Plus, Minus, X, Eye, EyeOff, Palette, Database, Trash2, Link2, Maximize2, Search, Network, Crosshair, ArrowLeft, RotateCcw, Send, Lock } = window.LI;
+const { Plus, Minus, X, Eye, EyeOff, Palette, Database, Trash2, Link2, Maximize2, Search, Network, Crosshair, ArrowLeft, RotateCcw, Send, Lock, Users } = window.LI;
 
 /* ============================ Токены ============================ */
 const GOLD = "var(--bronze)";
@@ -373,7 +373,7 @@ function Characters() {
         <div className="flex items-center gap-2 flex-wrap">
           <CloudChip status={status} campaign={campaign} onBind={bind} />
           <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
-            {[["links", "Связи", Network], ["grid", "Сетка", Crosshair]].map(([v, label, Ic]) => {
+            {[["links", "Связи", Network], ["grid", "Сетка", Crosshair], ...(gm ? [["zones", "Зоны", Users]] : [])].map(([v, label, Ic]) => {
               const active = mode === v;
               return <button key={v} onClick={() => { setMode(v); setSelEdge(null); cancelLink(); }} className="flex items-center gap-1"
                 style={{ background: active ? "var(--choice-on)" : "transparent", color: active ? "var(--steel)" : "var(--ink)", padding: "6px 12px", fontSize: 13, fontWeight: 600 }}><Ic size={13} /> {label}</button>;
@@ -382,7 +382,7 @@ function Characters() {
           <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--line)" }}>
             {[["gm", "Ведущая"], ["player", "Игрок"]].map(([v, label]) => {
               const active = (gm ? "gm" : "player") === v;
-              return <button key={v} onClick={() => { setGm(v === "gm"); setSelEdge(null); cancelLink(); }}
+              return <button key={v} onClick={() => { const toGm = v === "gm"; setGm(toGm); if (!toGm && mode === "zones") setMode("links"); setSelEdge(null); cancelLink(); }}
                 style={{ background: active ? GOLD : "transparent", color: active ? INK : "var(--ink)", padding: "6px 14px", fontSize: 13, fontWeight: 600 }}>{label}</button>;
             })}
           </div>
@@ -450,6 +450,8 @@ function Characters() {
             setEdgeType={setEdgeType} toggleEdgeVis={toggleEdgeVis} delEdge={delEdge}
             onLegend={patchLegend} addLegend={addLegend} delLegend={delLegend}
           />
+        ) : mode === "zones" && gm ? (
+          <ZonesView nodes={nodes} kindFilter={kindFilter} onSelect={(id) => setSelected(id)} />
         ) : (
           <GridView nodes={nodes} gm={gm} selected={selected} q={q} kindFilter={kindFilter} patchNode={patchNode} onSelect={(id) => setSelected(id)} />
         )}
@@ -643,6 +645,62 @@ function GridView({ nodes, gm, selected, q, kindFilter, patchNode, onSelect }) {
       <div className="absolute right-4 bottom-4" style={{ fontSize: 12, color: "var(--muted)", maxWidth: 230, textAlign: "right" }}>
         Только расстановка, без связей. {gm ? "Тащи точку — задать координаты. Клик — карточка." : "Клик — карточка."}
       </div>
+    </div>
+  );
+}
+
+/* ============================ Режим: Зоны лояльности (только ведущая) ============================ */
+function ZonesView({ nodes, kindFilter, onSelect }) {
+  const filtered = nodes.filter((n) => kindFilter.size === 0 || kindFilter.has(n.kind));
+  const zones = {};
+  const none = [];
+  filtered.forEach((n) => {
+    const loy = n.loyalty || [];
+    if (!loy.length) { none.push(n); return; }
+    loy.forEach((t) => { (zones[t] = zones[t] || []).push(n); });
+  });
+  const names = Object.keys(zones).sort((a, b) => a.localeCompare(b));
+  const total = filtered.length;
+  const placed = total - none.length;
+
+  const Card = ({ n }) => (
+    <button onClick={() => onSelect(n.id)} className="flex items-center gap-2"
+      style={{ width: "100%", textAlign: "left", padding: "6px 9px", borderRadius: 8, cursor: "pointer",
+        background: "var(--surf)", border: "1px solid var(--line)", color: "var(--ink)", opacity: n.vis ? 1 : 0.5 }}>
+      <span style={{ width: 10, height: 10, borderRadius: "50%", background: KINDS[n.kind] || "#888", flexShrink: 0 }} />
+      <span style={{ flex: 1, fontSize: 13 }}>{n.name}</span>
+      {!n.vis && <EyeOff size={12} style={{ color: "var(--muted)", flexShrink: 0 }} />}
+      <span style={{ fontSize: 10.5, color: "var(--muted)" }}>{n.kind}</span>
+    </button>
+  );
+
+  const Zone = ({ title, members, muted }) => (
+    <div style={{ background: muted ? "transparent" : "var(--surf2)", border: `1px ${muted ? "dashed" : "solid"} ${muted ? "var(--line)" : "var(--line-warm)"}`,
+      borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 7 }}>
+      <div className="flex items-center justify-between gap-2">
+        <span style={{ fontFamily: FONT_DISPLAY, fontSize: 15, color: muted ? "var(--muted)" : GOLD }}>{title}</span>
+        <span style={{ fontSize: 11, fontFamily: "var(--mono)", color: "var(--faint)" }}>{members.length}</span>
+      </div>
+      {members.map((n) => <Card key={n.id + "@" + title} n={n} />)}
+      {members.length === 0 && <span style={{ fontSize: 12, color: "var(--faint)" }}>пусто</span>}
+    </div>
+  );
+
+  return (
+    <div style={{ padding: "16px 16px 84px", minHeight: 480 }}>
+      <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>
+        Расстановка по лояльности · скрыто от игроков · {placed} из {total} размещено{names.length ? " · зон: " + names.length : ""}
+      </div>
+      {names.length === 0 ? (
+        <div style={{ fontSize: 13, color: "var(--muted)", maxWidth: 470, lineHeight: 1.5 }}>
+          Лояльность ещё никому не задана. Открой персонажа и в блоке «Лояльность» укажи, кому он верен — здесь сложатся зоны. Кто верен нескольким — попадёт в каждую свою зону.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 14, alignItems: "start" }}>
+          {names.map((t) => <Zone key={t} title={t} members={zones[t]} />)}
+          {none.length > 0 && <Zone title="без лояльности" members={none} muted />}
+        </div>
+      )}
     </div>
   );
 }

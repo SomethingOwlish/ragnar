@@ -249,15 +249,6 @@ function DivineTree() {
     setNodes((ns) => ns.filter((n) => n.id !== id).map((n) => ({ ...n, children: n.children.filter((c) => c !== id) })));
     setSelected(null);
   };
-  // --- развязка связей ---
-  const unlinkChild = (pid, cid) => setNodes((ns) => ns.map((n) => (n.id === pid ? { ...n, children: n.children.filter((c) => c !== cid) } : n)));
-  const clearChildren = (pid) => setNodes((ns) => ns.map((n) => (n.id === pid ? { ...n, children: [] } : n)));
-  const detachFromParents = (cid) => setNodes((ns) => ns.map((n) => ({ ...n, children: n.children.filter((c) => c !== cid) })));
-  const clearAllLinks = () => {
-    if (!window.confirm("Снять ВСЕ связи между узлами? Узлы и их боны останутся, но дерево распадётся на отдельные точки — соединишь заново через «Соединить».")) return;
-    setSelected(null);
-    setNodes((ns) => ns.map((n) => ({ ...n, children: [] })));
-  };
 
   /* zoom / pan / drag */
   const svgPoint = (evt) => {
@@ -321,7 +312,6 @@ function DivineTree() {
             })}
           </div>
           {gm && <button className="t-btn flex items-center gap-1" onClick={() => { setLinkMode((m) => !m); setLinkSrc(null); setSelected(null); }} style={linkMode ? { borderColor: "#38bdf8", color: "#38bdf8", background: "rgba(56,189,248,.12)" } : undefined}><Link2 size={14} /> {linkMode ? "Соединяю…" : "Соединить"}</button>}
-          {gm && <button className="t-btn flex items-center gap-1" onClick={clearAllLinks} title="развязать всё дерево, чтобы пересобрать заново" style={{ color: "var(--red)" }}><Trash2 size={14} /> Снять связи</button>}
           {gm && <button className="t-btn flex items-center gap-1" onClick={() => setShowData(true)}><Database size={14} /> Данные</button>}
         </div>
       </header>
@@ -337,7 +327,7 @@ function DivineTree() {
       )}
 
       {gm && current && (
-        <NodeDrawer node={current} nodeMap={nodeMap} onClose={() => setSelected(null)} patchNode={patchNode} addChild={addChild} delNode={delNode} unlinkChild={unlinkChild} clearChildren={clearChildren} detachFromParents={detachFromParents} parents={nodes.filter((n) => n.children.includes(current.id))} />
+        <NodeDrawer node={current} nodeMap={nodeMap} onClose={() => setSelected(null)} patchNode={patchNode} addChild={addChild} delNode={delNode} />
       )}
 
       {showData && <DataModal nodes={nodes} onClose={() => setShowData(false)} onApply={(d) => { setNodes(d.nodes); setSelected(null); setShowData(false); }} />}
@@ -506,7 +496,7 @@ function PlayerCard({ nodes, nodeMap, at, released, onPick }) {
 }
 
 /* ============================ Сайдбар узла ============================ */
-function NodeDrawer({ node, nodeMap, onClose, patchNode, addChild, delNode, unlinkChild, clearChildren, detachFromParents, parents }) {
+function NodeDrawer({ node, nodeMap, onClose, patchNode, addChild, delNode }) {
   const col = TIERS[node.tier] || "#888";
   const isFork = node.children.length > 1;
   return (
@@ -574,48 +564,18 @@ function NodeDrawer({ node, nodeMap, onClose, patchNode, addChild, delNode, unli
       )}
 
       <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", marginBottom: 4 }}>Куда ведёт (скрыто от игрока)</div>
-      <input className="t-input" value={node.dest || ""} onChange={(e) => patchNode(node.id, { dest: e.target.value })}
+      <input className="t-input" list="dest-suggest" value={node.dest || ""} onChange={(e) => patchNode(node.id, { dest: e.target.value })}
         placeholder="бог / пара / кластер" style={{ width: "100%", marginBottom: 16 }} />
+      <datalist id="dest-suggest">
+        {Array.from(new Set(Object.values(nodeMap).map((n) => n.title).filter(Boolean))).sort((a, b) => a.localeCompare(b)).map((t) => <option key={t} value={t} />)}
+      </datalist>
 
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2">
         <button className="t-btn flex items-center gap-1" onClick={() => addChild(node.id)}><Plus size={14} /> Развилка / шаг</button>
-        {node.id !== "r" && <button className="t-btn flex items-center gap-1" onClick={() => delNode(node.id)} style={{ color: "var(--red)" }}><Trash2 size={14} /> Удалить узел</button>}
+        {node.id !== "r" && <button className="t-btn flex items-center gap-1" onClick={() => delNode(node.id)} style={{ color: "var(--red)" }}><Trash2 size={14} /> Удалить</button>}
       </div>
-
-      {/* связи вниз — каждую можно снять */}
-      <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", margin: "16px 0 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span>Ведёт к ({node.children.length})</span>
-        {node.children.length > 0 && <button onClick={() => clearChildren(node.id)} style={{ background: "none", border: "none", color: "var(--red)", fontSize: 11, cursor: "pointer", textTransform: "none" }}>отвязать всех</button>}
-      </div>
-      {node.children.length === 0 ? (
-        <div style={{ fontSize: 12, color: "var(--faint)" }}>нет связей вниз</div>
-      ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {node.children.map((c) => (
-            <span key={c} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, border: "1px solid var(--line)", borderRadius: 14, padding: "3px 6px 3px 10px", background: "var(--surf)" }}>
-              {nodeMap[c]?.title || c}
-              <button onClick={() => unlinkChild(node.id, c)} title="снять связь" style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", display: "inline-flex", padding: 0 }}><X size={13} /></button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* связи сверху — отвязать от родителей */}
-      <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", margin: "16px 0 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span>Приходит от ({parents.length})</span>
-        {parents.length > 0 && node.id !== "r" && <button onClick={() => detachFromParents(node.id)} style={{ background: "none", border: "none", color: "var(--red)", fontSize: 11, cursor: "pointer", textTransform: "none" }}>отвязать от всех</button>}
-      </div>
-      {parents.length === 0 ? (
-        <div style={{ fontSize: 12, color: "var(--faint)" }}>{node.id === "r" ? "корень" : "ни к чему не привязан"}</div>
-      ) : (
-        <div className="flex flex-wrap gap-1.5" style={{ marginBottom: 8 }}>
-          {parents.map((p) => (
-            <span key={p.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, border: "1px solid var(--line)", borderRadius: 14, padding: "3px 6px 3px 10px", background: "var(--surf)" }}>
-              {p.title || p.id}
-              <button onClick={() => unlinkChild(p.id, node.id)} title="снять связь" style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", display: "inline-flex", padding: 0 }}><X size={13} /></button>
-            </span>
-          ))}
-        </div>
+      {node.children.length > 0 && (
+        <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 10 }}>Дети: {node.children.map((c) => nodeMap[c]?.title).filter(Boolean).join(", ") || "—"}</div>
       )}
     </div>
   );

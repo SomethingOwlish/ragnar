@@ -211,6 +211,23 @@ function Chronology() {
   }, [periods, sessions, events, timeless, players, campaign]);
   const bind = () => { const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || ""); if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} ready.current = false; skip.current = true; setCampaign(c); } };
 
+  // SYS-1: имена из графа богов → подсказки участников (боги/НПС уже есть в системе)
+  const [npcNames, setNpcNames] = useState([]);
+  useEffect(() => {
+    if (!HAS_FB || !campaign || ROLE !== "gm") { setNpcNames([]); return; }
+    let alive = true;
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) {}
+      try {
+        const snap = await db.collection("campaigns").doc(campaign).collection("boards").doc("characters").get();
+        if (!alive || !snap.exists) return;
+        const ns = Array.isArray(snap.data().nodes) ? snap.data().nodes : [];
+        setNpcNames(ns.map((n) => n.name).filter(Boolean));
+      } catch (e) {}
+    })();
+    return () => { alive = false; };
+  }, [campaign]);
+
   const periodIndex = useMemo(() => Object.fromEntries(periods.map((p, i) => [p.id, i])), [periods]);
   const currentIndex = useMemo(() => {
     let idx = 0; sessions.forEach((s) => { const i = periodIndex[s.periodId]; if (i != null && i > idx) idx = i; });
@@ -382,7 +399,7 @@ function Chronology() {
         })()}
       </div>
 
-      {gm && current && <Drawer type={selected.type} item={current} players={players}
+      {gm && current && <Drawer type={selected.type} item={current} players={players} npcNames={npcNames}
         onClose={() => setSelected(null)} patch={(p) => patchItem(selected.type, current.id, p)} del={() => delItem(selected.type, current.id)} />}
 
       {showData && <DataModal data={{ periods, sessions, events, timeless, players }} onClose={() => setShowData(false)}
@@ -394,8 +411,10 @@ function Chronology() {
 }
 
 /* ============================ Чип-редактор ============================ */
-function ChipEditor({ items, roster, onChange, placeholder }) {
+function ChipEditor({ items, roster, onChange, placeholder, suggest }) {
   const [txt, setTxt] = useState("");
+  const dlId = useRef("dl-" + Math.random().toString(36).slice(2)).current;
+  const sugg = (suggest || []).filter((s) => s && !items.includes(s));
   const add = (v) => { v = v.trim(); if (v && !items.includes(v)) onChange([...items, v]); };
   return (
     <div>
@@ -415,16 +434,17 @@ function ChipEditor({ items, roster, onChange, placeholder }) {
         </div>
       )}
       <div className="flex gap-1.5">
-        <input className="k-input" style={{ fontSize: 12, padding: "4px 8px" }} value={txt} placeholder={placeholder || "дописать вручную…"}
+        <input className="k-input" list={sugg.length ? dlId : undefined} style={{ fontSize: 12, padding: "4px 8px" }} value={txt} placeholder={placeholder || "дописать вручную…"}
           onChange={(e) => setTxt(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { add(txt); setTxt(""); } }} />
         <button className="k-btn" style={{ padding: "4px 9px" }} onClick={() => { add(txt); setTxt(""); }}><Plus size={12} /></button>
       </div>
+      {sugg.length > 0 && <datalist id={dlId}>{sugg.map((s) => <option key={s} value={s} />)}</datalist>}
     </div>
   );
 }
 
 /* ============================ Сайдбар правки ============================ */
-function Drawer({ type, item, players, onClose, patch, del }) {
+function Drawer({ type, item, players, npcNames, onClose, patch, del }) {
   const titleMap = { period: "Период", session: "Сессия", event: "Событие", timeless: "Эдда" };
   return (
     <div className="k-slide" style={{ position: "fixed", top: "var(--shell-h, 64px)", right: 0, bottom: 0, width: "min(380px, 94vw)", zIndex: 30,
@@ -472,7 +492,7 @@ function Drawer({ type, item, players, onClose, patch, del }) {
       )}
 
       {(type === "session" || type === "event") && (
-        <Field label="Участники"><ChipEditor items={item.participants} roster={players} onChange={(v) => patch({ participants: v })} placeholder="имя NPC / бога вручную…" /></Field>
+        <Field label="Участники"><ChipEditor items={item.participants} roster={players} suggest={[...(players || []), ...(npcNames || [])]} onChange={(v) => patch({ participants: v })} placeholder="имя NPC / бога вручную…" /></Field>
       )}
 
       {type !== "period" && (
