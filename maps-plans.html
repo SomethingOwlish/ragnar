@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Карты и планы</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+</style>
+</head>
+<body>
+<header data-shell data-here="maps"></header>
+<script>
+/* роль для верхней полосы — из адреса */
+(function(){
+  var r = (new URLSearchParams(location.search).get("role")==="gm") ? "gm" : "player";
+  var h = document.querySelector("[data-shell]");
+  if (h) h.setAttribute("data-role", r);
+})();
+</script>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef } = React;
+const { X, Plus, Trash2, Maximize2, Database } = window.LI;
+
+/* ============================ Облако ============================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCSb7M5IbOql61HIqOUxe3ct4VqdjkhLyE",
+  authDomain: "ragnarau-80866.firebaseapp.com",
+  projectId: "ragnarau-80866",
+  storageBucket: "ragnarau-80866.firebasestorage.app",
+  messagingSenderId: "727752765165",
+  appId: "1:727752765165:web:8c625b7675f022a1b026e4"
+};
+const HAS_FB = !!(window.firebase && firebaseConfig.apiKey);
+let db = null, auth = null;
+if (HAS_FB) {
+  try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); auth = firebase.auth(); }
+  catch (e) { console.error("Firebase init:", e); }
+}
+const BOARD_ID = "svgcards";
+const _qs = new URLSearchParams(location.search);
+const ROLE = _qs.get("role") === "gm" ? "gm" : "player";
+function readCampaign() {
+  const u = (_qs.get("c") || _qs.get("campaign") || "").trim();
+  if (u) { try { localStorage.setItem("ragnarok-board-campaign", u); } catch (e) {} return u; }
+  try { const cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null"); if (cur && cur.campaign) return cur.campaign; } catch (e) {}
+  try { return localStorage.getItem("ragnarok-board-campaign") || ""; } catch (e) { return ""; }
+}
+const lsKey = (c) => "ragnarok-svgcards-" + (c || "local");
+function readLocal(c) { try { const a = JSON.parse(localStorage.getItem(lsKey(c)) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+function writeLocal(c, cards) { try { localStorage.setItem(lsKey(c), JSON.stringify(cards)); } catch (e) {} }
+
+/* ============================ Токены ============================ */
+const GOLD = "var(--bronze)";
+const INK = "var(--bg)";
+const FONT_DISPLAY = "var(--disp)";
+const FONT_UI = "var(--sans)";
+
+/* Чистим SVG перед показом: убираем скрипты, обработчики и javascript: ссылки.
+   Контент пишет только ведущая, но всё равно не доверяем сырому коду. */
+function sanitizeSvg(raw) {
+  if (!raw) return "";
+  let s = String(raw);
+  const i = s.indexOf("<svg"); const j = s.lastIndexOf("</svg>");
+  if (i >= 0 && j >= 0) s = s.slice(i, j + 6);
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
+  s = s.replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "");
+  s = s.replace(/\son\w+\s*=\s*"[^"]*"/gi, "");
+  s = s.replace(/\son\w+\s*=\s*'[^']*'/gi, "");
+  s = s.replace(/\son\w+\s*=\s*[^\s>]+/gi, "");
+  s = s.replace(/javascript:/gi, "");
+  return s;
+}
+const looksLikeSvg = (s) => /<svg[\s>]/i.test(s || "");
+const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+/* ============================ Статус облака ============================ */
+function CloudChip({ status, campaign, onBind }) {
+  const base = { fontSize: 11.5, letterSpacing: ".04em", borderRadius: 999, padding: "5px 11px", border: "1px solid var(--line)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 };
+  if (!HAS_FB) return <span style={{ ...base, color: "var(--faint)" }}>локально</span>;
+  if (!campaign) return <button onClick={onBind} style={{ ...base, color: "var(--bronze)", borderColor: "var(--line-warm)", cursor: "pointer", background: "none" }}>привязать кампанию</button>;
+  const map = {
+    loading: { t: "загрузка…", c: "var(--muted)" },
+    cloud:   { t: "облако · " + campaign, c: "var(--steel)" },
+    saving:  { t: "сохранение…", c: "var(--muted)" },
+    saved:   { t: "сохранено ✓", c: "var(--steel)" },
+    error:   { t: "нет связи", c: "var(--red)" },
+  };
+  const s = map[status] || map.cloud;
+  return <button onClick={onBind} title="сменить код кампании" style={{ ...base, color: s.c, cursor: "pointer", background: "none" }}>{s.t}</button>;
+}
+
+/* ============================ Превью SVG ============================ */
+function SvgBox({ svg, style }) {
+  return <div className="mp-svg" style={style} dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }} />;
+}
+
+/* ============================ Компонент ============================ */
+function MapsPlans() {
+  const [cards, setCards] = useState(() => readLocal(readCampaign()));
+  const [campaign, setCampaign] = useState(readCampaign);
+  const [status, setStatus] = useState(HAS_FB && readCampaign() ? "loading" : "local");
+  const [loaded, setLoaded] = useState(!(HAS_FB && readCampaign()));
+  const [showData, setShowData] = useState(false);
+  const [big, setBig] = useState(null);      // карта для просмотра в полный экран
+  const [editId, setEditId] = useState(null); // id редактируемой карты (или null = новая)
+
+  // поля формы добавления / правки
+  const [fTitle, setFTitle] = useState("");
+  const [fSvg, setFSvg] = useState("");
+  const [fErr, setFErr] = useState("");
+  const fileRef = useRef(null);
+
+  const skip = useRef(true);
+  const ready = useRef(false);
+
+  const isGM = ROLE === "gm";
+
+  // загрузка + живая подписка
+  useEffect(() => {
+    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); setLoaded(true); return; }
+    let unsub = null, alive = true;
+    setStatus("loading");
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) { console.error("auth:", e); }
+      const ref = db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID);
+      try {
+        const snap = await ref.get();
+        if (alive && snap.exists && Array.isArray(snap.data().cards)) { skip.current = true; const c = snap.data().cards; setCards(c); writeLocal(campaign, c); }
+      } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
+      ready.current = true;
+      if (alive) { setStatus("cloud"); setLoaded(true); }
+      unsub = ref.onSnapshot((snap) => {
+        if (!snap.exists || snap.metadata.hasPendingWrites) return;
+        if (Array.isArray(snap.data().cards)) { skip.current = true; const c = snap.data().cards; setCards(c); writeLocal(campaign, c); }
+      }, (e) => console.error("snapshot:", e));
+    })();
+    return () => { alive = false; if (unsub) unsub(); };
+  }, [campaign]);
+
+  // автосейв (только ведущая)
+  useEffect(() => {
+    writeLocal(campaign, cards);
+    if (!HAS_FB || !campaign || !isGM) return;
+    if (!ready.current) return;
+    if (skip.current) { skip.current = false; return; }
+    setStatus("saving");
+    const t = setTimeout(async () => {
+      try {
+        await db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID).set({ cards, updatedAt: Date.now() }, { merge: true });
+        setStatus("saved"); setTimeout(() => setStatus("cloud"), 1200);
+      } catch (e) { console.error("save:", e); setStatus("error"); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [cards, campaign]);
+
+  const bind = () => {
+    const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || "");
+    if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} ready.current = false; skip.current = true; setLoaded(false); setCampaign(c); setCards(readLocal(c)); }
+  };
+
+  const resetForm = () => { setEditId(null); setFTitle(""); setFSvg(""); setFErr(""); if (fileRef.current) fileRef.current.value = ""; };
+
+  const onFile = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { const txt = String(rd.result || ""); setFSvg(txt); if (!fTitle.trim()) setFTitle(f.name.replace(/\.svg$/i, "")); setFErr(""); };
+    rd.readAsText(f);
+  };
+
+  const submit = () => {
+    if (!isGM) { setFErr("Добавлять карты может только ведущая."); return; }
+    if (!looksLikeSvg(fSvg)) { setFErr("Это не похоже на SVG — нужен тег <svg…>."); return; }
+    const title = fTitle.trim() || "Без названия";
+    const svg = fSvg.trim();
+    if (editId) {
+      setCards((cs) => cs.map((c) => (c.id === editId ? { ...c, title, svg } : c)));
+    } else {
+      setCards((cs) => [{ id: uid(), title, svg, ts: Date.now() }, ...cs]);
+    }
+    resetForm();
+  };
+
+  const startEdit = (c) => { setEditId(c.id); setFTitle(c.title || ""); setFSvg(c.svg || ""); setFErr(""); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const remove = (c) => { if (!confirm("Удалить карту «" + (c.title || "без названия") + "»?")) return; setCards((cs) => cs.filter((x) => x.id !== c.id)); if (editId === c.id) resetForm(); };
+
+  if (!loaded) return <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--muted)", minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }} className="w-full">Загрузка из облака…</div>;
+
+  return (
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
+      <style>{`
+        .mp-wrap{ max-width:1120px; margin:0 auto; padding:22px 18px 60px; }
+        .mp-input{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:9px 11px; outline:none; font-size:14px; width:100%; }
+        .mp-input:focus{ border-color:var(--bronze); }
+        .mp-ta{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:10px 11px; outline:none; font-size:12.5px; width:100%; resize:vertical; line-height:1.45; font-family:var(--mono); min-height:120px; }
+        .mp-ta:focus{ border-color:var(--bronze); }
+        .mp-btn{ border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); display:inline-flex; align-items:center; gap:7px; }
+        .mp-btn:hover{ background:var(--surf2); border-color:var(--steel-soft); }
+        .mp-go{ background:var(--bronze); color:var(--on-ink); border:none; border-radius:8px; padding:9px 18px; font-size:13.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+        .mp-go:hover{ background:var(--ember); }
+        .mp-card{ border:1px solid var(--line); border-radius:12px; background:var(--surf); overflow:hidden; display:flex; flex-direction:column; }
+        .mp-thumb{ height:170px; background:var(--inset); border-bottom:1px solid var(--line-soft); display:flex; align-items:center; justify-content:center; padding:10px; cursor:pointer; }
+        .mp-svg{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+        .mp-svg svg{ max-width:100%; max-height:100%; height:auto; width:auto; }
+        .mp-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
+        .mp-form{ border:1px solid var(--line); border-radius:14px; background:var(--surf); padding:18px; margin-bottom:24px; }
+        .mp-prev{ height:150px; background:var(--inset); border:1px solid var(--line); border-radius:10px; display:flex; align-items:center; justify-content:center; padding:10px; }
+        .mp-x{ background:none; border:none; color:var(--muted); cursor:pointer; }
+        .mp-x:hover{ color:var(--ink); }
+      `}</style>
+
+      <div className="mp-wrap">
+        {/* шапка */}
+        <header className="flex items-start justify-between flex-wrap gap-3" style={{ marginBottom: 18 }}>
+          <div>
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 28, color: GOLD, display: "flex", alignItems: "center", gap: 12 }}><span className="rune" style={{ fontFamily: "var(--rune)" }}>ᛚ</span> Карты и планы</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>SVG-карты, схемы локаций и планы для ведущей. Сохраняются в кампании и доступны на панели.</div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <CloudChip status={status} campaign={campaign} onBind={bind} />
+            <button className="mp-btn" onClick={() => setShowData(true)}><Database size={14} /> Данные</button>
+          </div>
+        </header>
+
+        {!isGM && <div style={{ fontSize: 12.5, color: "var(--red)", marginBottom: 14 }}>Только просмотр — добавлять и менять карты может ведущая.</div>}
+
+        {/* форма добавления / правки */}
+        {isGM && (
+          <div className="mp-form">
+            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 16, color: "var(--ink)", marginBottom: 12 }}>{editId ? "Изменить карту" : "Новая карта"}</div>
+            <div className="flex gap-4 flex-wrap">
+              <div style={{ flex: "1 1 320px", minWidth: 280, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--faint)", display: "block", marginBottom: 5 }}>Название</label>
+                  <input className="mp-input" value={fTitle} onChange={(e) => setFTitle(e.target.value)} placeholder="напр. План Хеллхейма" />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--faint)", display: "block", marginBottom: 5 }}>SVG-код</label>
+                  <textarea className="mp-ta" value={fSvg} onChange={(e) => { setFSvg(e.target.value); setFErr(""); }} placeholder="<svg …>…</svg> — вставь код или загрузи .svg-файл" spellCheck={false} />
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button className="mp-btn" onClick={() => fileRef.current && fileRef.current.click()}><Plus size={14} /> Загрузить .svg</button>
+                  <input ref={fileRef} type="file" accept=".svg,image/svg+xml" onChange={onFile} style={{ display: "none" }} />
+                  {fSvg && <button className="mp-btn" onClick={() => setFSvg("")}>Очистить код</button>}
+                </div>
+                {fErr && <div style={{ color: "var(--red)", fontSize: 12.5 }}>{fErr}</div>}
+                <div className="flex items-center gap-2">
+                  <button className="mp-go" onClick={submit}>{editId ? "Сохранить" : "Добавить карту"}</button>
+                  {editId && <button className="mp-btn" onClick={resetForm}>Отмена</button>}
+                </div>
+              </div>
+              <div style={{ flex: "1 1 260px", minWidth: 240 }}>
+                <label style={{ fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--faint)", display: "block", marginBottom: 5 }}>Предпросмотр</label>
+                <div className="mp-prev">
+                  {looksLikeSvg(fSvg) ? <SvgBox svg={fSvg} /> : <span style={{ color: "var(--faint)", fontSize: 12.5 }}>здесь будет превью</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* список карт */}
+        <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 12 }}><b style={{ color: "var(--ink)" }}>{cards.length}</b> {cards.length === 1 ? "карта" : "карт"} в хранилище</div>
+        {cards.length === 0 ? (
+          <div style={{ color: "var(--faint)", padding: "40px 0", textAlign: "center" }}>Пока пусто. {isGM ? "Добавь первую SVG-карту выше." : "Ведущая ещё не добавила карты."}</div>
+        ) : (
+          <div className="mp-grid">
+            {cards.map((c) => (
+              <div className="mp-card" key={c.id}>
+                <div className="mp-thumb" onClick={() => setBig(c)} title="открыть крупно">
+                  <SvgBox svg={c.svg} />
+                </div>
+                <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 15, color: "var(--ink)" }}>{c.title || "без названия"}</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button className="mp-btn" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => setBig(c)}><Maximize2 size={13} /> Открыть</button>
+                    {isGM && <button className="mp-btn" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => startEdit(c)}>Изменить</button>}
+                    {isGM && <button className="mp-btn" style={{ padding: "5px 10px", fontSize: 12, marginLeft: "auto", color: "var(--red)", borderColor: "var(--line)" }} onClick={() => remove(c)} title="удалить"><Trash2 size={13} /></button>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {big && <BigView card={big} onClose={() => setBig(null)} />}
+      {showData && <DataModal cards={cards} isGM={isGM} onClose={() => setShowData(false)} onApply={(d) => { setCards(d); setShowData(false); }} />}
+    </div>
+  );
+}
+
+/* ============================ Просмотр в полный экран ============================ */
+function BigView({ card, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow; document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+  }, []);
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.78)", zIndex: 80, display: "flex", flexDirection: "column", padding: 16 }} onClick={onClose}>
+      <div className="flex items-center justify-between" style={{ color: "var(--ink)", marginBottom: 10 }}>
+        <span style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>{card.title || "без названия"}</span>
+        <button className="mp-x" onClick={onClose} title="закрыть (Esc)"><X size={24} /></button>
+      </div>
+      <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, minHeight: 0, background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: 16, display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto" }}>
+        <div className="mp-svg" style={{ width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: sanitizeSvg(card.svg) }} />
+      </div>
+    </div>
+  );
+}
+
+/* ============================ Данные (ручной бэкап / импорт) ============================ */
+function DataModal({ cards, isGM, onClose, onApply }) {
+  const [text, setText] = useState(JSON.stringify(cards, null, 2));
+  const [err, setErr] = useState("");
+  const apply = () => { try { const d = JSON.parse(text); if (!Array.isArray(d)) throw new Error("нужен массив карт"); setErr(""); onApply(d.map((c) => ({ id: c.id || ("c" + Math.random().toString(36).slice(2, 9)), title: c.title || "", svg: c.svg || "", ts: c.ts || Date.now() }))); } catch (e) { setErr("Не разобрал JSON: " + e.message); } };
+  return (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 70 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
+        <div className="flex items-center justify-between mb-3">
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Данные карт</div>
+          <button onClick={onClose} className="mp-x"><X size={18} /></button>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>Ручной бэкап. Карты и так сохраняются автоматически (для ведущей). Тут можно скопировать JSON{isGM ? " или вставить свой и «Применить»" : ""}.</div>
+        <textarea value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
+          style={{ width: "100%", height: 300, background: "var(--inset)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, fontFamily: "var(--mono)", fontSize: 12 }} />
+        {err && <div style={{ color: "var(--red)", fontSize: 12, marginTop: 6 }}>{err}</div>}
+        <div className="flex justify-end gap-2 mt-3">
+          <button className="mp-btn" onClick={onClose}>Закрыть</button>
+          {isGM && <button onClick={apply} style={{ background: GOLD, color: "var(--on-ink)", border: "none", borderRadius: 8, padding: "6px 16px", fontWeight: 600, cursor: "pointer" }}>Применить</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<MapsPlans />);
+</script>
+<script src="app-shell.js" defer></script>
+</body>
+</html>
