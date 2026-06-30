@@ -11,7 +11,7 @@
 body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.5; -webkit-font-smoothing:antialiased;}
 input,textarea{font-family:inherit; color:inherit;}
 button{font-family:inherit; cursor:pointer;}
-.stele{max-width:1120px; margin:0 auto; padding:28px 22px 60px; overflow-wrap:break-word;}
+.stele{max-width:1120px; margin:0 auto; padding:28px 22px 60px;}
 .stele.view-locked > *:not(.top) input, .stele.view-locked > *:not(.top) textarea, .stele.view-locked > *:not(.top) button{ pointer-events:none; }
 .stele.view-locked > *:not(.top) input, .stele.view-locked > *:not(.top) textarea{ opacity:.92; }
 .stele.view-locked .niche{ pointer-events:auto !important; }
@@ -475,6 +475,37 @@ const RANKS = [
 const rankIndex = (n) => { let i = 0; for (let k = 0; k < RANKS.length; k++) if (n >= RANKS[k].min) i = k; return i; };
 const tierOf = (n) => RANKS[rankIndex(n)].name;
 const nextRankAt = (n) => { const i = rankIndex(n); return i < RANKS.length - 1 ? RANKS[i + 1].min : null; };
+// ── RULE-1 · Этап A · единый источник правил кампании ──
+// Стандартные значения собраны в одном месте. Ведущая может переопределить их
+// в облаке (campaigns/<код>/config/rules); чего нет в облаке — берётся отсюда.
+const DEFAULT_RULES = {
+  ranks: RANKS,                                       // лестница рангов: [{name,min}]
+  build: { attrPoints: 5, skillPoints: 15 },          // очки сборки на старте
+  hind:  { majorPts: 2, minorPts: 1, maxMajor: 1, maxMinor: 2 },  // экономика и лимиты изъянов
+  conv:  { attrCost: 2, edgeCost: 2, skillCost: 1 },             // почём обмен очков изъянов
+  edges: { freeSlots: 1 },                            // даровых слотов эджей (человек)
+  attrCapDie: 12,                                     // потолок атрибута кубиком
+  pathTiers: PATH_TIERS,                              // тиры пути к божественности
+  dice: DICE,
+};
+// аккуратное слияние облачного config/rules поверх стандартных — битые/пустые поля игнорируем
+function mergeRules(raw) {
+  const d = DEFAULT_RULES;
+  if (!raw || typeof raw !== "object") return d;
+  const arr = (v, fb) => (Array.isArray(v) && v.length ? v : fb);
+  return {
+    ranks: arr(raw.ranks, d.ranks),
+    build: { ...d.build, ...(raw.build || {}) },
+    hind:  { ...d.hind,  ...(raw.hind  || {}) },
+    conv:  { ...d.conv,  ...(raw.conv  || {}) },
+    edges: { ...d.edges, ...(raw.edges || {}) },
+    attrCapDie: raw.attrCapDie || d.attrCapDie,
+    pathTiers: arr(raw.pathTiers, d.pathTiers),
+    dice: arr(raw.dice, d.dice),
+  };
+}
+// ранговые хелперы над произвольной лестницей (стандартной или облачной)
+const rankIndexIn = (ranks, n) => { let i = 0; for (let k = 0; k < ranks.length; k++) if (n >= ranks[k].min) i = k; return i; };
 const nextDie = (d) => DICE[Math.min(DICE.indexOf(d) + 1, DICE.length - 1)];
 function dominantArch(attrs) {
   let best = null, bestv = -1, tie = false;
@@ -504,7 +535,7 @@ function loadLocal() {
 
 const ATTR_OF = { "ЛОВ": "agility", "СМЕ": "smarts", "ДУХ": "spirit" };
 const DLEVEL = { 4: 1, 6: 2, 8: 3, 10: 4, 12: 5 };
-const ATTR_POINTS = 5, SKILL_POINTS = 15;
+const ATTR_POINTS = DEFAULT_RULES.build.attrPoints, SKILL_POINTS = DEFAULT_RULES.build.skillPoints;
 const attrCost = (die) => (DLEVEL[die] || 1) - 1;
 function skillCost(val, isCore, attrDie) {
   const tl = val == null ? 0 : DLEVEL[val];
@@ -566,6 +597,7 @@ function App() {
   const [data, setData] = useState(() => loadLocal() || makeDefaults());
   const [creating, setCreating] = useState(() => !cloud && ((loadLocal() || makeDefaults()).created === false));
   const [lists, setLists] = useState({ hindrances: DEFAULT_HINDRANCES, edges: DEFAULT_EDGES });
+  const [rules, setRules] = useState(DEFAULT_RULES);      // RULE-1: правила кампании (облако ⊕ дефолты)
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);              // есть правки, не отправленные в облако
   const [applying, setApplying] = useState(false);        // идёт отправка в облако
@@ -589,6 +621,7 @@ function App() {
       try {
         const cfg = await db.collection("campaigns").doc(cur.campaign).collection("config").doc("lists").get();
         if (cfg.exists) { const c = cfg.data(); setLists({ hindrances: (c.hindrances && c.hindrances.length) ? c.hindrances : DEFAULT_HINDRANCES, edges: (c.edges && c.edges.length) ? c.edges : DEFAULT_EDGES }); }
+        try { const rc = await db.collection("campaigns").doc(cur.campaign).collection("config").doc("rules").get(); if (rc.exists) setRules(mergeRules(rc.data())); } catch (e) {}
       } catch (e) {}
       try {
         const doc = await db.collection("campaigns").doc(cur.campaign).collection("characters").doc(cur.charId).get();
@@ -681,6 +714,7 @@ function App() {
     try {
       const cfg = await db.collection("campaigns").doc(code).collection("config").doc("lists").get();
       if (cfg.exists) { const c = cfg.data(); setLists({ hindrances: (c.hindrances && c.hindrances.length) ? c.hindrances : DEFAULT_HINDRANCES, edges: (c.edges && c.edges.length) ? c.edges : DEFAULT_EDGES }); }
+      try { const rc = await db.collection("campaigns").doc(code).collection("config").doc("rules").get(); if (rc.exists) setRules(mergeRules(rc.data())); } catch (e) {}
     } catch (e) { console.error("Списки:", e); }
     const col = db.collection("campaigns").doc(code).collection("characters");
     let id = null, d = null;
@@ -706,7 +740,10 @@ function App() {
   const tough = 2 + halfDie(vig.die) + vig.plus;
   const load = 5 * (str.die + str.plus);
   const derived = [{ k: "Скорость", v: "6\u2033" }, { k: "Парирование", v: parry }, { k: "Стойкость", v: tough }, { k: "Размер", v: 0 }, { k: "Нагрузка", v: load }];
-  const tier = tierOf(data.advances);
+  const ranks = rules.ranks;                                  // RULE-1: лестница из облака (или дефолт)
+  const ri = rankIndexIn(ranks, data.advances);
+  const tier = ranks[ri].name;
+  const nextRankMin = ri < ranks.length - 1 ? ranks[ri + 1].min : null;
   const arch = dominantArch(attrs);
   const nextStep = Math.min(data.shards + 1, 9);           // ближайший шаг древа (BUG-7)
   const availAdv = Math.max(0, (data.advances || 0) - (data.spent || 0));   // начислено минус потрачено
@@ -728,7 +765,7 @@ function App() {
   const resetAll = () => { if (confirm("Стереть карту начисто? Сделай сначала Экспорт, если жаль.")) { skipSave.current = false; setData(makeDefaults()); } };
 
   if (cloud && !joined) return gmview ? <div className="gate-wrap"><div className="gate"><div className="wordmark"><span className="rune">ᛈ</span> Рагнарёк-AU</div><h2>Загрузка карты…</h2></div></div> : <JoinGate onJoin={joinCampaign} />;
-  if (creating) return <CreationWizard data={data} lists={lists} set={set} setAttrDie={setAttrDie} setSkill={setSkill} onDone={async () => {
+  if (creating) return <CreationWizard data={data} lists={lists} rules={rules} set={set} setAttrDie={setAttrDie} setSkill={setSkill} onDone={async () => {
     const finalData = { ...data, created: true };
     skipSave.current = true;                                // мы сами кладём в облако ниже — не помечаем как правку
     setData(finalData); setCreating(false);
@@ -789,7 +826,7 @@ function App() {
             </div>
             {!gmview && <div className="blk"><span className="k tip" data-tip="начислено минус потрачено — столько улучшений можно взять">Доступно</span><span className="rk" style={{ color: availAdv > 0 ? "var(--bronze)" : "var(--faint)" }}>{availAdv}</span></div>}
             {!gmview && <button className="iobtn adv-open" onClick={() => setAdvOpen(true)} disabled={availAdv <= 0}><span className="rune">ᚦ</span> Потратить{availAdv > 0 ? " (" + availAdv + ")" : ""}</button>}
-            {nextRankAt(data.advances) != null && <span className="adv-next">до «{RANKS[rankIndex(data.advances) + 1].name}» — {nextRankAt(data.advances) - data.advances}</span>}
+            {nextRankMin != null && <span className="adv-next">до «{ranks[ri + 1].name}» — {nextRankMin - data.advances}</span>}
           </div>
         </div>
       </div>
@@ -1033,7 +1070,8 @@ function WizSkill({ sk, core, data, setSkill }) {
   );
 }
 
-function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
+function CreationWizard({ data, lists, rules, set, setAttrDie, setSkill, onDone }) {
+  const R = rules || DEFAULT_RULES;   // RULE-1: правила сборки из облака (или дефолт)
   const [step, setStep] = useState(0);
   const [hind, setHind] = useState([]);
   const [conv, setConv] = useState({ attr: 0, edge: 0, skill: 0 });
@@ -1042,22 +1080,23 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
 
   const allSkills = [...CORE.map((c) => ({ ...c, core: true })), ...OPEN.map((o) => ({ ...o, core: false }))];
   const attrSpent = ATTRS.reduce((s, a) => s + attrCost(data.attrs[a.key].die), 0);
-  const attrBudget = ATTR_POINTS + conv.attr;
+  const attrBudget = R.build.attrPoints + conv.attr;
   const skillSpent = allSkills.reduce((s, sk) => s + skillCost(data.skills[sk.n], sk.core, data.attrs[ATTR_OF[sk.a]].die), 0);
-  const skillBudget = SKILL_POINTS + conv.skill;
+  const skillBudget = R.build.skillPoints + conv.skill;
   const majors = hind.filter((h) => h.s === "major").length;
   const minors = hind.filter((h) => h.s === "minor").length;
-  const hp = Math.min(majors, 1) * 2 + Math.min(minors, 2);
-  const hpUsed = conv.attr * 2 + conv.edge * 2 + conv.skill;
+  const hp = Math.min(majors, R.hind.maxMajor) * R.hind.majorPts + Math.min(minors, R.hind.maxMinor) * R.hind.minorPts;
+  const hpUsed = conv.attr * R.conv.attrCost + conv.edge * R.conv.edgeCost + conv.skill * R.conv.skillCost;
   const hpLeft = hp - hpUsed;
-  const edgeSlots = 1 + conv.edge;
+  const edgeSlots = R.edges.freeSlots + conv.edge;
 
   const hindNames = (arr) => arr.map((x) => x.n + (x.s === "major" ? " (большой)" : " (малый)"));
   const conflictWith = (name) => { const taken = [...hind.map((x) => x.n), ...data.edges]; return (CONFLICTS[name] || []).find((c) => taken.includes(c)); };
+  const hindCapNote = R.hind.maxMajor + " больш. + " + R.hind.maxMinor + " мал. — потолок по правилам";
   const hindLimitMsg = (sev) =>
-    sev === "major" ? "Можно взять только один большой изъян (1 большой + 2 малых — потолок по правилам)." :
-    "Можно взять не больше двух малых изъянов (1 большой + 2 малых — потолок по правилам).";
-  const overHindLimit = (sev) => (sev === "major" ? majors >= 1 : minors >= 2);
+    sev === "major" ? "Больших изъянов можно взять не больше " + R.hind.maxMajor + " (" + hindCapNote + ")." :
+    "Малых изъянов можно взять не больше " + R.hind.maxMinor + " (" + hindCapNote + ").";
+  const overHindLimit = (sev) => (sev === "major" ? majors >= R.hind.maxMajor : minors >= R.hind.maxMinor);
   const toggleHind = (h) => {
     const has = hind.find((x) => x.n === h.n);
     if (!has) {
@@ -1070,7 +1109,7 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
   const addCustH = (sev) => { const v = custH.trim(); if (!v) return; if (overHindLimit(sev)) { alert(hindLimitMsg(sev)); return; } const next = [...hind, { n: v, s: sev }]; setHind(next); set({ hindrances: hindNames(next) }); setCustH(""); };
   const setConvK = (k, dir) => setConv((c) => {
     const v = c[k] + dir; if (v < 0) return c;
-    const use = (k === "attr" ? v : c.attr) * 2 + (k === "edge" ? v : c.edge) * 2 + (k === "skill" ? v : c.skill);
+    const use = (k === "attr" ? v : c.attr) * R.conv.attrCost + (k === "edge" ? v : c.edge) * R.conv.edgeCost + (k === "skill" ? v : c.skill) * R.conv.skillCost;
     if (dir > 0 && use > hp) return c;
     return { ...c, [k]: v };
   });
@@ -1134,7 +1173,7 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
           <div>
             <h2 className="wiz-h">Атрибуты</h2>
             {returning && <div className="wiz-return">Распредели очки, полученные за изъяны — иначе они сгорят.</div>}
-            <p className="wiz-sub">Все стартуют с d4. Подними кубики — всего {ATTR_POINTS} очка{conv.attr ? " + " + conv.attr + " от изъянов" : ""}, шаг = 1 очко.</p>
+            <p className="wiz-sub">Все стартуют с d4. Подними кубики — всего {R.build.attrPoints} очка{conv.attr ? " + " + conv.attr + " от изъянов" : ""}, шаг = 1 очко.</p>
             <div className={"wiz-budget " + (attrSpent > attrBudget ? "over" : "ok")}>Очки атрибутов: <b>{attrSpent}/{attrBudget}</b></div>
             {ATTRS.map((at) => { const a = data.attrs[at.key]; return (
               <div className="wiz-row" key={at.key}>
@@ -1149,7 +1188,7 @@ function CreationWizard({ data, lists, set, setAttrDie, setSkill, onDone }) {
           <div>
             <h2 className="wiz-h">Навыки</h2>
             {returning && <div className="wiz-return">Распредели очки, полученные за изъяны — иначе они сгорят.</div>}
-            <p className="wiz-sub">{SKILL_POINTS} очков{conv.skill ? " + " + conv.skill + " от изъянов" : ""}. Пять основных уже на d4 даром. Поднять навык выше его атрибута — <b>2 очка</b> за шаг (помечены штрихом).</p>
+            <p className="wiz-sub">{R.build.skillPoints} очков{conv.skill ? " + " + conv.skill + " от изъянов" : ""}. Пять основных уже на d4 даром. Поднять навык выше его атрибута — <b>2 очка</b> за шаг (помечены штрихом).</p>
             <div className={"wiz-budget " + (skillSpent > skillBudget ? "over" : "ok")}>Очки навыков: <b>{skillSpent}/{skillBudget}</b></div>
             <div className="skgroup-label">Ядро · у всех с d4</div>
             {CORE.map((sk) => <WizSkill key={sk.n} sk={sk} core data={data} setSkill={setSkill} />)}
