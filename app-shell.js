@@ -61,11 +61,12 @@
     woy:    { label: "Колесо года",        rune: "ᛊ" },
     npc:    { label: "Статблоки",          rune: "ᚦ", gm: true },
     names:  { label: "Имена",              rune: "ᛗ", gm: true },
+    maps:   { label: "Карты и планы",      rune: "ᛚ", gm: true },
   };
 
   var NAV = {
     player: ["portal", "sheet", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy"],
-    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "names", "npc"],
+    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "names", "npc", "maps"],
     portal: [],
   };
 
@@ -78,7 +79,7 @@
   // остальное прячем во вложенные выпадашки, чтобы шапка не раздувалась
   var GROUPS = [
     { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["tree", "worlds", "chars", "runes", "chrono", "blog", "woy"] },
-    { id: "forge", label: "Мастерская", rune: "ᚦ", gm: true, keys: ["names", "npc"] },
+    { id: "forge", label: "Мастерская", rune: "ᚦ", gm: true, keys: ["names", "npc", "maps"] },
   ];
 
   function campaignParam() {
@@ -102,6 +103,7 @@
     if (key === "woy")    return "wheel-of-year.html?role=" + role + cp;
     if (key === "npc")    return "npc-gen.html?role=" + role + cp;
     if (key === "names")  return "name-gen.html?role=" + role + cp;
+    if (key === "maps")   return "maps-plans.html?role=" + role + cp;
     return it.href;
   }
 
