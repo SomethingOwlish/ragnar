@@ -58,10 +58,10 @@ function readCampaign() {
   const u = (_qs.get("c") || _qs.get("campaign") || "").trim();
   if (u) { try { localStorage.setItem("ragnarok-board-campaign", u); } catch (e) {} return u; }
   try { const cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null"); if (cur && cur.campaign) return cur.campaign; } catch (e) {}
-  try { return localStorage.getItem("ragnarok-board-campaign") || ""; } catch (e) { return ""; }
+  try { return localStorage.getItem("ragnarok-board-campaign") || localStorage.getItem("ragnarok-campaign") || ""; } catch (e) { return ""; }
 }
 const lsKey = (c) => "ragnarok-svgcards-" + (c || "local");
-function readLocal(c) { try { const a = JSON.parse(localStorage.getItem(lsKey(c)) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+function readLocal(c) { try { const a = JSON.parse(localStorage.getItem(lsKey(c)) || "[]"); return Array.isArray(a) ? a.map(normCard) : []; } catch (e) { return []; } }
 function writeLocal(c, cards) { try { localStorage.setItem(lsKey(c), JSON.stringify(cards)); } catch (e) {} }
 
 /* ============================ Токены ============================ */
@@ -70,8 +70,24 @@ const INK = "var(--bg)";
 const FONT_DISPLAY = "var(--disp)";
 const FONT_UI = "var(--sans)";
 
-/* Чистим SVG перед показом: убираем скрипты, обработчики и javascript: ссылки.
-   Контент пишет только ведущая, но всё равно не доверяем сырому коду. */
+/* Карта бывает двух видов: 'svg' (рисуем инлайн) и 'html' (рендерим
+   в песочнице-iframe). Старые карты хранили поле svg — приводим к
+   общему виду { kind, code }. */
+function normCard(card) {
+  if (!card) return card;
+  const code = card.code != null ? card.code : (card.svg || "");
+  const kind = card.kind === "html" ? "html" : (card.kind || "svg");
+  return { id: card.id, title: card.title || "", kind, code, ts: card.ts || Date.now() };
+}
+function detectKind(s) {
+  const t = (s || "").trim();
+  if (/^<\?xml/i.test(t) && /<svg[\s>]/i.test(t)) return "svg";
+  if (/^<svg[\s>]/i.test(t)) return "svg";
+  return "html";
+}
+const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+/* Чистим SVG перед показом: убираем скрипты, обработчики и javascript: ссылки. */
 function sanitizeSvg(raw) {
   if (!raw) return "";
   let s = String(raw);
@@ -85,8 +101,6 @@ function sanitizeSvg(raw) {
   s = s.replace(/javascript:/gi, "");
   return s;
 }
-const looksLikeSvg = (s) => /<svg[\s>]/i.test(s || "");
-const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 /* ============================ Статус облака ============================ */
 function CloudChip({ status, campaign, onBind }) {
@@ -104,9 +118,12 @@ function CloudChip({ status, campaign, onBind }) {
   return <button onClick={onBind} title="сменить код кампании" style={{ ...base, color: s.c, cursor: "pointer", background: "none" }}>{s.t}</button>;
 }
 
-/* ============================ Превью SVG ============================ */
-function SvgBox({ svg, style }) {
-  return <div className="mp-svg" style={style} dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }} />;
+/* ============================ Рендер содержимого ============================ */
+function CardInner({ kind, code, interactive }) {
+  if (kind === "html") {
+    return <iframe className="mp-frame" sandbox="" srcDoc={code} title="" style={interactive ? undefined : { pointerEvents: "none" }} />;
+  }
+  return <div className="mp-svg" dangerouslySetInnerHTML={{ __html: sanitizeSvg(code) }} />;
 }
 
 /* ============================ Компонент ============================ */
@@ -116,13 +133,15 @@ function MapsPlans() {
   const [status, setStatus] = useState(HAS_FB && readCampaign() ? "loading" : "local");
   const [loaded, setLoaded] = useState(!(HAS_FB && readCampaign()));
   const [showData, setShowData] = useState(false);
-  const [big, setBig] = useState(null);      // карта для просмотра в полный экран
-  const [editId, setEditId] = useState(null); // id редактируемой карты (или null = новая)
+  const [big, setBig] = useState(null);
+  const [editId, setEditId] = useState(null);
 
   // поля формы добавления / правки
   const [fTitle, setFTitle] = useState("");
-  const [fSvg, setFSvg] = useState("");
+  const [fCode, setFCode] = useState("");
+  const [fKind, setFKind] = useState("svg");
   const [fErr, setFErr] = useState("");
+  const kindLocked = useRef(false);
   const fileRef = useRef(null);
 
   const skip = useRef(true);
@@ -140,13 +159,13 @@ function MapsPlans() {
       const ref = db.collection("campaigns").doc(campaign).collection("boards").doc(BOARD_ID);
       try {
         const snap = await ref.get();
-        if (alive && snap.exists && Array.isArray(snap.data().cards)) { skip.current = true; const c = snap.data().cards; setCards(c); writeLocal(campaign, c); }
+        if (alive && snap.exists && Array.isArray(snap.data().cards)) { skip.current = true; const c = snap.data().cards.map(normCard); setCards(c); writeLocal(campaign, c); }
       } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
       ready.current = true;
       if (alive) { setStatus("cloud"); setLoaded(true); }
       unsub = ref.onSnapshot((snap) => {
         if (!snap.exists || snap.metadata.hasPendingWrites) return;
-        if (Array.isArray(snap.data().cards)) { skip.current = true; const c = snap.data().cards; setCards(c); writeLocal(campaign, c); }
+        if (Array.isArray(snap.data().cards)) { skip.current = true; const c = snap.data().cards.map(normCard); setCards(c); writeLocal(campaign, c); }
       }, (e) => console.error("snapshot:", e));
     })();
     return () => { alive = false; if (unsub) unsub(); };
@@ -173,30 +192,40 @@ function MapsPlans() {
     if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} ready.current = false; skip.current = true; setLoaded(false); setCampaign(c); setCards(readLocal(c)); }
   };
 
-  const resetForm = () => { setEditId(null); setFTitle(""); setFSvg(""); setFErr(""); if (fileRef.current) fileRef.current.value = ""; };
+  const resetForm = () => { setEditId(null); setFTitle(""); setFCode(""); setFKind("svg"); setFErr(""); kindLocked.current = false; if (fileRef.current) fileRef.current.value = ""; };
+
+  const onCode = (v) => { setFCode(v); setFErr(""); if (!kindLocked.current) setFKind(detectKind(v)); };
+  const pickKind = (k) => { setFKind(k); kindLocked.current = true; };
 
   const onFile = (e) => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     const rd = new FileReader();
-    rd.onload = () => { const txt = String(rd.result || ""); setFSvg(txt); if (!fTitle.trim()) setFTitle(f.name.replace(/\.svg$/i, "")); setFErr(""); };
+    rd.onload = () => {
+      const txt = String(rd.result || "");
+      setFCode(txt); setFErr("");
+      const k = /\.svg$/i.test(f.name) ? "svg" : (/\.html?$/i.test(f.name) ? "html" : detectKind(txt));
+      setFKind(k); kindLocked.current = true;
+      if (!fTitle.trim()) setFTitle(f.name.replace(/\.(svg|html?)$/i, ""));
+    };
     rd.readAsText(f);
   };
 
   const submit = () => {
     if (!isGM) { setFErr("Добавлять карты может только ведущая."); return; }
-    if (!looksLikeSvg(fSvg)) { setFErr("Это не похоже на SVG — нужен тег <svg…>."); return; }
+    const code = fCode.trim();
+    if (!code) { setFErr("Пусто — вставь код или загрузи файл."); return; }
+    if (fKind === "svg" && !/<svg[\s>]/i.test(code)) { setFErr("Для типа SVG нужен тег <svg…>. Для разметки выбери HTML."); return; }
     const title = fTitle.trim() || "Без названия";
-    const svg = fSvg.trim();
     if (editId) {
-      setCards((cs) => cs.map((c) => (c.id === editId ? { ...c, title, svg } : c)));
+      setCards((cs) => cs.map((c) => (c.id === editId ? { ...c, title, kind: fKind, code } : c)));
     } else {
-      setCards((cs) => [{ id: uid(), title, svg, ts: Date.now() }, ...cs]);
+      setCards((cs) => [{ id: uid(), title, kind: fKind, code, ts: Date.now() }, ...cs]);
     }
     resetForm();
   };
 
-  const startEdit = (c) => { setEditId(c.id); setFTitle(c.title || ""); setFSvg(c.svg || ""); setFErr(""); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const startEdit = (c) => { setEditId(c.id); setFTitle(c.title || ""); setFCode(c.code || ""); setFKind(c.kind || "svg"); kindLocked.current = true; setFErr(""); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const remove = (c) => { if (!confirm("Удалить карту «" + (c.title || "без названия") + "»?")) return; setCards((cs) => cs.filter((x) => x.id !== c.id)); if (editId === c.id) resetForm(); };
 
   if (!loaded) return <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--muted)", minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }} className="w-full">Загрузка из облака…</div>;
@@ -213,13 +242,18 @@ function MapsPlans() {
         .mp-btn:hover{ background:var(--surf2); border-color:var(--steel-soft); }
         .mp-go{ background:var(--bronze); color:var(--on-ink); border:none; border-radius:8px; padding:9px 18px; font-size:13.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
         .mp-go:hover{ background:var(--ember); }
+        .mp-seg{ display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+        .mp-seg button{ background:transparent; border:none; color:var(--muted); padding:7px 14px; font-size:12.5px; cursor:pointer; }
+        .mp-seg button.on{ background:var(--bronze); color:var(--on-ink); font-weight:600; }
         .mp-card{ border:1px solid var(--line); border-radius:12px; background:var(--surf); overflow:hidden; display:flex; flex-direction:column; }
-        .mp-thumb{ height:170px; background:var(--inset); border-bottom:1px solid var(--line-soft); display:flex; align-items:center; justify-content:center; padding:10px; cursor:pointer; }
+        .mp-thumb{ position:relative; height:170px; background:var(--inset); border-bottom:1px solid var(--line-soft); display:flex; align-items:center; justify-content:center; padding:10px; cursor:pointer; overflow:hidden; }
+        .mp-kind{ position:absolute; top:7px; right:8px; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); background:color-mix(in srgb, var(--bg) 70%, transparent); border:1px solid var(--line); border-radius:5px; padding:2px 6px; }
         .mp-svg{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
         .mp-svg svg{ max-width:100%; max-height:100%; height:auto; width:auto; }
+        .mp-frame{ border:none; width:100%; height:100%; background:#fff; }
         .mp-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
         .mp-form{ border:1px solid var(--line); border-radius:14px; background:var(--surf); padding:18px; margin-bottom:24px; }
-        .mp-prev{ height:150px; background:var(--inset); border:1px solid var(--line); border-radius:10px; display:flex; align-items:center; justify-content:center; padding:10px; }
+        .mp-prev{ position:relative; height:170px; background:var(--inset); border:1px solid var(--line); border-radius:10px; display:flex; align-items:center; justify-content:center; padding:10px; overflow:hidden; }
         .mp-x{ background:none; border:none; color:var(--muted); cursor:pointer; }
         .mp-x:hover{ color:var(--ink); }
       `}</style>
@@ -229,7 +263,7 @@ function MapsPlans() {
         <header className="flex items-start justify-between flex-wrap gap-3" style={{ marginBottom: 18 }}>
           <div>
             <div style={{ fontFamily: FONT_DISPLAY, fontSize: 28, color: GOLD, display: "flex", alignItems: "center", gap: 12 }}><span className="rune" style={{ fontFamily: "var(--rune)" }}>ᛚ</span> Карты и планы</div>
-            <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>SVG-карты, схемы локаций и планы для ведущей. Сохраняются в кампании и доступны на панели.</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>SVG-карты и HTML-планы для ведущей. Сохраняются в кампании и выводятся на панель.</div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <CloudChip status={status} campaign={campaign} onBind={bind} />
@@ -242,7 +276,13 @@ function MapsPlans() {
         {/* форма добавления / правки */}
         {isGM && (
           <div className="mp-form">
-            <div style={{ fontFamily: FONT_DISPLAY, fontSize: 16, color: "var(--ink)", marginBottom: 12 }}>{editId ? "Изменить карту" : "Новая карта"}</div>
+            <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: 12 }}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 16, color: "var(--ink)" }}>{editId ? "Изменить карту" : "Новая карта"}</div>
+              <div className="mp-seg">
+                <button className={fKind === "svg" ? "on" : ""} onClick={() => pickKind("svg")}>SVG</button>
+                <button className={fKind === "html" ? "on" : ""} onClick={() => pickKind("html")}>HTML</button>
+              </div>
+            </div>
             <div className="flex gap-4 flex-wrap">
               <div style={{ flex: "1 1 320px", minWidth: 280, display: "flex", flexDirection: "column", gap: 10 }}>
                 <div>
@@ -250,13 +290,13 @@ function MapsPlans() {
                   <input className="mp-input" value={fTitle} onChange={(e) => setFTitle(e.target.value)} placeholder="напр. План Хеллхейма" />
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--faint)", display: "block", marginBottom: 5 }}>SVG-код</label>
-                  <textarea className="mp-ta" value={fSvg} onChange={(e) => { setFSvg(e.target.value); setFErr(""); }} placeholder="<svg …>…</svg> — вставь код или загрузи .svg-файл" spellCheck={false} />
+                  <label style={{ fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--faint)", display: "block", marginBottom: 5 }}>{fKind === "html" ? "HTML-код" : "SVG-код"}</label>
+                  <textarea className="mp-ta" value={fCode} onChange={(e) => onCode(e.target.value)} placeholder={fKind === "html" ? "<div>…</div> — статичная разметка (скрипты не выполняются)" : "<svg …>…</svg> — вставь код или загрузи файл"} spellCheck={false} />
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button className="mp-btn" onClick={() => fileRef.current && fileRef.current.click()}><Plus size={14} /> Загрузить .svg</button>
-                  <input ref={fileRef} type="file" accept=".svg,image/svg+xml" onChange={onFile} style={{ display: "none" }} />
-                  {fSvg && <button className="mp-btn" onClick={() => setFSvg("")}>Очистить код</button>}
+                  <button className="mp-btn" onClick={() => fileRef.current && fileRef.current.click()}><Plus size={14} /> Загрузить файл</button>
+                  <input ref={fileRef} type="file" accept=".svg,.html,.htm,image/svg+xml,text/html" onChange={onFile} style={{ display: "none" }} />
+                  {fCode && <button className="mp-btn" onClick={() => setFCode("")}>Очистить код</button>}
                 </div>
                 {fErr && <div style={{ color: "var(--red)", fontSize: 12.5 }}>{fErr}</div>}
                 <div className="flex items-center gap-2">
@@ -267,7 +307,7 @@ function MapsPlans() {
               <div style={{ flex: "1 1 260px", minWidth: 240 }}>
                 <label style={{ fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--faint)", display: "block", marginBottom: 5 }}>Предпросмотр</label>
                 <div className="mp-prev">
-                  {looksLikeSvg(fSvg) ? <SvgBox svg={fSvg} /> : <span style={{ color: "var(--faint)", fontSize: 12.5 }}>здесь будет превью</span>}
+                  {fCode.trim() ? <CardInner kind={fKind} code={fCode} /> : <span style={{ color: "var(--faint)", fontSize: 12.5 }}>здесь будет превью</span>}
                 </div>
               </div>
             </div>
@@ -277,13 +317,14 @@ function MapsPlans() {
         {/* список карт */}
         <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 12 }}><b style={{ color: "var(--ink)" }}>{cards.length}</b> {cards.length === 1 ? "карта" : "карт"} в хранилище</div>
         {cards.length === 0 ? (
-          <div style={{ color: "var(--faint)", padding: "40px 0", textAlign: "center" }}>Пока пусто. {isGM ? "Добавь первую SVG-карту выше." : "Ведущая ещё не добавила карты."}</div>
+          <div style={{ color: "var(--faint)", padding: "40px 0", textAlign: "center" }}>Пока пусто. {isGM ? "Добавь первую SVG- или HTML-карту выше." : "Ведущая ещё не добавила карты."}</div>
         ) : (
           <div className="mp-grid">
             {cards.map((c) => (
               <div className="mp-card" key={c.id}>
                 <div className="mp-thumb" onClick={() => setBig(c)} title="открыть крупно">
-                  <SvgBox svg={c.svg} />
+                  <span className="mp-kind">{c.kind === "html" ? "HTML" : "SVG"}</span>
+                  <CardInner kind={c.kind} code={c.code} />
                 </div>
                 <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
                   <div style={{ fontFamily: FONT_DISPLAY, fontSize: 15, color: "var(--ink)" }}>{c.title || "без названия"}</div>
@@ -316,11 +357,11 @@ function BigView({ card, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.78)", zIndex: 80, display: "flex", flexDirection: "column", padding: 16 }} onClick={onClose}>
       <div className="flex items-center justify-between" style={{ color: "var(--ink)", marginBottom: 10 }}>
-        <span style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>{card.title || "без названия"}</span>
+        <span style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>{card.title || "без названия"} <span style={{ fontSize: 11, color: "var(--faint)", letterSpacing: ".1em" }}>· {card.kind === "html" ? "HTML" : "SVG"}</span></span>
         <button className="mp-x" onClick={onClose} title="закрыть (Esc)"><X size={24} /></button>
       </div>
-      <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, minHeight: 0, background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: 16, display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto" }}>
-        <div className="mp-svg" style={{ width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: sanitizeSvg(card.svg) }} />
+      <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, minHeight: 0, background: card.kind === "html" ? "#fff" : "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: card.kind === "html" ? 0 : 16, display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto" }}>
+        <CardInner kind={card.kind} code={card.code} interactive />
       </div>
     </div>
   );
@@ -330,7 +371,7 @@ function BigView({ card, onClose }) {
 function DataModal({ cards, isGM, onClose, onApply }) {
   const [text, setText] = useState(JSON.stringify(cards, null, 2));
   const [err, setErr] = useState("");
-  const apply = () => { try { const d = JSON.parse(text); if (!Array.isArray(d)) throw new Error("нужен массив карт"); setErr(""); onApply(d.map((c) => ({ id: c.id || ("c" + Math.random().toString(36).slice(2, 9)), title: c.title || "", svg: c.svg || "", ts: c.ts || Date.now() }))); } catch (e) { setErr("Не разобрал JSON: " + e.message); } };
+  const apply = () => { try { const d = JSON.parse(text); if (!Array.isArray(d)) throw new Error("нужен массив карт"); setErr(""); onApply(d.map((c) => normCard({ ...c, id: c.id || uid() }))); } catch (e) { setErr("Не разобрал JSON: " + e.message); } };
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.6)", zIndex: 70 }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 16, padding: 18, width: "100%", maxWidth: 640 }}>
