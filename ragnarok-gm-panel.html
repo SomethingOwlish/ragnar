@@ -121,11 +121,28 @@ button{font-family:inherit; cursor:pointer;}
 .svg-thumb{height:150px; background:var(--inset); display:flex; align-items:center; justify-content:center; padding:9px; border-bottom:1px solid var(--line-soft);}
 .svg-box{width:100%; height:100%; display:flex; align-items:center; justify-content:center;}
 .svg-box svg{max-width:100%; max-height:100%; height:auto; width:auto;}
+.svg-frame{border:none; width:100%; height:100%; background:#fff;}
+.svg-thumb{position:relative; overflow:hidden;}
+.svg-kind{position:absolute; top:6px; right:7px; font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); background:color-mix(in srgb, var(--bg) 70%, transparent); border:1px solid var(--line); border-radius:5px; padding:2px 5px;}
 .svg-cap{padding:9px 12px; font-family:var(--disp); font-size:14px; color:var(--ink);}
-.svg-big{position:fixed; inset:0; background:rgba(0,0,0,.82); z-index:80; display:flex; flex-direction:column; padding:16px;}
-.svg-big-head{display:flex; align-items:center; justify-content:space-between; color:var(--ink); margin-bottom:10px;}
-.svg-big-title{font-family:var(--disp); font-size:18px; color:var(--bronze);}
-.svg-big-body{flex:1; min-height:0; background:var(--surf); border:1px solid var(--line); border-radius:12px; padding:16px; display:flex; align-items:center; justify-content:center; overflow:auto;}
+.svg-card.on{border-color:var(--bronze);}
+/* область показа под игроками */
+.stage{margin-top:28px; border:1px solid var(--line-warm); border-radius:14px; background:var(--surf); overflow:hidden;}
+.stage-head{display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line-soft); flex-wrap:wrap;}
+.stage-title{font-family:var(--disp); font-size:17px; color:var(--bronze);}
+.stage-kind{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); border:1px solid var(--line); border-radius:5px; padding:2px 7px;}
+.stage-clear{margin-left:auto; background:var(--surf2); border:1px solid var(--line); color:var(--muted); border-radius:8px; padding:6px 12px; font-size:12.5px; cursor:pointer;}
+.stage-clear:hover{border-color:var(--red); color:var(--red);}
+.stage-body{display:flex; flex-wrap:wrap;}
+.stage-view{flex:1 1 460px; min-width:280px; min-height:360px; background:var(--inset); display:flex; align-items:center; justify-content:center; padding:14px; overflow:auto;}
+.stage-view.html{padding:0; background:#fff;}
+.stage-view svg{max-width:100%; max-height:100%; height:auto; width:auto;}
+.stage-frame{border:none; width:100%; min-height:360px; background:#fff;}
+.stage-notes{flex:1 1 280px; min-width:240px; border-left:1px solid var(--line-soft); display:flex; flex-direction:column; padding:14px; gap:8px;}
+.stage-notes label{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint);}
+.stage-ta{flex:1; min-height:220px; background:var(--surf2); border:1px solid var(--line); border-radius:10px; color:var(--ink); padding:11px; font-size:13.5px; line-height:1.5; outline:none; resize:vertical; font-family:var(--sans);}
+.stage-ta:focus{border-color:var(--bronze);}
+.stage-note-status{font-size:11px; color:var(--faint);}
 </style>
 </head>
 <body>
@@ -138,7 +155,7 @@ button{font-family:inherit; cursor:pointer;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <script type="text/babel" data-presets="react">
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef } = React;
 
 /* ВСТАВЬ СЮДА тот же конфиг Firebase, что и в карте игрока. */
 const firebaseConfig = {
@@ -167,6 +184,19 @@ function sanitizeSvg(raw) {
   s = s.replace(/\son\w+\s*=\s*[^\s>]+/gi, "");
   s = s.replace(/javascript:/gi, "");
   return s;
+}
+
+/* Карта: 'svg' (инлайн) или 'html' (песочница-iframe). Старые карты держали поле svg. */
+function normCard(card) {
+  if (!card) return card;
+  const code = card.code != null ? card.code : (card.svg || "");
+  const kind = card.kind === "html" ? "html" : (card.kind || "svg");
+  return { id: card.id, title: card.title || "", kind, code, ts: card.ts || 0 };
+}
+function CardContent({ card, interactive }) {
+  const c = normCard(card);
+  if (c.kind === "html") return <iframe className="svg-frame" sandbox="" srcDoc={c.code} title={c.title || ""} style={interactive ? undefined : { pointerEvents: "none" }} />;
+  return <div className="svg-box" dangerouslySetInnerHTML={{ __html: sanitizeSvg(c.code) }} />;
 }
 
 /* ====== Рунический календарь полумесяцев (как в карте героя) ====== */
@@ -259,6 +289,8 @@ function App() {
   const [danger, setDanger] = useState(false);
   const [runeMeans, setRuneMeans] = useState(RUNE_MEANINGS);
   const [openChar, setOpenChar] = useState(null);
+  const [svgCards, setSvgCards] = useState([]);
+  const [stage, setStage] = useState({ cardId: null, notes: {} });
 
   useEffect(() => {
     if (!joined || !db) return;
@@ -284,6 +316,30 @@ function App() {
     return () => unsub();
   }, [joined, campaign]);
 
+  // карты и планы (SVG/HTML) — живой список из той же доски
+  useEffect(() => {
+    if (!joined || !db) return;
+    const ref = db.collection("campaigns").doc(campaign).collection("boards").doc("svgcards");
+    const unsub = ref.onSnapshot((snap) => {
+      const arr = (snap.exists && Array.isArray(snap.data().cards)) ? snap.data().cards.map(normCard) : [];
+      setSvgCards(arr);
+      try { localStorage.setItem("ragnarok-svgcards-" + campaign, JSON.stringify(arr)); } catch (e) {}
+    }, () => {});
+    return () => unsub();
+  }, [joined, campaign]);
+
+  // область показа под игроками: какая карта выбрана + заметки к ней
+  useEffect(() => {
+    if (!joined || !db) return;
+    const ref = db.collection("campaigns").doc(campaign).collection("boards").doc("svgstage");
+    const unsub = ref.onSnapshot((snap) => {
+      if (snap.metadata.hasPendingWrites) return;
+      const d = snap.exists ? snap.data() : {};
+      setStage({ cardId: d.cardId || null, notes: d.notes || {} });
+    }, () => {});
+    return () => unsub();
+  }, [joined, campaign]);
+
   // обновлять модалку, если данные героя изменились
   useEffect(() => {
     if (!openChar) return;
@@ -300,6 +356,13 @@ function App() {
     try { localStorage.setItem("ragnarok-campaign", c); } catch (e) {}
     setCampaign(c); setJoined(true); setErr("");
   }
+
+  const stageRef = () => db.collection("campaigns").doc(campaign).collection("boards").doc("svgstage");
+  const showCard = async (id) => { setStage((s) => ({ ...s, cardId: id })); try { await stageRef().set({ cardId: id, updatedAt: Date.now() }, { merge: true }); } catch (e) { alert("Не удалось показать: " + e.message); } };
+  const clearStage = async () => { setStage((s) => ({ ...s, cardId: null })); try { await stageRef().set({ cardId: null, updatedAt: Date.now() }, { merge: true }); } catch (e) {} };
+  const saveNote = async (cardId, text) => { setStage((s) => ({ ...s, notes: { ...s.notes, [cardId]: text } })); try { await stageRef().set({ notes: { [cardId]: text }, updatedAt: Date.now() }, { merge: true }); } catch (e) {} };
+
+  const stageCard = stage.cardId ? svgCards.find((c) => c.id === stage.cardId) : null;
 
   if (!joined) return <Gate err={err} onEnter={enter} />;
 
@@ -320,8 +383,9 @@ function App() {
       ) : (
         <div className="grid">{chars.map((c) => <PCard key={c.id} c={c} campaign={campaign} danger={danger} runeMeans={runeMeans} onOpen={() => setOpenChar(c)} />)}</div>
       )}
+      {stage.cardId && <Stage card={stageCard} note={(stageCard && stage.notes[stageCard.id]) || ""} onClear={clearStage} onNote={(t) => stageCard && saveNote(stageCard.id, t)} />}
       {showLists && <ListsEditor campaign={campaign} onClose={() => setShowLists(false)} />}
-      {showSvg && <SvgShowModal campaign={campaign} onClose={() => setShowSvg(false)} />}
+      {showSvg && <SvgShowModal cards={svgCards} campaign={campaign} stagedId={stage.cardId} onPick={(id) => { showCard(id); setShowSvg(false); }} onClose={() => setShowSvg(false)} />}
       {openChar && <CharModal campaign={campaign} char={openChar} onClose={() => setOpenChar(null)} />}
     </div>
   );
@@ -515,44 +579,14 @@ function ListsEditor({ campaign, onClose }) {
   );
 }
 
-function SvgShowModal({ campaign, onClose }) {
-  const [cards, setCards] = useState(() => { try { const a = JSON.parse(localStorage.getItem("ragnarok-svgcards-" + campaign) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } });
-  const [big, setBig] = useState(null);
-  const [status, setStatus] = useState(db ? "Загрузка…" : "");
-
+function SvgShowModal({ cards, campaign, stagedId, onPick, onClose }) {
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") { if (big) setBig(null); else onClose(); } };
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow; document.body.style.overflow = "hidden";
     return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
-  }, [big]);
-
-  useEffect(() => {
-    if (!db) return;
-    const ref = db.collection("campaigns").doc(campaign).collection("boards").doc("svgcards");
-    const unsub = ref.onSnapshot((snap) => {
-      if (snap.exists && Array.isArray(snap.data().cards)) { setCards(snap.data().cards); setStatus(""); }
-      else setStatus("Пока нет карт — добавь их во вкладке «Карты и планы».");
-    }, (e) => setStatus("Ошибка чтения: " + e.message));
-    return () => unsub();
-  }, [campaign]);
-
+  }, []);
   const tabHref = "maps-plans.html?role=gm&c=" + encodeURIComponent(campaign);
-
-  if (big) {
-    return (
-      <div className="svg-big" onClick={() => setBig(null)}>
-        <div className="svg-big-head">
-          <span className="svg-big-title">{big.title || "без названия"}</span>
-          <button className="modal-x" onClick={() => setBig(null)} title="закрыть (Esc)">×</button>
-        </div>
-        <div className="svg-big-body" onClick={(e) => e.stopPropagation()}>
-          <div className="svg-box" style={{ width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: sanitizeSvg(big.svg) }} />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="modal-bg" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -560,16 +594,19 @@ function SvgShowModal({ campaign, onClose }) {
           <div className="modal-title">Карты и планы</div>
           <button className="modal-x" onClick={onClose}>×</button>
         </div>
-        <div className="modal-note">Выбери карту — она откроется крупно. Добавлять и менять карты можно во вкладке <a href={tabHref} target="_blank" rel="noopener" style={{ color: "var(--bronze)" }}>«Карты и планы» ↗</a>.{status && <b> · {status}</b>}</div>
+        <div className="modal-note">Выбери карту — она появится в области под игроками (не поверх). Добавлять и менять карты можно во вкладке <a href={tabHref} target="_blank" rel="noopener" style={{ color: "var(--bronze)" }}>«Карты и планы» ↗</a>.</div>
         <div className="modal-body">
           {cards.length === 0 ? (
-            <div className="empty">Карт пока нет.</div>
+            <div className="empty">Карт пока нет — добавь их во вкладке «Карты и планы».</div>
           ) : (
             <div className="svg-grid">
               {cards.map((c) => (
-                <div className="svg-card" key={c.id} onClick={() => setBig(c)} title="показать крупно">
-                  <div className="svg-thumb"><div className="svg-box" dangerouslySetInnerHTML={{ __html: sanitizeSvg(c.svg) }} /></div>
-                  <div className="svg-cap">{c.title || "без названия"}</div>
+                <div className={"svg-card" + (c.id === stagedId ? " on" : "")} key={c.id} onClick={() => onPick(c.id)} title="показать под игроками">
+                  <div className="svg-thumb">
+                    <span className="svg-kind">{c.kind === "html" ? "HTML" : "SVG"}</span>
+                    <CardContent card={c} />
+                  </div>
+                  <div className="svg-cap">{c.title || "без названия"}{c.id === stagedId && <span style={{ color: "var(--bronze)", fontSize: 11 }}> · показана</span>}</div>
                 </div>
               ))}
             </div>
@@ -579,6 +616,40 @@ function SvgShowModal({ campaign, onClose }) {
           <a className="le-cancel" href={tabHref} target="_blank" rel="noopener" style={{ textDecoration: "none" }}>Открыть вкладку ↗</a>
           <div style={{ flex: 1 }} />
           <button className="le-cancel" onClick={onClose}>Закрыть</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stage({ card, note, onClear, onNote }) {
+  const [txt, setTxt] = useState(note || "");
+  const [saved, setSaved] = useState(false);
+  const cardId = card ? card.id : null;
+  const first = useRef(true);
+  // при смене показанной карты — подставляем её заметки
+  useEffect(() => { setTxt(note || ""); first.current = true; }, [cardId]);
+  // автосохранение заметок (с задержкой)
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    const t = setTimeout(() => { onNote(txt); setSaved(true); setTimeout(() => setSaved(false), 1200); }, 600);
+    return () => clearTimeout(t);
+  }, [txt]);
+  const isHtml = card && card.kind === "html";
+  return (
+    <div className="stage">
+      <div className="stage-head">
+        <span className="stage-title">{card ? (card.title || "без названия") : "карта не найдена"}</span>
+        {card && <span className="stage-kind">{isHtml ? "HTML" : "SVG"}</span>}
+        <button className="stage-clear" onClick={onClear}>Очистить область</button>
+      </div>
+      <div className="stage-body">
+        <div className={"stage-view" + (isHtml ? " html" : "")}>
+          {card ? <CardContent card={card} interactive /> : <span style={{ color: "var(--faint)", fontSize: 13 }}>Эта карта удалена из хранилища.</span>}
+        </div>
+        <div className="stage-notes">
+          <label>Заметки {saved && <span className="stage-note-status">· сохранено ✓</span>}</label>
+          <textarea className="stage-ta" value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="Заметки к этой карте — что показать игрокам, скрытые детали, подсказки…" disabled={!card} spellCheck={false} />
         </div>
       </div>
     </div>
