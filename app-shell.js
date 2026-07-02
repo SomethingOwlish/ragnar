@@ -59,6 +59,7 @@
     chrono: { label: "Хронология",        rune: "ᛞ" },
     blog:   { label: "Блог",              rune: "ᚨ", href: "blog.html" },
     woy:    { label: "Колесо года",        rune: "ᛊ" },
+    library:{ label: "Библиотека",        rune: "ᛦ" },
     npc:    { label: "Статблоки",          rune: "ᚦ", gm: true },
     names:  { label: "Имена",              rune: "ᛗ", gm: true },
     maps:   { label: "Карты и планы",      rune: "ᛚ", gm: true },
@@ -66,8 +67,8 @@
   };
 
   var NAV = {
-    player: ["portal", "sheet", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy"],
-    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "names", "npc", "maps", "mcodex"],
+    player: ["portal", "sheet", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library"],
+    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library", "names", "npc", "maps", "mcodex"],
     portal: [],
   };
 
@@ -79,7 +80,7 @@
   };
   // остальное прячем во вложенные выпадашки, чтобы шапка не раздувалась
   var GROUPS = [
-    { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["tree", "worlds", "chars", "runes", "chrono", "blog", "woy"] },
+    { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library"] },
     { id: "forge", label: "Мастерская", rune: "ᚦ", gm: true, keys: ["names", "npc", "maps", "mcodex"] },
   ];
 
@@ -102,6 +103,7 @@
     if (key === "chrono") return "chronology.html?role=" + role + cp;
     if (key === "blog")   return "blog.html?role=" + role + cp;
     if (key === "woy")    return "wheel-of-year.html?role=" + role + cp;
+    if (key === "library") return "library.html?role=" + role + cp;
     if (key === "npc")    return "npc-gen.html?role=" + role + cp;
     if (key === "names")  return "name-gen.html?role=" + role + cp;
     if (key === "maps")   return "maps-plans.html?role=" + role + cp;
