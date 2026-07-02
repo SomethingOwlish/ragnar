@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Кодекс мастера</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={corePlugins:{preflight:false}};</script>
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg);}
+  #root{min-height:calc(100vh - 50px);}
+</style>
+</head>
+<body>
+<header data-shell data-here="mcodex"></header>
+<script>
+/* роль для верхней полосы — из адреса */
+(function(){
+  var r = (new URLSearchParams(location.search).get("role")==="gm") ? "gm" : "player";
+  var h = document.querySelector("[data-shell]");
+  if (h) h.setAttribute("data-role", r);
+})();
+</script>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="tool-icons.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef } = React;
+const { X, Plus, Trash2, ArrowLeft } = window.LI;
+
+/* ============================ Облако ============================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCSb7M5IbOql61HIqOUxe3ct4VqdjkhLyE",
+  authDomain: "ragnarau-80866.firebaseapp.com",
+  projectId: "ragnarau-80866",
+  storageBucket: "ragnarau-80866.firebasestorage.app",
+  messagingSenderId: "727752765165",
+  appId: "1:727752765165:web:8c625b7675f022a1b026e4"
+};
+const HAS_FB = !!(window.firebase && firebaseConfig.apiKey);
+let db = null, auth = null;
+if (HAS_FB) {
+  try { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); auth = firebase.auth(); }
+  catch (e) { console.error("Firebase init:", e); }
+}
+/* Все страницы кодекса лежат одним документом campaigns/<код>/codex/pages,
+   как и доска карт (boards/svgcards). Кодекс — приватный, только ведущая. */
+const DOC_ID = "pages";
+const _qs = new URLSearchParams(location.search);
+const ROLE = _qs.get("role") === "gm" ? "gm" : "player";
+function readCampaign() {
+  const u = (_qs.get("c") || _qs.get("campaign") || "").trim();
+  if (u) { try { localStorage.setItem("ragnarok-board-campaign", u); } catch (e) {} return u; }
+  try { const cur = JSON.parse(localStorage.getItem("ragnarok-current") || "null"); if (cur && cur.campaign) return cur.campaign; } catch (e) {}
+  try { return localStorage.getItem("ragnarok-board-campaign") || localStorage.getItem("ragnarok-campaign") || ""; } catch (e) { return ""; }
+}
+const lsKey = (c) => "ragnarok-codex-" + (c || "local");
+function normPage(p) {
+  if (!p) return p;
+  return { id: p.id, title: p.title || "", md: p.md != null ? p.md : (p.markdown || ""), ts: p.ts || Date.now() };
+}
+function readLocal(c) { try { const a = JSON.parse(localStorage.getItem(lsKey(c)) || "[]"); return Array.isArray(a) ? a.map(normPage) : []; } catch (e) { return []; } }
+function writeLocal(c, pages) { try { localStorage.setItem(lsKey(c), JSON.stringify(pages)); } catch (e) {} }
+
+const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+/* ============================ Разметка ============================ */
+function escapeHtml(s) {
+  return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+/* marked не чистит вывод — вырезаем скрипты, стили, фреймы, обработчики. */
+function sanitizeHtml(s) {
+  s = String(s || "");
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
+  s = s.replace(/<iframe[\s\S]*?<\/iframe>/gi, "");
+  s = s.replace(/<(object|embed|link|meta)[\s\S]*?>/gi, "");
+  s = s.replace(/\son\w+\s*=\s*"[^"]*"/gi, "");
+  s = s.replace(/\son\w+\s*=\s*'[^']*'/gi, "");
+  s = s.replace(/\son\w+\s*=\s*[^\s>]+/gi, "");
+  s = s.replace(/javascript:/gi, "");
+  return s;
+}
+function mdToHtml(md) {
+  let raw;
+  try { raw = window.marked ? window.marked.parse(String(md || ""), { gfm: true, breaks: true }) : "<pre>" + escapeHtml(md) + "</pre>"; }
+  catch (e) { raw = "<pre>" + escapeHtml(md) + "</pre>"; }
+  return sanitizeHtml(raw);
+}
+/* заголовок = первый «# …», иначе первая непустая строка, иначе имя файла */
+function titleFromMd(md, fallback) {
+  const m = String(md || "").match(/^\s{0,3}#\s+(.+?)\s*#*\s*$/m);
+  if (m) return m[1].trim().slice(0, 80);
+  const first = String(md || "").split(/\n/).map((x) => x.trim()).find(Boolean);
+  if (first) return first.replace(/^#+\s*/, "").slice(0, 80);
+  return fallback || "Без названия";
+}
+function fmtDate(ts) {
+  try { return new Date(ts).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" }); }
+  catch (e) { return ""; }
+}
+
+/* ============================ Токены ============================ */
+const GOLD = "var(--bronze)";
+const INK = "var(--bg)";
+const FONT_DISPLAY = "var(--disp)";
+const FONT_UI = "var(--sans)";
+
+/* ============================ Статус облака ============================ */
+function CloudChip({ status, campaign, onBind }) {
+  const base = { fontSize: 11.5, letterSpacing: ".04em", borderRadius: 999, padding: "5px 11px", border: "1px solid var(--line)", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 };
+  if (!HAS_FB) return <span style={{ ...base, color: "var(--faint)" }}>локально</span>;
+  if (!campaign) return <button onClick={onBind} style={{ ...base, color: "var(--bronze)", borderColor: "var(--line-warm)", cursor: "pointer", background: "none" }}>привязать кампанию</button>;
+  const map = {
+    loading: { t: "загрузка…", c: "var(--muted)" },
+    cloud:   { t: "облако · " + campaign, c: "var(--steel)" },
+    saving:  { t: "сохранение…", c: "var(--muted)" },
+    saved:   { t: "сохранено ✓", c: "var(--steel)" },
+    error:   { t: "нет связи", c: "var(--red)" },
+  };
+  const s = map[status] || map.cloud;
+  return <button onClick={onBind} title="сменить код кампании" style={{ ...base, color: s.c, cursor: "pointer", background: "none" }}>{s.t}</button>;
+}
+
+/* ============================ Компонент ============================ */
+function readPageId() { return new URLSearchParams(location.search).get("page") || null; }
+
+function Codex() {
+  const isGM = ROLE === "gm";
+
+  const [pages, setPages] = useState(() => readLocal(readCampaign()));
+  const [campaign, setCampaign] = useState(readCampaign);
+  const [status, setStatus] = useState(HAS_FB && readCampaign() ? "loading" : "local");
+  const [loaded, setLoaded] = useState(!(HAS_FB && readCampaign()));
+
+  const [pageId, setPageId] = useState(readPageId);
+  const [mode, setMode] = useState("read"); // read | edit
+  const [eTitle, setETitle] = useState("");
+  const [eMd, setEMd] = useState("");
+
+  const fileRef = useRef(null);
+  const skip = useRef(true);
+  const ready = useRef(false);
+
+  const cur = useMemo(() => pages.find((p) => p.id === pageId) || null, [pages, pageId]);
+  const sorted = useMemo(() => pages.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)), [pages]);
+
+  /* --- маршрут: страница в адресе, назад/вперёд браузера --- */
+  useEffect(() => {
+    const onPop = () => { setPageId(readPageId()); setMode("read"); };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  function go(id, push) {
+    const qs = new URLSearchParams(location.search);
+    if (id) qs.set("page", id); else qs.delete("page");
+    const url = location.pathname + "?" + qs.toString();
+    if (push !== false) history.pushState({ page: id }, "", url); else history.replaceState({ page: id }, "", url);
+    setPageId(id); setMode("read");
+    window.scrollTo({ top: 0 });
+  }
+
+  /* --- загрузка + живая подписка (как у доски карт) --- */
+  useEffect(() => {
+    if (!isGM) { setLoaded(true); return; }
+    if (!HAS_FB || !campaign) { setStatus(HAS_FB ? "cloud" : "local"); setLoaded(true); return; }
+    let unsub = null, alive = true;
+    setStatus("loading");
+    (async () => {
+      try { await auth.signInAnonymously(); } catch (e) { console.error("auth:", e); }
+      const ref = db.collection("campaigns").doc(campaign).collection("codex").doc(DOC_ID);
+      try {
+        const snap = await ref.get();
+        if (alive && snap.exists && Array.isArray(snap.data().pages)) { skip.current = true; const p = snap.data().pages.map(normPage); setPages(p); writeLocal(campaign, p); }
+      } catch (e) { console.error("load:", e); if (alive) setStatus("error"); }
+      ready.current = true;
+      if (alive) { setStatus("cloud"); setLoaded(true); }
+      unsub = ref.onSnapshot((snap) => {
+        if (!snap.exists || snap.metadata.hasPendingWrites) return;
+        if (Array.isArray(snap.data().pages)) { skip.current = true; const p = snap.data().pages.map(normPage); setPages(p); writeLocal(campaign, p); }
+      }, (e) => console.error("snapshot:", e));
+    })();
+    return () => { alive = false; if (unsub) unsub(); };
+  }, [campaign, isGM]);
+
+  /* --- автосейв (только ведущая) --- */
+  useEffect(() => {
+    if (!isGM) return;
+    writeLocal(campaign, pages);
+    if (!HAS_FB || !campaign) return;
+    if (!ready.current) return;
+    if (skip.current) { skip.current = false; return; }
+    setStatus("saving");
+    const t = setTimeout(async () => {
+      try {
+        await db.collection("campaigns").doc(campaign).collection("codex").doc(DOC_ID).set({ pages, updatedAt: Date.now() }, { merge: true });
+        setStatus("saved"); setTimeout(() => setStatus("cloud"), 1200);
+      } catch (e) { console.error("save:", e); setStatus("error"); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [pages, campaign, isGM]);
+
+  const bind = () => {
+    const v = window.prompt("Код кампании (тот же, что у карты героя):", campaign || "");
+    if (v && v.trim()) { const c = v.trim(); try { localStorage.setItem("ragnarok-board-campaign", c); } catch (e) {} ready.current = false; skip.current = true; setLoaded(false); setCampaign(c); setPages(readLocal(c)); }
+  };
+
+  /* --- действия --- */
+  const onFile = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      const md = String(rd.result || "");
+      const title = titleFromMd(md, f.name.replace(/\.(md|markdown|txt)$/i, ""));
+      const id = uid();
+      setPages((ps) => [{ id, title, md, ts: Date.now() }, ...ps]);
+      if (fileRef.current) fileRef.current.value = "";
+      go(id);
+    };
+    rd.readAsText(f);
+  };
+
+  const newBlank = () => {
+    const id = uid();
+    const md = "# Новая страница\n\nТекст в разметке Markdown…\n";
+    setPages((ps) => [{ id, title: "Новая страница", md, ts: Date.now() }, ...ps]);
+    setPageId(id);
+    const qs = new URLSearchParams(location.search); qs.set("page", id);
+    history.pushState({ page: id }, "", location.pathname + "?" + qs.toString());
+    setETitle("Новая страница"); setEMd(md); setMode("edit");
+    window.scrollTo({ top: 0 });
+  };
+
+  const startEdit = () => { if (!cur) return; setETitle(cur.title || ""); setEMd(cur.md || ""); setMode("edit"); window.scrollTo({ top: 0 }); };
+  const cancelEdit = () => setMode("read");
+  const saveEdit = () => {
+    if (!cur) return;
+    const md = eMd;
+    const title = (eTitle.trim() || titleFromMd(md, "Без названия"));
+    setPages((ps) => ps.map((p) => (p.id === cur.id ? { ...p, title, md, ts: Date.now() } : p)));
+    setMode("read"); window.scrollTo({ top: 0 });
+  };
+  const remove = (p) => {
+    if (!confirm("Удалить страницу «" + (p.title || "без названия") + "»?")) return;
+    setPages((ps) => ps.filter((x) => x.id !== p.id));
+    if (pageId === p.id) go(null);
+  };
+
+  const proseCss = `
+    .cx-wrap{ max-width:900px; margin:0 auto; padding:22px 18px 72px; }
+    .cx-btn{ border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); display:inline-flex; align-items:center; gap:7px; }
+    .cx-btn:hover{ background:var(--surf2); border-color:var(--steel-soft); }
+    .cx-go{ background:var(--bronze); color:var(--on-ink); border:none; border-radius:8px; padding:9px 18px; font-size:13.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+    .cx-go:hover{ background:var(--ember); }
+    .cx-input{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:9px 11px; outline:none; font-size:14px; width:100%; }
+    .cx-input:focus{ border-color:var(--bronze); }
+    .cx-ta{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:12px; outline:none; font-size:13px; width:100%; resize:vertical; line-height:1.5; font-family:var(--mono); min-height:420px; }
+    .cx-ta:focus{ border-color:var(--bronze); }
+    .cx-item{ border:1px solid var(--line); border-radius:12px; background:var(--surf); padding:14px 16px; display:flex; align-items:center; gap:12px; }
+    .cx-item:hover{ border-color:var(--steel-soft); }
+    .cx-title-link{ font-family:var(--disp); font-size:17px; color:var(--ink); text-decoration:none; cursor:pointer; flex:1; min-width:0; }
+    .cx-title-link:hover{ color:var(--steel); }
+    /* рендер разметки */
+    .cx-prose{ color:var(--ink); font-size:15.5px; line-height:1.72; word-wrap:break-word; }
+    .cx-prose h1,.cx-prose h2,.cx-prose h3,.cx-prose h4{ font-family:var(--disp); color:var(--ink); line-height:1.25; margin:1.5em 0 .5em; }
+    .cx-prose h1{ font-size:30px; color:var(--bronze); margin-top:0; }
+    .cx-prose h2{ font-size:23px; border-bottom:1px solid var(--line-soft); padding-bottom:.24em; }
+    .cx-prose h3{ font-size:19px; }
+    .cx-prose h4{ font-size:16px; color:var(--muted); }
+    .cx-prose p{ margin:.75em 0; }
+    .cx-prose a{ color:var(--steel); text-decoration:underline; text-underline-offset:2px; }
+    .cx-prose a:hover{ color:var(--bronze); }
+    .cx-prose ul,.cx-prose ol{ margin:.6em 0; padding-left:1.5em; }
+    .cx-prose li{ margin:.28em 0; }
+    .cx-prose blockquote{ margin:1em 0; padding:.3em 1em; border-left:3px solid var(--bronze-deep); background:var(--inset); color:var(--muted); border-radius:0 8px 8px 0; }
+    .cx-prose code{ font-family:var(--mono); font-size:.88em; background:var(--inset); border:1px solid var(--line-soft); border-radius:5px; padding:.08em .38em; }
+    .cx-prose pre{ background:var(--inset); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow:auto; margin:1em 0; }
+    .cx-prose pre code{ background:none; border:none; padding:0; font-size:13px; }
+    .cx-prose img{ max-width:100%; height:auto; border-radius:10px; border:1px solid var(--line); }
+    .cx-prose hr{ border:none; border-top:1px solid var(--line); margin:1.6em 0; }
+    .cx-prose table{ border-collapse:collapse; margin:1em 0; width:100%; font-size:14px; }
+    .cx-prose th,.cx-prose td{ border:1px solid var(--line); padding:7px 11px; text-align:left; }
+    .cx-prose th{ background:var(--inset); font-family:var(--disp); }
+    .cx-prose blockquote p:first-child{ margin-top:0; }
+    .cx-prose blockquote p:last-child{ margin-bottom:0; }
+    @media (max-width:760px){ .cx-editgrid{ grid-template-columns:1fr !important; } }
+  `;
+
+  if (!isGM) {
+    return (
+      <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--muted)", minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 40, textAlign: "center" }} className="w-full">
+        <div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD, marginBottom: 8 }}>Кодекс мастера</div>
+          <div style={{ fontSize: 14 }}>Раздел доступен только ведущей.</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!loaded) return <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--muted)", minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }} className="w-full">Загрузка из облака…</div>;
+
+  return (
+    <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--ink)", minHeight: "100%" }} className="w-full">
+      <style>{proseCss}</style>
+      <div className="cx-wrap">
+
+        {/* ======== главная страница кодекса: список ======== */}
+        {!pageId && (
+          <React.Fragment>
+            <header className="flex items-start justify-between flex-wrap gap-3" style={{ marginBottom: 18 }}>
+              <div>
+                <div style={{ fontFamily: FONT_DISPLAY, fontSize: 28, color: GOLD, display: "flex", alignItems: "center", gap: 12 }}><span className="rune" style={{ fontFamily: "var(--rune)" }}>ᛒ</span> Кодекс мастера</div>
+                <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>Загрузи Markdown-документ — он станет страницей кодекса. Приватно, только для ведущей.</div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <CloudChip status={status} campaign={campaign} onBind={bind} />
+              </div>
+            </header>
+
+            <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 20 }}>
+              <button className="cx-go" onClick={() => fileRef.current && fileRef.current.click()}><Plus size={15} /> Загрузить .md</button>
+              <input ref={fileRef} type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" onChange={onFile} style={{ display: "none" }} />
+              <button className="cx-btn" onClick={newBlank}>Чистая страница</button>
+            </div>
+
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 12 }}>
+              <b style={{ color: "var(--ink)" }}>{pages.length}</b> {pages.length === 1 ? "страница" : (pages.length >= 2 && pages.length <= 4 ? "страницы" : "страниц")} в кодексе
+            </div>
+
+            {pages.length === 0 ? (
+              <div style={{ color: "var(--faint)", padding: "48px 0", textAlign: "center" }}>Пока пусто. Загрузи первый Markdown-документ.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {sorted.map((p) => (
+                  <div className="cx-item" key={p.id}>
+                    <a className="cx-title-link" href={"codex.html?page=" + encodeURIComponent(p.id) + "&role=gm" + (campaign ? "&c=" + encodeURIComponent(campaign) : "")}
+                       onClick={(e) => { e.preventDefault(); go(p.id); }}>
+                      {p.title || "без названия"}
+                    </a>
+                    <span style={{ fontSize: 11.5, color: "var(--faint)", whiteSpace: "nowrap" }}>{fmtDate(p.ts)}</span>
+                    <button className="cx-btn" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => go(p.id)}>Открыть</button>
+                    <button className="cx-btn" style={{ padding: "6px 8px", fontSize: 12, color: "var(--red)" }} title="удалить" onClick={() => remove(p)}><Trash2 size={13} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </React.Fragment>
+        )}
+
+        {/* ======== страница не найдена ======== */}
+        {pageId && !cur && (
+          <div style={{ padding: "48px 0", textAlign: "center", color: "var(--muted)" }}>
+            <div style={{ marginBottom: 14 }}>Страница не найдена — возможно, её удалили.</div>
+            <button className="cx-btn" onClick={() => go(null)}><ArrowLeft size={14} /> К списку</button>
+          </div>
+        )}
+
+        {/* ======== чтение страницы ======== */}
+        {cur && mode === "read" && (
+          <React.Fragment>
+            <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: 18 }}>
+              <button className="cx-btn" onClick={() => go(null)}><ArrowLeft size={14} /> Кодекс</button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <CloudChip status={status} campaign={campaign} onBind={bind} />
+                <button className="cx-btn" onClick={startEdit}>Изменить</button>
+                <button className="cx-btn" style={{ color: "var(--red)" }} title="удалить" onClick={() => remove(cur)}><Trash2 size={13} /></button>
+              </div>
+            </div>
+            <article className="cx-prose" dangerouslySetInnerHTML={{ __html: mdToHtml(cur.md) }} />
+          </React.Fragment>
+        )}
+
+        {/* ======== правка страницы ======== */}
+        {cur && mode === "edit" && (
+          <React.Fragment>
+            <div className="flex items-center justify-between flex-wrap gap-2" style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 18, color: GOLD }}>Правка страницы</div>
+              <div className="flex items-center gap-2">
+                <button className="cx-go" onClick={saveEdit}>Сохранить</button>
+                <button className="cx-btn" onClick={cancelEdit}>Отмена</button>
+              </div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--faint)", display: "block", marginBottom: 5 }}>Название</label>
+              <input className="cx-input" value={eTitle} onChange={(e) => setETitle(e.target.value)} placeholder="Название страницы" />
+            </div>
+            <div className="cx-editgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                <label style={{ fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--faint)", display: "block", marginBottom: 5 }}>Markdown</label>
+                <textarea className="cx-ta" value={eMd} onChange={(e) => setEMd(e.target.value)} spellCheck={false} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--faint)", display: "block", marginBottom: 5 }}>Предпросмотр</label>
+                <div className="cx-prose" style={{ border: "1px solid var(--line)", borderRadius: 10, padding: "14px 16px", minHeight: 420, background: "var(--surf)" }}
+                     dangerouslySetInnerHTML={{ __html: mdToHtml(eMd) }} />
+              </div>
+            </div>
+          </React.Fragment>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Codex />);
+</script>
+<script src="app-shell.js" defer></script>
+</body>
+</html>
