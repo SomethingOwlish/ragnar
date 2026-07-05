@@ -279,11 +279,22 @@ const RANKS = [
 ];
 const tierOf = (n) => { let r = RANKS[0]; for (const k of RANKS) if (n >= k.min) r = k; return r.name; };
 
+// Пароль ведущей — не для секретности, а чтобы игрок не зашёл в панель по ошибке.
+// Хэшируем (SHA-256 с солью-кодом), храним хэш в Firestore config/gm.
+async function gmHash(campaign, pw) {
+  const data = new TextEncoder().encode("ragnarok:" + campaign + ":" + pw);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+const gmPwRef = (c) => db.collection("campaigns").doc(c).collection("config").doc("gm");
+const gmDeviceKey = (c) => "ragnarok-gmpw-" + c; // хэш, запомненный на этом устройстве
+
 function App() {
   const [joined, setJoined] = useState(false);
   const [campaign, setCampaign] = useState("");
   const [chars, setChars] = useState([]);
   const [err, setErr] = useState("");
+  const [gate, setGate] = useState({ mode: "code", code: "", hash: "" }); // mode: code | set | enter
   const [showLists, setShowLists] = useState(false);
   const [showSvg, setShowSvg] = useState(false);
   const [danger, setDanger] = useState(false);
@@ -348,14 +359,49 @@ function App() {
     if (!fresh) setOpenChar(null);
   }, [chars]);
 
-  async function enter(code) {
+  function finishJoin(c) {
+    try { localStorage.setItem("ragnarok-campaign", c); } catch (e) {}
+    setCampaign(c); setJoined(true); setErr("");
+  }
+
+  // Шаг 1: код кампании. Смотрим, задан ли уже пароль ведущей.
+  async function checkCode(code) {
     if (!HAS_FB || !db) { setErr("Вставь конфиг Firebase в этот файл."); return; }
     const c = code.trim().toLowerCase().replace(/[^a-zа-я0-9_-]/gi, "");
     if (!c) { setErr("Введи код кампании."); return; }
     try { await auth.signInAnonymously(); } catch (e) { setErr("Включи Anonymous в Firebase → Authentication."); return; }
-    try { localStorage.setItem("ragnarok-campaign", c); } catch (e) {}
-    setCampaign(c); setJoined(true); setErr("");
+    let hash = "";
+    try { const snap = await gmPwRef(c).get(); hash = (snap.exists && snap.data().pwHash) || ""; }
+    catch (e) { setErr("Нет связи с базой: " + e.message); return; }
+    if (!hash) { setGate({ mode: "set", code: c, hash: "" }); setErr(""); return; }   // первый вход — задаём пароль
+    let remembered = ""; try { remembered = localStorage.getItem(gmDeviceKey(c)) || ""; } catch (e) {}
+    if (remembered && remembered === hash) { finishJoin(c); return; }                 // это устройство уже знает пароль
+    setGate({ mode: "enter", code: c, hash }); setErr("");
   }
+
+  // Первый вход: задать пароль ведущей.
+  async function setPassword(pw, pw2, remember) {
+    const c = gate.code;
+    if (!pw || pw.length < 3) { setErr("Пароль от 3 символов."); return; }
+    if (pw !== pw2) { setErr("Пароли не совпадают."); return; }
+    const hash = await gmHash(c, pw);
+    try { await gmPwRef(c).set({ pwHash: hash, updatedAt: Date.now() }, { merge: true }); }
+    catch (e) { setErr("Не удалось сохранить пароль: " + e.message); return; }
+    try { if (remember) localStorage.setItem(gmDeviceKey(c), hash); } catch (e) {}
+    finishJoin(c);
+  }
+
+  // Повторный вход: проверить пароль.
+  async function submitPassword(pw, remember) {
+    const c = gate.code;
+    if (!pw) { setErr("Введи пароль."); return; }
+    const hash = await gmHash(c, pw);
+    if (hash !== gate.hash) { setErr("Неверный пароль."); return; }
+    try { if (remember) localStorage.setItem(gmDeviceKey(c), hash); } catch (e) {}
+    finishJoin(c);
+  }
+
+  function gateBack() { setGate((g) => ({ ...g, mode: "code", hash: "" })); setErr(""); }
 
   const stageRef = () => db.collection("campaigns").doc(campaign).collection("boards").doc("svgstage");
   const showCard = async (id) => { setStage((s) => ({ ...s, cardId: id })); try { await stageRef().set({ cardId: id, updatedAt: Date.now() }, { merge: true }); } catch (e) { alert("Не удалось показать: " + e.message); } };
@@ -364,7 +410,7 @@ function App() {
 
   const stageCard = stage.cardId ? svgCards.find((c) => c.id === stage.cardId) : null;
 
-  if (!joined) return <Gate err={err} onEnter={enter} />;
+  if (!joined) return <Gate gate={gate} err={err} onCheckCode={checkCode} onSetPw={setPassword} onSubmitPw={submitPassword} onBack={gateBack} />;
 
   return (
     <div className="wrap">
@@ -656,16 +702,70 @@ function Stage({ card, note, onClear, onNote }) {
   );
 }
 
-function Gate({ err, onEnter }) {
+function Gate({ gate, err, onCheckCode, onSetPw, onSubmitPw, onBack }) {
   const [code, setCode] = useState(() => { try { return localStorage.getItem("ragnarok-campaign") || ""; } catch (e) { return ""; } });
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [remember, setRemember] = useState(true);
+  useEffect(() => { setPw(""); setPw2(""); }, [gate.mode, gate.code]);
+
+  const rememberRow = (
+    <label style={{ display: "flex", alignItems: "center", gap: 8, textTransform: "none", letterSpacing: 0, fontSize: 13, color: "var(--muted)", margin: "12px 0 0", cursor: "pointer" }}>
+      <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} style={{ width: "auto" }} />
+      Запомнить на этом устройстве
+    </label>
+  );
+  const backLink = (
+    <div style={{ textAlign: "center", marginTop: 14 }}>
+      <a onClick={onBack} style={{ color: "var(--faint)", fontSize: 12, cursor: "pointer" }}>← другой код кампании</a>
+    </div>
+  );
+
+  if (gate.mode === "set") {
+    return (
+      <div className="gate-wrap">
+        <div className="gate">
+          <div className="wordmark"><span className="rune">ᛟ</span> Рагнарёк-AU</div>
+          <h2>Пароль ведущей</h2>
+          <label>Новый пароль · кампания «{gate.code}»</label>
+          <input className="t-input" type="password" value={pw} autoFocus onChange={(e) => setPw(e.target.value)} placeholder="придумай пароль" />
+          <div style={{ height: 10 }} />
+          <input className="t-input" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="повтори пароль" onKeyDown={(e) => e.key === "Enter" && onSetPw(pw, pw2, remember)} />
+          {rememberRow}
+          <button className="go" onClick={() => onSetPw(pw, pw2, remember)}>Сохранить и войти</button>
+          {err && <div className="gerr">{err}</div>}
+          <div className="gnote">Первый вход в эту кампанию. Задай пароль, чтобы игроки не зашли в панель по ошибке. Это не защита, а страховка от промаха.</div>
+          {backLink}
+        </div>
+      </div>
+    );
+  }
+
+  if (gate.mode === "enter") {
+    return (
+      <div className="gate-wrap">
+        <div className="gate">
+          <div className="wordmark"><span className="rune">ᛟ</span> Рагнарёк-AU</div>
+          <h2>Панель ведущей</h2>
+          <label>Пароль · кампания «{gate.code}»</label>
+          <input className="t-input" type="password" value={pw} autoFocus onChange={(e) => setPw(e.target.value)} placeholder="пароль ведущей" onKeyDown={(e) => e.key === "Enter" && onSubmitPw(pw, remember)} />
+          {rememberRow}
+          <button className="go" onClick={() => onSubmitPw(pw, remember)}>Войти</button>
+          {err && <div className="gerr">{err}</div>}
+          {backLink}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="gate-wrap">
       <div className="gate">
         <div className="wordmark"><span className="rune">ᛟ</span> Рагнарёк-AU</div>
         <h2>Панель ведущей</h2>
         <label>Код кампании</label>
-        <input className="t-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="тот же, что у игроков" onKeyDown={(e) => e.key === "Enter" && onEnter(code)} />
-        <button className="go" onClick={() => onEnter(code)}>Открыть</button>
+        <input className="t-input" value={code} autoFocus onChange={(e) => setCode(e.target.value)} placeholder="тот же, что у игроков" onKeyDown={(e) => e.key === "Enter" && onCheckCode(code)} />
+        <button className="go" onClick={() => onCheckCode(code)}>Далее</button>
         {err && <div className="gerr">{err}</div>}
         <div className="gnote">Видишь карты всех игроков этой кампании. Полное древо и подмена твинов — следующим шагом.</div>
       </div>
