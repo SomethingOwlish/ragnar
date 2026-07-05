@@ -297,6 +297,14 @@ function App() {
     catch (ex) { setErr(ex.message); }
   }
 
+  /* ── полный сброс: новый бой с 1-го раунда, без инициативы; строки ведущей остаются ── */
+  async function fullRestart() {
+    if (!isGM) return;
+    if (!confirm("Начать новый бой? Раунд станет 1-м, вся инициатива очистится. Строки ведущей останутся.")) return;
+    try { await initRef(campaign).set({ round: 1, draws: {}, updatedAt: Date.now() }, { merge: true }); }
+    catch (ex) { setErr(ex.message); }
+  }
+
   /* ── ведущая: строки, удаление, раздача ── */
   async function addGmRow(name) {
     const nm = (name || "").trim(); if (!nm) return;
@@ -393,6 +401,10 @@ function App() {
         <b>Перто (ᛈ)</b> — Джокер: его хозяин встаёт в любое место очереди стрелками ▲▼.
         {isGM ? " Новый раунд возвращает все руны в мешок; каждый тянет заново." : " Каждый тянет свою руну сам."}
       </p>
+
+      {isGM && <div style={{ marginTop: 26, paddingTop: 18, borderTop: "1px solid var(--line)", display: "flex", justifyContent: "center" }}>
+        <button className="i-btn danger" onClick={fullRestart}>⚔ Новый бой (с 1-го раунда)</button>
+      </div>}
 
       {reveal && <RevealCard r={reveal} onClose={() => setReveal(null)} />}
     </div>
