@@ -52,6 +52,7 @@
     portal: { label: "Портал",          rune: "ᛈ", href: "index.html" },
     sheet:  { label: "Карта героя",      rune: "ᛗ", href: "ragnarok-character-sheet-cloud.html" },
     panel:  { label: "Панель ведущей",   rune: "ᛟ", href: "ragnarok-gm-panel.html", gm: true },
+    init:   { label: "Инициатива",        rune: "ᛁ" },
     tree:   { label: "Древо судеб",       rune: "ᛏ", href: "divine-tree.html" },
     worlds: { label: "Девять миров",      rune: "ᛃ" },
     chars:  { label: "Граф богов",        rune: "ᚷ" },
@@ -67,8 +68,8 @@
   };
 
   var NAV = {
-    player: ["portal", "sheet", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library"],
-    gm:     ["portal", "panel", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library", "names", "npc", "maps", "mcodex"],
+    player: ["portal", "sheet", "init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library"],
+    gm:     ["portal", "panel", "init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library", "names", "npc", "maps", "mcodex"],
     portal: [],
   };
 
@@ -80,7 +81,7 @@
   };
   // остальное прячем во вложенные выпадашки, чтобы шапка не раздувалась
   var GROUPS = [
-    { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library"] },
+    { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library"] },
     { id: "forge", label: "Мастерская", rune: "ᚦ", gm: true, keys: ["names", "npc", "maps", "mcodex"] },
   ];
 
@@ -96,6 +97,7 @@
   function hrefFor(key, role) {
     var it = ITEMS[key];
     var cp = campaignParam();
+    if (key === "init")   return "initiative.html?role=" + role + cp;
     if (key === "tree")   return "divine-tree.html?role=" + role + cp;
     if (key === "worlds") return "nine-worlds.html?role=" + role + cp;
     if (key === "chars")  return "characters.html?role=" + role + cp;
