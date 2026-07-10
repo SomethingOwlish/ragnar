@@ -268,6 +268,13 @@ function Chronology() {
         .k-btn{ border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); }
         .k-btn:hover{ background:var(--surf2); }
         .k-card{ cursor:pointer; }
+
+        /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+        .k-btn{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+        .k-btn:active{ transform:translateY(1px); }
+        .k-card{ box-shadow:var(--shadow-1); transition:transform var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease); }
+        .k-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-2); }
+        .k-card:active{ transform:translateY(0); box-shadow:var(--shadow-1); }
       `}</style>
 
       <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>

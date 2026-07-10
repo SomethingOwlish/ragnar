@@ -295,6 +295,14 @@ function Codex() {
     .cx-prose blockquote p:first-child{ margin-top:0; }
     .cx-prose blockquote p:last-child{ margin-bottom:0; }
     @media (max-width:760px){ .cx-editgrid{ grid-template-columns:1fr !important; } }
+
+    /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+    .cx-item{ box-shadow:var(--shadow-1); transition:border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease); }
+    .cx-item:hover{ box-shadow:var(--shadow-2); }
+    .cx-btn{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+    .cx-btn:active{ transform:translateY(1px); }
+    .cx-go{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+    .cx-go:active{ transform:translateY(1px); }
   `;
 
   if (!isGM) {

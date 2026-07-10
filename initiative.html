@@ -81,6 +81,26 @@ body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); 
 .charpick button{text-align:left; padding:10px 12px;}
 .loading{min-height:100vh; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:14px;}
 @media (max-width:520px){ .row{grid-template-columns:28px 52px 1fr auto; gap:9px; padding:10px 11px;} .glyph{font-size:22px;} }
+
+/* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+/* ЖИВОЙ трекер инициативы: строки .row переупорядочиваются по броску рун,
+   поэтому им НЕ добавляем сдвигов/теней покоя — механику списка не трогаем.
+   Так же не трогаем анимацию вскрытия руны (pop). Полируем статичные
+   кнопки, ячейки и модалку настройки/подтверждения. */
+/* Кнопки — согласованный отклик и тактильное нажатие. */
+.i-btn{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+                   background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+.i-btn:active:not(:disabled){ transform:translateY(1px); }
+/* Мини-кнопки в строке — то же тактильное нажатие. */
+.mini{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+                  background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+.mini:active:not(:disabled){ transform:translateY(1px); }
+/* Модалка (настройка/подтверждение/выбор героя) — мягкое появление,
+   тень подкрашена темой вместо жёсткой чёрной. */
+.mask{ animation:iniFade var(--dur-2) var(--ease); }
+.card{ box-shadow:var(--shadow-3); animation:iniRise .28s var(--ease); }
+@keyframes iniFade{ from{opacity:0;} to{opacity:1;} }
+@keyframes iniRise{ from{opacity:0; transform:translateY(12px) scale(.985);} to{opacity:1; transform:none;} }
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>

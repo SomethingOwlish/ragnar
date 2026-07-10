@@ -33,6 +33,22 @@
   .sb-d b{font-size:18px; color:var(--ink); font-family:var(--disp);}
   .sb-d span{font-size:11px; color:var(--faint); display:block; text-transform:uppercase; letter-spacing:.05em;}
   .sb-sp{font-size:13px; color:var(--muted); line-height:1.55; margin-top:8px;}
+
+  /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+  /* Статблок — панель с мягкой тенью покоя. */
+  .sb{ box-shadow:var(--shadow-1); }
+  /* Карточки архетипов кликабельны — приподняты в покое, всплывают при
+     наведении, «проминаются» при нажатии. */
+  .np-a{ box-shadow:var(--shadow-1);
+    transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+               background var(--dur-1) var(--ease), box-shadow var(--dur-2) var(--ease), transform var(--dur-2) var(--ease); }
+  .np-a:hover{ transform:translateY(-2px); box-shadow:var(--shadow-2); }
+  .np-a:active{ transform:translateY(0); box-shadow:var(--shadow-1); }
+  /* Кнопка генерации и переключатели — согласованный отклик и нажатие. */
+  .np-btn, .np-tog{
+    transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+               background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+  .np-btn:active, .np-tog:active{ transform:translateY(1px); }
 </style>
 </head>
 <body>

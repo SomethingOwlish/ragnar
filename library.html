@@ -316,6 +316,17 @@ function Library() {
     .cx-prose blockquote p:first-child{ margin-top:0; }
     .cx-prose blockquote p:last-child{ margin-bottom:0; }
     @media (max-width:760px){ .cx-editgrid{ grid-template-columns:1fr !important; } .cx-item{ flex-wrap:wrap; } }
+
+    /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+    /* Карточка страницы — приподнята в покое, тень темы вместо жёсткой чёрной. */
+    .cx-item{ box-shadow:var(--shadow-1); transition:border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease); }
+    .cx-item:hover{ box-shadow:var(--shadow-2); }
+    /* Кнопки — согласованный отклик и тактильное нажатие. */
+    .cx-btn, .cx-go{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+    .cx-btn:active, .cx-go:active{ transform:translateY(1px); }
+    /* Переключатель показа — то же тактильное нажатие. */
+    .cx-toggle{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+    .cx-toggle:active{ transform:translateY(1px); }
   `;
 
   if (!loaded) return <div style={{ fontFamily: FONT_UI, background: INK, color: "var(--muted)", minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }} className="w-full">Загрузка из облака…</div>;

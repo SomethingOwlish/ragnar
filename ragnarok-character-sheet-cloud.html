@@ -360,6 +360,45 @@ button{font-family:inherit; cursor:pointer;}
   .print-sheet .p-armor{font-size:11px; color:#444; margin-top:6px;}
   .print-sheet .p-notes{border:1px solid #ddd; min-height:70px; border-radius:4px; margin-top:2px;}
 }
+
+/* ============================================================
+   ПОЛИРОВКА: глубина · отклик · движение
+   Опирается на общие токены темы (--shadow-*, --ease, --dur-*).
+   Идёт последней — аккуратно усиливает уже готовый слой, ничего
+   в нём не переопределяя по смыслу. При «reduce motion» переходы
+   и анимации гасит глобальное правило из theme.css.
+   ============================================================ */
+
+/* Карточки слегка приподняты над фоном — слои читаются, а не плоские рамки. */
+.card, .howto, .divine, .hint{ box-shadow:var(--shadow-1); }
+/* Фокусные точки входа заметнее — у них больше «веса». */
+.gate, .wiz-card{ box-shadow:var(--shadow-2); }
+
+/* Единая «пружина» на часто нажимаемых ячейках вместо линейного .12s. */
+.pip, .cmb-box, .cond, .adv-chip, .choice{
+  transition:border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease),
+             color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+/* Кнопки — плавный, согласованный отклик. */
+.iobtn, .addbtn, .cmb-add, .conv-ctl button, .stepper button, .wiz-back, .wiz-next, .gate .go{
+  transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+             background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+/* Тактильное нажатие — элемент «проминается» под пальцем/курсором. */
+.iobtn:active, .addbtn:active, .cmb-add:active, .stepper button:active,
+.conv-ctl button:active, .wiz-back:active, .wiz-next:active, .gate .go:active,
+.adv-chip:active, .cmb-box:active, .pip:active, .cond:active, .choice:active,
+.nj-addbtn:active{ transform:translateY(1px); }
+
+/* Аватар кликабелен — отвечает на наведение подъёмом и тенью. */
+.avatar{ transition:border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease), transform var(--dur-2) var(--ease); }
+.avatar:hover{ border-color:var(--steel-soft); box-shadow:var(--shadow-2); transform:translateY(-2px); }
+
+/* Модалка адванса — мягкое появление и настоящая глубина. */
+.adv-back{ animation:advFade var(--dur-2) var(--ease); }
+.adv-modal{ box-shadow:var(--shadow-3); animation:advRise .28s var(--ease); }
+@keyframes advFade{ from{opacity:0;} to{opacity:1;} }
+@keyframes advRise{ from{opacity:0; transform:translateY(12px) scale(.985);} to{opacity:1; transform:none;} }
 </style>
 </head>
 <body>

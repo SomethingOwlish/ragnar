@@ -190,6 +190,10 @@ function Runes() {
         .r-ta:focus{ border-color:var(--bronze); }
         .r-btn{ border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); }
         .r-btn:hover{ background:var(--surf2); border-color:var(--steel-soft); }
+
+        /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+        .r-btn{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+        .r-btn:active{ transform:translateY(1px); }
       `}</style>
 
       <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>
