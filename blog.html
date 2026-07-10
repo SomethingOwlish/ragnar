@@ -426,6 +426,15 @@ function Blog() {
         .b-mini{ display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); border-radius:7px; padding:4px 9px; font-size:12px; cursor:pointer; background:var(--surf); color:var(--muted); }
         .b-mini:hover{ border-color:var(--steel-soft); color:var(--steel); }
         .b-danger:hover{ border-color:var(--red); color:var(--red); }
+
+        /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+        .b-btn{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+        .b-btn:active{ transform:translateY(1px); }
+        .b-publish{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+        .b-publish:not(:disabled):active{ transform:translateY(1px); }
+        .b-mini{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+        .b-mini:active{ transform:translateY(1px); }
+        .b-select{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease); }
       `}</style>
 
       <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>

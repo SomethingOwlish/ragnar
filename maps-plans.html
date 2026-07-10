@@ -257,6 +257,25 @@ function MapsPlans() {
         .mp-prev{ position:relative; height:170px; background:var(--inset); border:1px solid var(--line); border-radius:10px; display:flex; align-items:center; justify-content:center; padding:10px; overflow:hidden; }
         .mp-x{ background:none; border:none; color:var(--muted); cursor:pointer; }
         .mp-x:hover{ color:var(--ink); }
+
+        /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+        /* Карточки карт/планов кликабельны (миниатюра открывает крупно) —
+           приподняты в покое, всплывают при наведении, «проминаются» при нажатии. */
+        .mp-card{ box-shadow:var(--shadow-1);
+          transition:border-color var(--dur-1) var(--ease), box-shadow var(--dur-2) var(--ease), transform var(--dur-2) var(--ease); }
+        .mp-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-2); }
+        .mp-card:active{ transform:translateY(0); box-shadow:var(--shadow-1); }
+        /* Форма добавления — панель с мягкой тенью покоя. */
+        .mp-form{ box-shadow:var(--shadow-1); }
+        /* Кнопки — согласованный отклик и тактильное нажатие. */
+        .mp-btn, .mp-go{
+          transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+                     background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+        .mp-btn:active, .mp-go:active{ transform:translateY(1px); }
+        .mp-seg button{
+          transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+                     background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+        .mp-seg button:active{ transform:translateY(1px); }
       `}</style>
 
       <div className="mp-wrap">

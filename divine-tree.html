@@ -295,6 +295,11 @@ function DivineTree() {
         .t-input{ background:var(--inset); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:6px 10px; outline:none; font-size:13px; }
         .t-input:focus{ border-color:${GOLD}; }
         @media (prefers-reduced-motion: reduce){ .t-slide{animation:none} }
+
+        /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+        /* Только кнопки — узлы, SVG-холст и выезжающая панель древа не трогаем. */
+        .t-btn{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+        .t-btn:active{ transform:translateY(1px); }
       `}</style>
 
       <header className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>

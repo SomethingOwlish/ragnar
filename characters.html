@@ -363,6 +363,10 @@ function Characters() {
         .c-input:focus{ border-color:${GOLD}; }
         .c-btn{ border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); }
         .c-btn:hover{ background:var(--surf2); }
+
+        /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+        .c-btn{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+        .c-btn:active{ transform:translateY(1px); }
       `}</style>
 
       <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>

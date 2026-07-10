@@ -303,6 +303,11 @@ function NineWorlds() {
         .nw-input:focus { border-color:${GOLD}; }
         .nw-btn { border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; background:var(--surf); color:var(--ink); }
         .nw-btn:hover { background:var(--surf2); }
+
+        /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+        /* Только кнопки — узлы-миры, связи, SVG-карта и выезжающая панель не трогаем. */
+        .nw-btn{ transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+        .nw-btn:active{ transform:translateY(1px); }
       `}</style>
 
       {/* Шапка */}

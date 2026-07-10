@@ -71,6 +71,20 @@
   .cal-row{cursor:pointer;}
   .cal-row:hover{background:var(--warm-inset);}
   .cal-row.sel{background:var(--choice-on); box-shadow:inset 3px 0 0 var(--steel-soft);}
+
+  /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+  /* Карточки праздников и контейнер календаря — мягкая тень покоя. */
+  .fest{ box-shadow:var(--shadow-1); }
+  .cal{ box-shadow:var(--shadow-1); }
+  /* Строки календаря кликабельны — плавнее подсветка + тактильное нажатие.
+     Без вертикального сдвига, чтобы не дёргать плотный список. */
+  .cal-row{ transition:background var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease); }
+  .cal-row:active{ transform:translateY(1px); }
+  /* Кнопка сброса — согласованный отклик и тактильное нажатие. */
+  .pick .woy-clear{
+    transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+               background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+  .pick .woy-clear:active{ transform:translateY(1px); }
 </style>
 </head>
 <body>

@@ -20,6 +20,13 @@
   --rune:'Noto Sans Runic','Segoe UI Historic',serif;
   /* плавный переход при смене темы */
   --theme-fade:background-color .25s ease, border-color .25s ease, color .25s ease;
+
+  /* --- общие «пружины» движения и радиусы --- */
+  /* мягкое замедление в конце — движение ощущается «дорогим», а не линейным */
+  --ease:cubic-bezier(.16,1,.3,1);
+  --dur-1:.14s;   /* мгновенный отклик: ховер, цвет */
+  --dur-2:.22s;   /* заметный сдвиг: подъём карточки, раскрытие */
+  --r-1:8px; --r-2:10px; --r-3:14px; --r-4:18px;  /* единая шкала скруглений */
 }
 
 /* ============================ ТЁМНАЯ ============================ */
@@ -37,6 +44,12 @@ html[data-theme="dark"]{
   --on-steel:#0F1216;        /* текст на ярком steel в тёмной теме */
   --tip-bg:#05070A; --tip-ink:#F3F6FA;
   --niche-idle:#6E6242;
+  /* тени — в тёмной теме почти чёрные, чуть холодные */
+  --shadow-1:0 1px 2px rgba(0,0,0,.35);
+  --shadow-2:0 8px 22px -10px rgba(0,0,0,.62);
+  --shadow-3:0 20px 44px -16px rgba(0,0,0,.7);
+  /* кольцо фокуса — стальное, читаемо на тёмном */
+  --focus:0 0 0 2px var(--bg), 0 0 0 4px var(--steel-soft);
 }
 
 /* ============================ СВЕТЛАЯ ============================ */
@@ -53,6 +66,11 @@ html[data-theme="light"]{
   --on-steel:#FFFFFF;
   --tip-bg:#1B2733; --tip-ink:#F3F6FA;
   --niche-idle:#A99970;
+  /* тени — в светлой теме мягкие, подкрашены холодным синим фоном */
+  --shadow-1:0 1px 2px rgba(31,55,79,.10);
+  --shadow-2:0 10px 26px -12px rgba(31,55,79,.24);
+  --shadow-3:0 22px 48px -18px rgba(31,55,79,.28);
+  --focus:0 0 0 2px var(--surf), 0 0 0 4px var(--steel);
 }
 
 /* мягкий кросс-фейд основных поверхностей при переключении темы */
@@ -94,10 +112,12 @@ html{ overflow-x:clip; }
   display:inline-flex; align-items:center; gap:7px; text-decoration:none;
   background:var(--surf); border:1px solid var(--line); color:var(--ink);
   border-radius:8px; padding:6px 12px; font-size:12.5px; letter-spacing:.02em;
-  transition:border-color .15s, color .15s, background .15s;
+  transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+             background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
 }
 .shell-link .rune{ font-size:14px; color:var(--faint); }
 .shell-link:hover{ border-color:var(--steel-soft); color:var(--steel); }
+.shell-link:active{ transform:translateY(1px); }
 .shell-link:hover .rune{ color:var(--steel); }
 .shell-link.gm:hover{ border-color:var(--line-warm); color:var(--bronze); }
 .shell-link.gm:hover .rune{ color:var(--bronze); }
@@ -117,9 +137,13 @@ html{ overflow-x:clip; }
   display:inline-flex; align-items:center; gap:8px;
   background:var(--surf); border:1px solid var(--line); color:var(--ink);
   border-radius:999px; padding:6px 13px; font-size:12.5px; font-family:var(--sans);
-  cursor:pointer; transition:border-color .15s, color .15s;
+  cursor:pointer;
+  transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
 }
 .theme-toggle:hover{ border-color:var(--bronze); color:var(--bronze); }
+.theme-toggle:active{ transform:translateY(1px); }
+.theme-toggle .tt-ico{ transition:transform var(--dur-2) var(--ease); }
+.theme-toggle:hover .tt-ico{ transform:rotate(-18deg) scale(1.08); }
 .theme-toggle .tt-ico{ font-size:14px; line-height:1; }
 .theme-toggle .tt-lbl{ letter-spacing:.04em; }
 
@@ -138,4 +162,37 @@ html{ overflow-x:clip; }
   font-family:var(--sans); font-size:12.5px; line-height:1.45;
   padding:8px 11px; border-radius:8px;
   box-shadow:0 8px 26px rgba(0,0,0,.4); pointer-events:none;
+}
+
+/* ============================================================
+   ГЛОБАЛЬНЫЕ СЛОИ ДОСТУПНОСТИ (общие для всех страниц)
+   ============================================================ */
+
+/* Видимый фокус с клавиатуры. Раньше его не было нигде — ходьба по
+   Tab была невидимой. Мышиные клики фокус-кольцо не рисуют (:focus-visible),
+   поэтому оформление страниц не меняется — оно появляется только с клавиатуры. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+.shell-link:focus-visible,
+.shell-gbtn:focus-visible,
+.shell-burger:focus-visible,
+.theme-toggle:focus-visible{
+  outline:none;
+  box-shadow:var(--focus);
+  border-radius:var(--r-1);
+}
+
+/* Уважаем системную просьбу «меньше движения»: гасим переходы и
+   анимации, оставляя мгновенную смену состояний. */
+@media (prefers-reduced-motion:reduce){
+  *, *::before, *::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+    scroll-behavior:auto !important;
+  }
 }

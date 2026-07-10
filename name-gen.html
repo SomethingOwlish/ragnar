@@ -25,6 +25,20 @@
   .ng-item .sub{font-size:11px; color:var(--faint);}
   .ng-item .cp{background:none; border:none; color:var(--faint); cursor:pointer; font-size:12px;}
   .ng-item .cp:hover{color:var(--bronze);}
+
+  /* ── Полировка: глубина · отклик · движение (общие токены theme.css) ── */
+  /* Карточки сгенерированных имён — панель с мягкой тенью покоя. */
+  .ng-item{ box-shadow:var(--shadow-1); }
+  /* Вкладки категорий кликабельны — согласованный отклик и тактильное нажатие. */
+  .ng-tab{
+    transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+               background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+  .ng-tab:active{ transform:translateY(1px); }
+  /* Кнопка броска — то же тактильное нажатие. */
+  .ng-btn{
+    transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+               background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
+  .ng-btn:active{ transform:translateY(1px); }
 </style>
 </head>
 <body>
