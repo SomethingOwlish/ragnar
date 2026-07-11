@@ -1,0 +1,204 @@
+/* ============================================================
+   Рагнарёк-AU · единый слой темы
+   Все цветовые решения живут здесь. Имена переменных совпадают
+   с теми, что уже использовали страницы, поэтому правила страниц
+   менять не нужно — они подхватывают тему сами.
+
+   Тему ставит data-theme на <html>: "light" или "dark".
+   Дефолт берётся из data-default-theme на <html>; выбор игрока
+   пишется в localStorage и перекрывает дефолт на всех страницах
+   (см. app-shell.js).
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Runic&display=swap');
+
+:root{
+  /* шрифты — общие для обеих тем */
+  --disp:'Spectral',Georgia,serif;
+  --sans:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --rune:'Noto Sans Runic','Segoe UI Historic',serif;
+  /* плавный переход при смене темы */
+  --theme-fade:background-color .25s ease, border-color .25s ease, color .25s ease;
+
+  /* --- общие «пружины» движения и радиусы --- */
+  /* мягкое замедление в конце — движение ощущается «дорогим», а не линейным */
+  --ease:cubic-bezier(.16,1,.3,1);
+  --dur-1:.14s;   /* мгновенный отклик: ховер, цвет */
+  --dur-2:.22s;   /* заметный сдвиг: подъём карточки, раскрытие */
+  --r-1:8px; --r-2:10px; --r-3:14px; --r-4:18px;  /* единая шкала скруглений */
+}
+
+/* ============================ ТЁМНАЯ ============================ */
+/* Палитра «Nord» — скандинавская «Polar Night»: сланцевые сумерки
+   вместо чёрной пещеры. Мягкий контраст, холодный «фрост» синий
+   (сталь) и тёплое «aurora» золото (бронза) как акценты. */
+:root,
+html[data-theme="dark"]{
+  --bg:#22272E; --surf:#2E3440; --surf2:#3B4252; --inset:#39414F;
+  --warm:#302A20; --warm2:#28231B; --warm-inset:#3A3123;
+  --warm-field:#2C2619; --warm-chosen:#463A22; --warm-chip:#302A20;
+  --line:#434C5E; --line-soft:#39414F; --line-warm:#4E4632;
+  --ink:#ECEFF4; --muted:#AEB6C4; --faint:#727C8D;
+  --steel:#88C0D0; --steel-soft:#81A1C1; --steel-deep:#5E81AC;
+  --bronze:#E6C583; --bronze-deep:#A17E3E; --ember:#D6926B; --red:#BF616A;
+  --choice-on:#3B4252;
+  --on-ink:#22272E;          /* текст на залитых steel/bronze кнопках */
+  --on-steel:#22272E;        /* текст на ярком «фрост»-steel в тёмной теме */
+  --tip-bg:#1A1F26; --tip-ink:#ECEFF4;
+  --niche-idle:#6E6547;
+  /* тени — плоские и спокойные, по-скандинавски сдержанные */
+  --shadow-1:0 1px 2px rgba(0,0,0,.28);
+  --shadow-2:0 6px 16px -10px rgba(0,0,0,.5);
+  --shadow-3:0 14px 30px -16px rgba(0,0,0,.55);
+  /* кольцо фокуса — «фрост», читаемо на сланце */
+  --focus:0 0 0 2px var(--bg), 0 0 0 4px var(--steel-soft);
+}
+
+/* ============================ СВЕТЛАЯ ============================ */
+/* «Snow Storm» — скандинавский зимний свет: воздушный сине-белый
+   фон, сланцевый текст (Nord nord0), «фрост»-сталь и приглушённое
+   золото. Контраст акцентов держим на уровне WCAG AA. */
+html[data-theme="light"]{
+  --bg:#E4E9F0; --surf:#F6F8FB; --surf2:#ECF0F5; --inset:#E0E6EE;
+  --warm:#F2ECDD; --warm2:#EBE3D0; --warm-inset:#E6DCC4;
+  --warm-field:#FAF6EC; --warm-chosen:#F4EAD5; --warm-chip:#FAF4E7;
+  --line:#CBD5E1; --line-soft:#D9E0EA; --line-warm:#DBC8A2;
+  --ink:#2E3440; --muted:#4C566A; --faint:#7C8698;
+  --steel:#48709F; --steel-soft:#6688B0; --steel-deep:#3A6090;
+  --bronze:#9C7628; --bronze-deep:#7A5A1C; --ember:#BE7B45; --red:#A8483F;
+  --choice-on:#E9F0F7;
+  --on-ink:#FFFFFF;
+  --on-steel:#FFFFFF;
+  --tip-bg:#2E3440; --tip-ink:#ECEFF4;
+  --niche-idle:#A99B74;
+  /* тени — мягкие, подкрашены холодным сланцевым фоном */
+  --shadow-1:0 1px 2px rgba(46,52,64,.08);
+  --shadow-2:0 8px 20px -12px rgba(46,52,64,.18);
+  --shadow-3:0 16px 34px -18px rgba(46,52,64,.20);
+  --focus:0 0 0 2px var(--surf), 0 0 0 4px var(--steel);
+}
+
+/* мягкий кросс-фейд основных поверхностей при переключении темы */
+html.theme-ready body,
+html.theme-ready .card,
+html.theme-ready .surf,
+html.theme-ready input,
+html.theme-ready textarea,
+html.theme-ready button{ transition:var(--theme-fade); }
+
+/* ============================================================
+   ОБОЛОЧКА: верхняя полоса (навигация между кабинетами + тема).
+   Одинаковая на всех страницах, наполняется из app-shell.js.
+   ============================================================ */
+/* страница никогда не шире вьюпорта — иначе sticky-шапка растягивается
+   по ширине документа и правый кластер (роль + тема) уезжает за край.
+   Внутренние ленты (overflowX:auto) скроллятся сами и не задеты. */
+html{ overflow-x:clip; }
+.shell{
+  position:sticky; top:0; left:0; z-index:40;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  max-width:100%;
+  padding:9px 18px; background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:saturate(1.1) blur(8px);
+  border-bottom:1px solid var(--line-soft);
+  font-family:var(--sans);
+}
+.shell .rune{ font-family:var(--rune); line-height:1; }
+.shell-brand{
+  font-family:var(--disp); font-weight:700; font-size:13px;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+  display:flex; align-items:center; gap:9px; white-space:nowrap;
+}
+.shell-brand .rune{ font-size:16px; }
+.shell-brand.player .rune{ color:var(--steel); }
+.shell-brand.gm .rune{ color:var(--bronze); }
+.shell-nav{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.shell-link{
+  display:inline-flex; align-items:center; gap:7px; text-decoration:none;
+  background:var(--surf); border:1px solid var(--line); color:var(--ink);
+  border-radius:8px; padding:6px 12px; font-size:12.5px; letter-spacing:.02em;
+  transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+             background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+.shell-link .rune{ font-size:14px; color:var(--faint); }
+.shell-link:hover{ border-color:var(--steel-soft); color:var(--steel); }
+.shell-link:active{ transform:translateY(1px); }
+.shell-link:hover .rune{ color:var(--steel); }
+.shell-link.gm:hover{ border-color:var(--line-warm); color:var(--bronze); }
+.shell-link.gm:hover .rune{ color:var(--bronze); }
+.shell-link.here{ background:var(--surf2); border-color:var(--steel-soft); color:var(--steel); cursor:default; }
+.shell-link.here.gm{ border-color:var(--line-warm); color:var(--bronze); }
+.shell-link.here .rune{ color:inherit; }
+.shell-spacer{ flex:1; }
+.shell-role{
+  font-size:11px; letter-spacing:.14em; text-transform:uppercase; font-weight:600;
+  border:1px solid var(--line); border-radius:999px; padding:4px 11px; white-space:nowrap;
+}
+.shell-role.player{ color:var(--steel); border-color:var(--steel-soft); }
+.shell-role.gm{ color:var(--bronze); border-color:var(--line-warm); }
+
+/* переключатель темы */
+.theme-toggle{
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--surf); border:1px solid var(--line); color:var(--ink);
+  border-radius:999px; padding:6px 13px; font-size:12.5px; font-family:var(--sans);
+  cursor:pointer;
+  transition:border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+.theme-toggle:hover{ border-color:var(--bronze); color:var(--bronze); }
+.theme-toggle:active{ transform:translateY(1px); }
+.theme-toggle .tt-ico{ transition:transform var(--dur-2) var(--ease); }
+.theme-toggle:hover .tt-ico{ transform:rotate(-18deg) scale(1.08); }
+.theme-toggle .tt-ico{ font-size:14px; line-height:1; }
+.theme-toggle .tt-lbl{ letter-spacing:.04em; }
+
+@media (max-width:560px){
+  .shell{ padding:8px 12px; gap:8px; }
+  .shell-brand{ font-size:11px; }
+  .theme-toggle .tt-lbl{ display:none; }
+}
+
+@media print{ .shell, .theme-toggle{ display:none !important; } }
+
+/* плавающий тултип по тапу (BUG-11) — общий для досок и карты */
+.tap-tip{
+  position:fixed; z-index:9999; max-width:min(280px, 88vw);
+  background:var(--tip-bg); color:var(--tip-ink);
+  font-family:var(--sans); font-size:12.5px; line-height:1.45;
+  padding:8px 11px; border-radius:8px;
+  box-shadow:0 8px 26px rgba(0,0,0,.4); pointer-events:none;
+}
+
+/* ============================================================
+   ГЛОБАЛЬНЫЕ СЛОИ ДОСТУПНОСТИ (общие для всех страниц)
+   ============================================================ */
+
+/* Видимый фокус с клавиатуры. Раньше его не было нигде — ходьба по
+   Tab была невидимой. Мышиные клики фокус-кольцо не рисуют (:focus-visible),
+   поэтому оформление страниц не меняется — оно появляется только с клавиатуры. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+.shell-link:focus-visible,
+.shell-gbtn:focus-visible,
+.shell-burger:focus-visible,
+.theme-toggle:focus-visible{
+  outline:none;
+  box-shadow:var(--focus);
+  border-radius:var(--r-1);
+}
+
+/* Уважаем системную просьбу «меньше движения»: гасим переходы и
+   анимации, оставляя мгновенную смену состояний. */
+@media (prefers-reduced-motion:reduce){
+  *, *::before, *::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+    scroll-behavior:auto !important;
+  }
+}

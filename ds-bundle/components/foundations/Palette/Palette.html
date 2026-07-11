@@ -1,0 +1,68 @@
+<!-- @dsCard group="Foundations" name="Color palette" subtitle="Nord — Polar Night (dark) & Snow Storm (light)" -->
+<!doctype html>
+<meta charset="utf-8">
+<title>Ragnarök — Color palette</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Inter',system-ui,sans-serif;background:#1b2027;color:#ECEFF4;padding:24px}
+  h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:#AEB6C4;margin:0 0 4px}
+  .sub{font-size:12.5px;color:#727C8D;margin:0 0 22px}
+  .themes{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media (max-width:640px){.themes{grid-template-columns:1fr}}
+  .pane{border:1px solid #434C5E;border-radius:14px;overflow:hidden}
+  .pane.light{border-color:#CBD5E1}
+  .pane-hd{padding:10px 14px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+  .dark .pane-hd{background:#2E3440;color:#88C0D0;border-bottom:1px solid #434C5E}
+  .light .pane-hd{background:#F6F8FB;color:#48709F;border-bottom:1px solid #CBD5E1}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:#434C5E}
+  .light .grid{background:#CBD5E1}
+  .sw{padding:12px 14px}
+  .dark .sw{background:#22272E}
+  .light .sw{background:#E4E9F0}
+  .chip{height:34px;border-radius:8px;border:1px solid rgba(128,128,128,.28)}
+  .name{font-family:'JetBrains Mono',monospace;font-size:11.5px;margin-top:7px}
+  .dark .name{color:#ECEFF4}
+  .light .name{color:#2E3440}
+  .hex{font-family:'JetBrains Mono',monospace;font-size:10.5px}
+  .dark .hex{color:#727C8D}
+  .light .hex{color:#7C8698}
+</style>
+<h1>Color palette</h1>
+<p class="sub">Nord — cool slate surfaces, frost-steel and aurora-bronze accents. Toggle via <code>data-theme</code>.</p>
+<div class="themes">
+  <div class="pane dark">
+    <div class="pane-hd">Dark · Polar Night</div>
+    <div class="grid">
+      <div class="sw"><div class="chip" style="background:#22272E"></div><div class="name">--bg</div><div class="hex">#22272E</div></div>
+      <div class="sw"><div class="chip" style="background:#2E3440"></div><div class="name">--surf</div><div class="hex">#2E3440</div></div>
+      <div class="sw"><div class="chip" style="background:#3B4252"></div><div class="name">--surf2</div><div class="hex">#3B4252</div></div>
+      <div class="sw"><div class="chip" style="background:#434C5E"></div><div class="name">--line</div><div class="hex">#434C5E</div></div>
+      <div class="sw"><div class="chip" style="background:#ECEFF4"></div><div class="name">--ink</div><div class="hex">#ECEFF4</div></div>
+      <div class="sw"><div class="chip" style="background:#AEB6C4"></div><div class="name">--muted</div><div class="hex">#AEB6C4</div></div>
+      <div class="sw"><div class="chip" style="background:#88C0D0"></div><div class="name">--steel</div><div class="hex">#88C0D0</div></div>
+      <div class="sw"><div class="chip" style="background:#5E81AC"></div><div class="name">--steel-deep</div><div class="hex">#5E81AC</div></div>
+      <div class="sw"><div class="chip" style="background:#E6C583"></div><div class="name">--bronze</div><div class="hex">#E6C583</div></div>
+      <div class="sw"><div class="chip" style="background:#D6926B"></div><div class="name">--ember</div><div class="hex">#D6926B</div></div>
+      <div class="sw"><div class="chip" style="background:#BF616A"></div><div class="name">--red</div><div class="hex">#BF616A</div></div>
+      <div class="sw"><div class="chip" style="background:#727C8D"></div><div class="name">--faint</div><div class="hex">#727C8D</div></div>
+    </div>
+  </div>
+  <div class="pane light">
+    <div class="pane-hd">Light · Snow Storm</div>
+    <div class="grid">
+      <div class="sw"><div class="chip" style="background:#E4E9F0"></div><div class="name">--bg</div><div class="hex">#E4E9F0</div></div>
+      <div class="sw"><div class="chip" style="background:#F6F8FB"></div><div class="name">--surf</div><div class="hex">#F6F8FB</div></div>
+      <div class="sw"><div class="chip" style="background:#ECF0F5"></div><div class="name">--surf2</div><div class="hex">#ECF0F5</div></div>
+      <div class="sw"><div class="chip" style="background:#CBD5E1"></div><div class="name">--line</div><div class="hex">#CBD5E1</div></div>
+      <div class="sw"><div class="chip" style="background:#2E3440"></div><div class="name">--ink</div><div class="hex">#2E3440</div></div>
+      <div class="sw"><div class="chip" style="background:#4C566A"></div><div class="name">--muted</div><div class="hex">#4C566A</div></div>
+      <div class="sw"><div class="chip" style="background:#48709F"></div><div class="name">--steel</div><div class="hex">#48709F</div></div>
+      <div class="sw"><div class="chip" style="background:#3A6090"></div><div class="name">--steel-deep</div><div class="hex">#3A6090</div></div>
+      <div class="sw"><div class="chip" style="background:#9C7628"></div><div class="name">--bronze</div><div class="hex">#9C7628</div></div>
+      <div class="sw"><div class="chip" style="background:#BE7B45"></div><div class="name">--ember</div><div class="hex">#BE7B45</div></div>
+      <div class="sw"><div class="chip" style="background:#A8483F"></div><div class="name">--red</div><div class="hex">#A8483F</div></div>
+      <div class="sw"><div class="chip" style="background:#7C8698"></div><div class="name">--faint</div><div class="hex">#7C8698</div></div>
+    </div>
+  </div>
+</div>
