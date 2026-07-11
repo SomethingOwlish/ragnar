@@ -145,59 +145,58 @@ function SessionBlock({ session, compact }) {
   );
 }
 
-/* ============================ Полоса хрониста ============================ */
-function ChroniclerBar({ isGM, blogger, isBlogger, roster, onChoose }) {
+/* ============================ Полоса участника ============================ */
+function ChroniclerBar({ isGM, me }) {
   if (isGM) {
     return (
-      <div style={{ background: "var(--warm)", border: "1px solid var(--line-warm)", borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ background: "var(--warm)", border: "1px solid var(--line-warm)", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 13, color: "var(--ink)" }}>
         <Users size={16} style={{ color: GOLD }} />
-        <div style={{ fontSize: 13, color: "var(--ink)" }}>
-          Летопись ведёт:
-        </div>
-        <select className="b-select" value={blogger} onChange={(e) => onChoose(e.target.value)}>
-          <option value="">— никто —</option>
-          {roster.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <div style={{ fontSize: 12, color: "var(--muted)", flex: 1, minWidth: 180 }}>
-          Выбранный игрок сможет публиковать и править свои записи в течение часа.
-        </div>
-      </div>
-    );
-  }
-  if (isBlogger) {
-    return (
-      <div style={{ background: "var(--choice-on)", border: "1px solid var(--steel-soft)", borderRadius: 12, padding: "10px 14px", fontSize: 13, color: "var(--ink)" }}>
-        Ты — <b style={{ color: "var(--steel)" }}>хронист</b> кампании. Записывай, что было; править и удалять можно в течение часа после публикации.
+        <div>Ведущая — записи можно публиковать от имени любого НПС; имя задаётся вручную. Править и удалять можно любую запись.</div>
       </div>
     );
   }
   return (
-    <div style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: "10px 14px", fontSize: 13, color: "var(--muted)" }}>
-      {blogger ? <>Летопись ведёт <b style={{ color: "var(--ink)" }}>{blogger}</b>. Здесь можно читать записи.</>
-               : <>Хрониста ещё не назначили — записей пока не будет.</>}
+    <div style={{ background: "var(--choice-on)", border: "1px solid var(--steel-soft)", borderRadius: 12, padding: "10px 14px", fontSize: 13, color: "var(--ink)" }}>
+      {me
+        ? <>Ты пишешь в летопись от имени <b style={{ color: "var(--steel)" }}>{me}</b>. Править и удалять свои записи можно в течение часа после публикации.</>
+        : <>Здесь каждый герой ведёт свою летопись. Записи публикуются от имени твоего персонажа.</>}
     </div>
   );
 }
 
 /* ============================ Композер ============================ */
-function Composer({ chron, onPublish }) {
+function Composer({ chron, isGM, me, onPublish }) {
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
+  const [npc, setNpc] = useState("");
   const session = lastSessionFrom(chron);
+  const authorName = isGM ? npc.trim() : (me || "").trim();
   const publish = () => {
     if (!title.trim() && !text.trim()) return;
-    onPublish({ title: title.trim(), text: text.trim(), session });
+    if (isGM && !authorName) return;
+    onPublish({ title: title.trim(), text: text.trim(), author: authorName, session });
     setTitle(""); setText("");
   };
   return (
     <div style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 14, padding: 16 }}>
+      <div className="flex items-center gap-2" style={{ marginBottom: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 10.5, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--muted)" }}>от имени</span>
+        {isGM ? (
+          <input className="b-input" value={npc} onChange={(e) => setNpc(e.target.value)} placeholder="Имя НПС или рассказчика" style={{ maxWidth: 260, color: "var(--bronze)" }} />
+        ) : (
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--steel)", background: "var(--surf2)", border: "1px solid var(--line)", borderRadius: 999, padding: "3px 12px" }}>
+            {me || "твой персонаж"}
+          </span>
+        )}
+      </div>
       <input className="b-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Заголовок записи" style={{ fontFamily: FONT_DISPLAY, fontSize: 16 }} />
       <textarea className="b-ta" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="О чём эта запись…" style={{ marginTop: 8 }} />
       <div style={{ marginTop: 10, padding: "8px 0" }}>
         <SessionBlock session={session} compact />
       </div>
-      <div className="flex justify-end" style={{ marginTop: 4 }}>
-        <button className="b-publish" onClick={publish} disabled={!title.trim() && !text.trim()}>
+      <div className="flex items-center justify-end gap-3" style={{ marginTop: 4 }}>
+        {isGM && !authorName && <span style={{ fontSize: 11.5, color: "var(--faint)" }}>укажи имя НПС</span>}
+        <button className="b-publish" onClick={publish} disabled={(!title.trim() && !text.trim()) || (isGM && !authorName)}>
           <Send size={14} /> Опубликовать
         </button>
       </div>
@@ -206,7 +205,7 @@ function Composer({ chron, onPublish }) {
 }
 
 /* ============================ Карточка записи ============================ */
-function EntryCard({ entry, editable, canEdit, viewerIsBlogger, onSave, onDelete }) {
+function EntryCard({ entry, editable, canEdit, mine, onSave, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(entry.title || "");
   const [text, setText] = useState(entry.text || "");
@@ -215,7 +214,7 @@ function EntryCard({ entry, editable, canEdit, viewerIsBlogger, onSave, onDelete
   const start = () => { setTitle(entry.title || ""); setText(entry.text || ""); setEditing(true); };
   const save = () => { onSave(entry.id, { title: title.trim(), text: text.trim() }); setEditing(false); };
 
-  const locked = viewerIsBlogger && !editable && entry.authorRole !== "gm"; // хронист, час вышел
+  const locked = mine && !canEdit && !editable && entry.authorRole !== "gm"; // своя запись, час вышел
   const left = entry.createdAt ? minutesLeft(entry.createdAt) : 0;
 
   return (
@@ -279,6 +278,7 @@ function Blog() {
   const [entries, setEntries] = useState([]);
   const [chron, setChron] = useState(null);
   const [me, setMe] = useState("");
+  const [myId, setMyId] = useState("");
   const [charNames, setCharNames] = useState([]);
   const [, setTick] = useState(0);
 
@@ -291,6 +291,7 @@ function Blog() {
     if (ROLE !== "player" || !HAS_FB) return;
     const cur = readCurrent();
     if (!cur || !cur.campaign || !cur.charId) return;
+    setMyId(cur.charId);
     (async () => {
       try { await auth.signInAnonymously(); } catch (e) {}
       try {
@@ -365,33 +366,28 @@ function Blog() {
   };
 
   const isGM = gm;
-  const isBlogger = !isGM && !!me && !!blogger && norm(me) === norm(blogger);
-  const canCompose = isGM || isBlogger;
+  const canCompose = isGM || ROLE === "player";
+
+  // принадлежит ли запись текущему игроку
+  const entryMine = (e) => {
+    if (e.authorRole === "gm") return false;
+    if (e.authorId && myId) return e.authorId === myId;
+    return !!me && norm(e.author) === norm(me);
+  };
 
   const entryEditable = (e) => {
     if (isGM) return false; // у ведущей всегда есть доступ — отдельной меткой ниже
-    if (!isBlogger) return false;
-    if (e.authorRole === "gm") return false;
+    if (ROLE !== "player") return false;
+    if (!entryMine(e)) return false;
     return (Date.now() - (e.createdAt || 0)) < HOUR;
   };
 
-  const roster = useMemo(() => {
-    const set = [];
-    const add = (n) => { const v = (n || "").trim(); if (v && !set.some((x) => norm(x) === norm(v))) set.push(v); };
-    charNames.forEach(add);
-    (Array.isArray(chron && chron.players) ? chron.players : []).forEach(add);
-    add(blogger);
-    set.sort((a, b) => a.localeCompare(b, "ru"));
-    return set;
-  }, [charNames, chron, blogger]);
-
-  const chooseBlogger = (name) => applyMutation((s) => ({ blogger: name, entries: s.entries }));
-
-  const publish = ({ title, text, session }) => {
+  const publish = ({ title, text, author, session }) => {
     const entry = {
       id: uid(), title, text, createdAt: Date.now(),
-      author: isGM ? "ведущая" : (me || blogger || "хронист"),
+      author: isGM ? (author || "Ведущая") : (author || me || "Герой"),
       authorRole: isGM ? "gm" : "player",
+      authorId: isGM ? null : (myId || null),
       session: session || null,
     };
     applyMutation((s) => ({ blogger: s.blogger, entries: [entry, ...s.entries] }));
@@ -440,7 +436,7 @@ function Blog() {
       <header className="flex items-center justify-between px-5 py-4 flex-wrap gap-2" style={{ borderBottom: "1px solid var(--line-soft)" }}>
         <div>
           <div style={{ fontFamily: FONT_DISPLAY, fontSize: 22, color: GOLD }}>Блог</div>
-          <div style={{ fontSize: 12, color: "var(--muted)" }}>летопись кампании · записи хрониста</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>летопись кампании · записи героев</div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <CloudChip status={status} campaign={campaign} onBind={bind} />
@@ -456,9 +452,9 @@ function Blog() {
       </header>
 
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px 48px", display: "flex", flexDirection: "column", gap: 16 }}>
-        <ChroniclerBar isGM={isGM} blogger={blogger} isBlogger={isBlogger} roster={roster} onChoose={chooseBlogger} />
+        <ChroniclerBar isGM={isGM} me={me} />
 
-        {canCompose && <Composer chron={chron} onPublish={publish} />}
+        {canCompose && <Composer chron={chron} isGM={isGM} me={me} onPublish={publish} />}
 
         {entries.length === 0 ? (
           <div style={{ textAlign: "center", color: "var(--faint)", padding: "48px 0", fontSize: 14 }}>
@@ -471,7 +467,7 @@ function Blog() {
               entry={e}
               editable={entryEditable(e)}
               canEdit={isGM}
-              viewerIsBlogger={isBlogger}
+              mine={entryMine(e)}
               onSave={saveEntry}
               onDelete={deleteEntry}
             />
