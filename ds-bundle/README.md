@@ -12,11 +12,13 @@ Link `styles.css` — it `@import`s `theme.css`, which defines every `--*` token
 and loads the fonts. Then set the palette on the root element:
 
 ```html
-<html data-theme="dark">   <!-- "dark" (Polar Night) is the default; "light" is Snow Storm -->
+<html data-theme="dark">   <!-- "dark" = Polar Night (default). Also: "light" = Snow Storm, "skog" = Forest -->
 ```
 
-Nothing is styled until an ancestor carries `data-theme`. Both themes define the
-**same** variable names, so any `var(--…)` you write works in both.
+Nothing is styled until an ancestor carries `data-theme`. All three themes —
+`dark` (Polar Night), `light` (Snow Storm), and `skog` (Forest: evergreen slate,
+moss-green steel, birch-amber bronze) — define the **same** variable names, so
+any `var(--…)` you write works in every theme.
 
 ## The token vocabulary — use these, don't invent colors
 
@@ -63,14 +65,15 @@ patterns you can borrow.
 This is a **tokens-only** design system — the Scandinavian "Nord" theme layer of
 the *Рагнарёк-AU* Norse TTRPG site. It ships the look (tokens, fonts, shared
 patterns) rather than importable components, because the source is a hand-written
-static HTML site with no component build.
+static HTML site with no component build. Three themes are available via
+`data-theme`: **Polar Night** (dark), **Snow Storm** (light), and **Skog** (forest).
 
 | Path | What it is |
 |---|---|
 | `styles.css` | Entry stylesheet — `@import`s `theme.css`. Link this. |
-| `theme.css` | The verbatim source theme layer: every `--*` token (both themes), fonts, and shared shell/link/toggle/focus patterns. |
-| `guidelines/tokens.md` | Full token reference — exact dark & light values for every color, font, radius, motion, and shadow token. |
-| `components/foundations/Palette/` | Visual swatch sheet of the palette, both themes. |
+| `theme.css` | The verbatim source theme layer: every `--*` token (all three themes), fonts, and shared shell/link/toggle/focus patterns. |
+| `guidelines/tokens.md` | Full token reference — exact dark, light & skog values for every color, font, radius, motion, and shadow token. |
+| `components/foundations/Palette/` | Visual swatch sheet of the palette, all three themes. |
 | `components/foundations/Typography/` | Type specimen — the four font families. |
 | `components/foundations/Motion/` | Motion easings/durations, radii scale, elevation. |
 

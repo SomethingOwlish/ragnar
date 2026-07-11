@@ -12,11 +12,13 @@ Link `styles.css` — it `@import`s `theme.css`, which defines every `--*` token
 and loads the fonts. Then set the palette on the root element:
 
 ```html
-<html data-theme="dark">   <!-- "dark" (Polar Night) is the default; "light" is Snow Storm -->
+<html data-theme="dark">   <!-- "dark" = Polar Night (default). Also: "light" = Snow Storm, "skog" = Forest -->
 ```
 
-Nothing is styled until an ancestor carries `data-theme`. Both themes define the
-**same** variable names, so any `var(--…)` you write works in both.
+Nothing is styled until an ancestor carries `data-theme`. All three themes —
+`dark` (Polar Night), `light` (Snow Storm), and `skog` (Forest: evergreen slate,
+moss-green steel, birch-amber bronze) — define the **same** variable names, so
+any `var(--…)` you write works in every theme.
 
 ## The token vocabulary — use these, don't invent colors
 
