@@ -1,0 +1,9 @@
+/* ============================================================
+   Ragnarök Design System — entry stylesheet
+   Every design rendered by the design agent receives this file's
+   transitive @import closure. All tokens, fonts, and shared
+   patterns come from theme.css (the verbatim source layer of the
+   ragnar site). Set data-theme="dark" | "light" on <html> (or any
+   ancestor) to choose the palette; "dark" is the default.
+   ============================================================ */
+@import url('theme.css');
