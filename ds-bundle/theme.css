@@ -14,18 +14,18 @@
 
 :root{
   /* шрифты — общие для обеих тем */
-  --disp:'Spectral',Georgia,serif;
-  --sans:'Inter',system-ui,sans-serif;
-  --mono:'JetBrains Mono',monospace;
-  --rune:'Noto Sans Runic','Segoe UI Historic',serif;
+  --disp:'Spectral',Georgia,serif;                     /* @kind font */
+  --sans:'Inter',system-ui,sans-serif;                 /* @kind font */
+  --mono:'JetBrains Mono',monospace;                   /* @kind font */
+  --rune:'Noto Sans Runic','Segoe UI Historic',serif;  /* @kind font */
   /* плавный переход при смене темы */
-  --theme-fade:background-color .25s ease, border-color .25s ease, color .25s ease;
+  --theme-fade:background-color .25s ease, border-color .25s ease, color .25s ease; /* @kind other */
 
   /* --- общие «пружины» движения и радиусы --- */
   /* мягкое замедление в конце — движение ощущается «дорогим», а не линейным */
-  --ease:cubic-bezier(.16,1,.3,1);
-  --dur-1:.14s;   /* мгновенный отклик: ховер, цвет */
-  --dur-2:.22s;   /* заметный сдвиг: подъём карточки, раскрытие */
+  --ease:cubic-bezier(.16,1,.3,1);                     /* @kind other */
+  --dur-1:.14s;   /* @kind other */  /* мгновенный отклик: ховер, цвет */
+  --dur-2:.22s;   /* @kind other */  /* заметный сдвиг: подъём карточки, раскрытие */
   --r-1:8px; --r-2:10px; --r-3:14px; --r-4:18px;  /* единая шкала скруглений */
 }
 
@@ -77,6 +77,26 @@ html[data-theme="light"]{
   --shadow-2:0 8px 20px -12px rgba(46,52,64,.18);
   --shadow-3:0 16px 34px -18px rgba(46,52,64,.20);
   --focus:0 0 0 2px var(--surf), 0 0 0 4px var(--steel);
+}
+
+/* ============================ ЛЕС (SKOG) ============================ */
+/* Скандинавский хвойный лес: сланец с зелёным сдвигом, мох и лишайник
+   как основной «фрост»-акцент, берёзовый амбер и рябина как тёплые. */
+html[data-theme="skog"]{
+  --bg:#1C2621; --surf:#25332C; --surf2:#2E3D34; --inset:#283730;
+  --warm:#2C2A1D; --warm2:#252319; --warm-inset:#37321F;
+  --warm-field:#2A2817; --warm-chosen:#43401F; --warm-chip:#2C2A1D;
+  --line:#3C4C41; --line-soft:#31413A; --line-warm:#4A4630;
+  --ink:#EAF1E8; --muted:#A6B4A4; --faint:#6B7A69;
+  --steel:#8FC9A6; --steel-soft:#79AE92; --steel-deep:#4F8C6C;
+  --bronze:#E3C07A; --bronze-deep:#9C7C3E; --ember:#D6895B; --red:#C56A63;
+  --choice-on:#2E3D34;
+  --on-ink:#1C2621; --on-steel:#152019;
+  --tip-bg:#141B16; --tip-ink:#EAF1E8; --niche-idle:#5E6B4A;
+  --shadow-1:0 1px 2px rgba(0,0,0,.30);
+  --shadow-2:0 6px 16px -10px rgba(0,0,0,.52);
+  --shadow-3:0 14px 30px -16px rgba(0,0,0,.58);
+  --focus:0 0 0 2px var(--bg), 0 0 0 4px var(--steel-soft);
 }
 
 /* мягкий кросс-фейд основных поверхностей при переключении темы */
@@ -202,3 +222,45 @@ textarea:focus-visible,
     scroll-behavior:auto !important;
   }
 }
+
+/* ============================================================
+   ДЕКОР: скандинавские фоновые паттерны (общий слой)
+   Розетка åttebladrose (водяной знак), зерно и полоса ельника.
+   Все слои чисто оформительские: живут ЗА контентом, не ловят
+   клики, не читаются скринридером (aria-hidden в разметке),
+   скрыты при печати и перекрашиваются токенами темы — поэтому
+   работают во всех трёх палитрах (dark/light/skog).
+
+   Включение: класс .has-deco на <html> ставит app-shell.js.
+   Отписка: атрибут data-no-deco на <html> или <body> (плотные
+   таблицы, карта) — тогда слой не вставляется и фон не трогается.
+   ============================================================ */
+/* когда декор включён, «холст» страницы уезжает на <html>, а <body>
+   делаем прозрачным — так фиксированный слой z-index:-1 просвечивает
+   ЗА контентом, и разметку каждой страницы оборачивать не нужно
+   (контент со своим фоном — карточки, поля — перекрывает декор сам). */
+html.has-deco{ background:var(--bg); }
+html.has-deco body{ background:transparent; }
+
+.skog-deco{
+  position:fixed; inset:0; z-index:-1;
+  pointer-events:none; overflow:hidden;
+}
+.skog-deco > *{ position:absolute; pointer-events:none; }
+
+/* 4.1 розетка åttebladrose — тонкий тайл-водяной знак поверх фона */
+.skog-deco__weave{ inset:0; width:100%; height:100%;
+  color:var(--steel); opacity:.05; }
+
+/* 4.2 зерно — «сочность» поверхностей */
+.skog-deco__grain{ inset:0;
+  opacity:.5; mix-blend-mode:soft-light;
+  background-image:radial-gradient(var(--line-soft) .5px, transparent .5px);
+  background-size:4px 4px; }
+
+/* 4.3 полоса ельника внизу страницы */
+.skog-deco__ridge{ left:0; right:0; bottom:0; width:100%; height:160px;
+  color:var(--surf2); opacity:.9; }
+
+/* при печати декор не участвует (как .shell) */
+@media print{ .skog-deco{ display:none !important; } }

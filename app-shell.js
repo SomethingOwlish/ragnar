@@ -17,13 +17,28 @@
 (function () {
   var KEY = "ragnarok-theme";
 
-  /* --- тема --- */
+  /* --- тема ---
+     Три темы по кругу: dark → light → skog → dark. Подпись/иконка
+     кнопки показывают ТЕКУЩУЮ тему; клик переводит на следующую. */
+  var THEMES = ["dark", "light", "skog"];
+  var THEME_META = {
+    dark:  { label: "Polar Night", icon: "☽" },  // ☽ месяц
+    light: { label: "Snow Storm",  icon: "☀" },  // ☀ солнце
+    skog:  { label: "Skog · Лес",  icon: "⚘" },  // ⚘ цветок
+  };
+  function isTheme(t) { return THEMES.indexOf(t) >= 0; }
+  function nextTheme(t) { return THEMES[(THEMES.indexOf(t) + 1) % THEMES.length]; }
+
   function pageDefault() {
-    return document.documentElement.getAttribute("data-default-theme") || "dark";
+    var d = document.documentElement.getAttribute("data-default-theme");
+    return isTheme(d) ? d : "dark";        // дефолт вне списка → dark
   }
   function current() {
-    try { return localStorage.getItem(KEY) || pageDefault(); }
-    catch (e) { return pageDefault(); }
+    try {
+      var saved = localStorage.getItem(KEY);
+      if (isTheme(saved)) return saved;    // сохранённое вне списка → откат на дефолт
+    } catch (e) {}
+    return pageDefault();
   }
   function apply(theme) {
     document.documentElement.setAttribute("data-theme", theme);
@@ -34,12 +49,15 @@
     refreshToggles(theme);
   }
   function refreshToggles(theme) {
-    var next = theme === "dark" ? "светлая" : "тёмная";
-    var ico = theme === "dark" ? "☾" : "☀";
+    var t = isTheme(theme) ? theme : current();
+    var meta = THEME_META[t];
+    var nx = THEME_META[nextTheme(t)];
+    var hint = "Тема: " + meta.label + " — переключить на «" + nx.label + "»";
     document.querySelectorAll(".theme-toggle").forEach(function (b) {
-      b.querySelector(".tt-ico").textContent = ico;
-      b.querySelector(".tt-lbl").textContent = next + " тема";
-      b.setAttribute("title", "Переключить на " + next + " тему");
+      b.querySelector(".tt-ico").textContent = meta.icon;
+      b.querySelector(".tt-lbl").textContent = meta.label;
+      b.setAttribute("title", hint);
+      b.setAttribute("aria-label", hint);
     });
   }
 
@@ -251,8 +269,9 @@
     btn.className = "theme-toggle";
     btn.innerHTML = '<span class="tt-ico"></span><span class="tt-lbl"></span>';
     btn.addEventListener("click", function () {
-      var cur = document.documentElement.getAttribute("data-theme") || current();
-      setTheme(cur === "dark" ? "light" : "dark");
+      var cur = document.documentElement.getAttribute("data-theme");
+      if (!isTheme(cur)) cur = current();
+      setTheme(nextTheme(cur));
     });
     host.appendChild(btn);
   }
@@ -360,8 +379,49 @@
     document.head.appendChild(st);
   }
 
+  /* --- декоративные скандинавские паттерны (общий слой) ---
+     Вставляем один фиксированный слой ЗА контентом: розетка
+     åttebladrose (водяной знак), зерно и полоса ельника внизу.
+     Слой aria-hidden, не ловит клики, красится токенами темы
+     (работает во всех трёх палитрах), скрыт при печати (CSS в
+     theme.css). Страница может отписаться атрибутом data-no-deco
+     на <html>/<body> — тогда слой не вставляем и фон не трогаем. */
+  function injectDeco() {
+    var root = document.documentElement;
+    var off = root.hasAttribute("data-no-deco") ||
+              (document.body && document.body.hasAttribute("data-no-deco"));
+    if (off || document.getElementById("skog-deco")) return;
+    root.classList.add("has-deco");
+    var d = document.createElement("div");
+    d.id = "skog-deco";
+    d.className = "skog-deco";
+    d.setAttribute("aria-hidden", "true");
+    d.innerHTML =
+      '<svg class="skog-deco__weave" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+        '<defs>' +
+          '<pattern id="skog-rose" width="72" height="72" patternUnits="userSpaceOnUse">' +
+            '<g fill="none" stroke="currentColor" stroke-width="1.4">' +
+              '<rect x="24" y="24" width="24" height="24"></rect>' +
+              '<rect x="24" y="24" width="24" height="24" transform="rotate(45 36 36)"></rect>' +
+              '<path d="M36 6 L40 32 L36 36 L32 32 Z" fill="currentColor" stroke="none"></path>' +
+              '<path d="M36 66 L40 40 L36 36 L32 40 Z" fill="currentColor" stroke="none"></path>' +
+              '<path d="M6 36 L32 32 L36 36 L32 40 Z" fill="currentColor" stroke="none"></path>' +
+              '<path d="M66 36 L40 32 L36 36 L40 40 Z" fill="currentColor" stroke="none"></path>' +
+            '</g>' +
+          '</pattern>' +
+        '</defs>' +
+        '<rect width="100%" height="100%" fill="url(#skog-rose)"></rect>' +
+      '</svg>' +
+      '<div class="skog-deco__grain"></div>' +
+      '<svg class="skog-deco__ridge" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 160" preserveAspectRatio="none" aria-hidden="true">' +
+        '<path d="M0 160 L0 96 L40 118 L70 70 L100 118 L100 96 L140 116 L170 60 L200 116 L200 96 L245 120 L280 74 L315 120 L315 96 L360 118 L395 66 L430 118 L430 96 L480 122 L520 78 L560 122 L560 96 L610 118 L645 64 L680 118 L680 96 L730 120 L770 72 L810 120 L810 96 L860 118 L895 62 L930 118 L930 96 L980 122 L1020 78 L1060 122 L1060 96 L1110 118 L1145 68 L1180 118 L1200 100 L1200 160 Z" fill="currentColor"></path>' +
+      '</svg>';
+    document.body.insertBefore(d, document.body.firstChild);
+  }
+
   function init() {
     injectMenuCSS();
+    injectDeco();
     bindShellGlobal();
     buildAll();
     initTapTips();
@@ -390,7 +450,7 @@
 
   // синхронизация между открытыми вкладками
   window.addEventListener("storage", function (e) {
-    if (e.key === KEY && e.newValue) {
+    if (e.key === KEY && isTheme(e.newValue)) {
       apply(e.newValue);
       refreshToggles(e.newValue);
     }
