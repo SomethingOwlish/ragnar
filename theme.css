@@ -30,46 +30,52 @@
 }
 
 /* ============================ ТЁМНАЯ ============================ */
+/* Палитра «Nord» — скандинавская «Polar Night»: сланцевые сумерки
+   вместо чёрной пещеры. Мягкий контраст, холодный «фрост» синий
+   (сталь) и тёплое «aurora» золото (бронза) как акценты. */
 :root,
 html[data-theme="dark"]{
-  --bg:#0F1216; --surf:#171D24; --surf2:#1F262F; --inset:#222A33;
-  --warm:#241D10; --warm2:#1E1809; --warm-inset:#2C2412;
-  --warm-field:#211B0E; --warm-chosen:#33290F; --warm-chip:#241D10;
-  --line:#2A333D; --line-soft:#222A33; --line-warm:#4A3B22;
-  --ink:#E8ECF2; --muted:#93A1B0; --faint:#5E6B78;
-  --steel:#7FA8CE; --steel-soft:#5C84AC; --steel-deep:#3A5773;
-  --bronze:#CE9A4C; --bronze-deep:#6E4A14; --ember:#E5AE62; --red:#C06A4E;
-  --choice-on:#1B2A3A;
-  --on-ink:#15110A;          /* текст на залитых steel/bronze кнопках */
-  --on-steel:#0F1216;        /* текст на ярком steel в тёмной теме */
-  --tip-bg:#05070A; --tip-ink:#F3F6FA;
-  --niche-idle:#6E6242;
-  /* тени — в тёмной теме почти чёрные, чуть холодные */
-  --shadow-1:0 1px 2px rgba(0,0,0,.35);
-  --shadow-2:0 8px 22px -10px rgba(0,0,0,.62);
-  --shadow-3:0 20px 44px -16px rgba(0,0,0,.7);
-  /* кольцо фокуса — стальное, читаемо на тёмном */
+  --bg:#22272E; --surf:#2E3440; --surf2:#3B4252; --inset:#39414F;
+  --warm:#302A20; --warm2:#28231B; --warm-inset:#3A3123;
+  --warm-field:#2C2619; --warm-chosen:#463A22; --warm-chip:#302A20;
+  --line:#434C5E; --line-soft:#39414F; --line-warm:#4E4632;
+  --ink:#ECEFF4; --muted:#AEB6C4; --faint:#727C8D;
+  --steel:#88C0D0; --steel-soft:#81A1C1; --steel-deep:#5E81AC;
+  --bronze:#E6C583; --bronze-deep:#A17E3E; --ember:#D6926B; --red:#BF616A;
+  --choice-on:#3B4252;
+  --on-ink:#22272E;          /* текст на залитых steel/bronze кнопках */
+  --on-steel:#22272E;        /* текст на ярком «фрост»-steel в тёмной теме */
+  --tip-bg:#1A1F26; --tip-ink:#ECEFF4;
+  --niche-idle:#6E6547;
+  /* тени — плоские и спокойные, по-скандинавски сдержанные */
+  --shadow-1:0 1px 2px rgba(0,0,0,.28);
+  --shadow-2:0 6px 16px -10px rgba(0,0,0,.5);
+  --shadow-3:0 14px 30px -16px rgba(0,0,0,.55);
+  /* кольцо фокуса — «фрост», читаемо на сланце */
   --focus:0 0 0 2px var(--bg), 0 0 0 4px var(--steel-soft);
 }
 
 /* ============================ СВЕТЛАЯ ============================ */
+/* «Snow Storm» — скандинавский зимний свет: воздушный сине-белый
+   фон, сланцевый текст (Nord nord0), «фрост»-сталь и приглушённое
+   золото. Контраст акцентов держим на уровне WCAG AA. */
 html[data-theme="light"]{
-  --bg:#E2EAF1; --surf:#F5F8FB; --surf2:#E8F0F6; --inset:#DCE6EF;
-  --warm:#F3E9D6; --warm2:#ECE0C7; --warm-inset:#E7D9BB;
-  --warm-field:#FBF6EC; --warm-chosen:#F6ECD6; --warm-chip:#FBF4E6;
-  --line:#C7D5E1; --line-soft:#D7E1EA; --line-warm:#D9C49B;
-  --ink:#1B2733; --muted:#566779; --faint:#8B99A6;
-  --steel:#2F6090; --steel-soft:#5C84AC; --steel-deep:#4A6E92;
-  --bronze:#9A6B22; --bronze-deep:#6E4A14; --ember:#BC7E2A; --red:#A8482F;
-  --choice-on:#EAF1F8;
+  --bg:#E4E9F0; --surf:#F6F8FB; --surf2:#ECF0F5; --inset:#E0E6EE;
+  --warm:#F2ECDD; --warm2:#EBE3D0; --warm-inset:#E6DCC4;
+  --warm-field:#FAF6EC; --warm-chosen:#F4EAD5; --warm-chip:#FAF4E7;
+  --line:#CBD5E1; --line-soft:#D9E0EA; --line-warm:#DBC8A2;
+  --ink:#2E3440; --muted:#4C566A; --faint:#7C8698;
+  --steel:#48709F; --steel-soft:#6688B0; --steel-deep:#3A6090;
+  --bronze:#9C7628; --bronze-deep:#7A5A1C; --ember:#BE7B45; --red:#A8483F;
+  --choice-on:#E9F0F7;
   --on-ink:#FFFFFF;
   --on-steel:#FFFFFF;
-  --tip-bg:#1B2733; --tip-ink:#F3F6FA;
-  --niche-idle:#A99970;
-  /* тени — в светлой теме мягкие, подкрашены холодным синим фоном */
-  --shadow-1:0 1px 2px rgba(31,55,79,.10);
-  --shadow-2:0 10px 26px -12px rgba(31,55,79,.24);
-  --shadow-3:0 22px 48px -18px rgba(31,55,79,.28);
+  --tip-bg:#2E3440; --tip-ink:#ECEFF4;
+  --niche-idle:#A99B74;
+  /* тени — мягкие, подкрашены холодным сланцевым фоном */
+  --shadow-1:0 1px 2px rgba(46,52,64,.08);
+  --shadow-2:0 8px 20px -12px rgba(46,52,64,.18);
+  --shadow-3:0 16px 34px -18px rgba(46,52,64,.20);
   --focus:0 0 0 2px var(--surf), 0 0 0 4px var(--steel);
 }
 
