@@ -83,11 +83,12 @@
     names:  { label: "Имена",              rune: "ᛗ", gm: true },
     maps:   { label: "Карты и планы",      rune: "ᛚ", gm: true },
     mcodex: { label: "Кодекс мастера",     rune: "ᛒ", gm: true },
+    spot:   { label: "Спотлайт",           rune: "ᛉ", gm: true },
   };
 
   var NAV = {
     player: ["portal", "sheet", "init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library"],
-    gm:     ["portal", "panel", "init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library", "names", "npc", "maps", "mcodex"],
+    gm:     ["portal", "panel", "init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library", "names", "npc", "maps", "mcodex", "spot"],
     portal: [],
   };
 
@@ -100,7 +101,7 @@
   // остальное прячем во вложенные выпадашки, чтобы шапка не раздувалась
   var GROUPS = [
     { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library"] },
-    { id: "forge", label: "Мастерская", rune: "ᚦ", gm: true, keys: ["names", "npc", "maps", "mcodex"] },
+    { id: "forge", label: "Мастерская", rune: "ᚦ", gm: true, keys: ["names", "npc", "maps", "mcodex", "spot"] },
   ];
 
   function campaignParam() {
@@ -128,6 +129,7 @@
     if (key === "names")  return "name-gen.html?role=" + role + cp;
     if (key === "maps")   return "maps-plans.html?role=" + role + cp;
     if (key === "mcodex") return "codex.html?role=" + role + cp;
+    if (key === "spot")   return "spotlight.html?role=" + role + cp;
     return it.href;
   }
 
