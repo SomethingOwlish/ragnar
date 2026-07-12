@@ -720,7 +720,7 @@ function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, d
   const loySuggest = useMemo(() => Array.from(new Set(Object.values(nodeMap).flatMap((n) => n.loyalty || []))).sort((a, b) => a.localeCompare(b)), [nodeMap]);
   const addLoy = () => { const v = loyInput.trim(); if (v && !(node.loyalty || []).some((x) => x.toLowerCase() === v.toLowerCase())) patchNode(node.id, { loyalty: [...(node.loyalty || []), v] }); setLoyInput(""); };
   const col = KINDS[node.kind] || "var(--faint)";
-  const rels = edges.filter((e) => (e.from === node.id || e.to === node.id) && (gm || e.vis));
+  const rels = edges.filter((e) => (e.from === node.id || e.to === node.id) && (gm || (e.vis && nodeMap[e.from]?.vis && nodeMap[e.to]?.vis)));
   return (
     <div className="c-slide" style={{ position: "fixed", top: "var(--shell-h, 64px)", right: 0, bottom: 0, width: "min(360px, 92vw)", zIndex: 30,
       background: `linear-gradient(180deg, ${col}1f 0%, var(--surf) 22%, var(--bg) 100%)`, borderLeft: "1px solid var(--line)",
