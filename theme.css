@@ -224,6 +224,53 @@ textarea:focus-visible,
 }
 
 /* ============================================================
+   ПЕРЕИСПОЛЬЗУЕМЫЕ ПРИЁМЫ (гибрид «Refined Nord» × «Aurora»)
+   Стеклянные плитки, шкалы ресурсов, аврора-свечение, пойнтеры
+   черт и хайрлайн. Всё завязано на токены — перекрашивается во
+   всех трёх темах автоматически, ни одного нового цвета.
+   Разметку-референс см. в листе персонажа.
+   ============================================================ */
+
+/* --- Стеклянная плитка: полупрозрачная поверхность с верхним бликом --- */
+.glass{
+  background:color-mix(in srgb, var(--surf) 82%, transparent);
+  border:1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-top-color:color-mix(in srgb, var(--ink) 9%, transparent);
+  border-radius:var(--r-3);
+}
+
+/* --- Шкала ресурса (HP/ярость/…): тонкий трек + заливка акцентом --- */
+/* дублируем значение текстом рядом («52 / 68») — цвет не единственный носитель */
+.meter{ height:6px; background:var(--inset); border-radius:999px; overflow:hidden; }
+.meter > i{ display:block; height:100%; border-radius:999px; background:var(--steel); }
+.meter.ember > i{ background:var(--ember); }
+/* ширину заливки задаём инлайн: <i style="width:76%"></i> */
+
+/* --- Аврора-акцент: одно мягкое холодное свечение (только 1 на экран) --- */
+/* строго декоративно: за контентом, кликов не ловит; родителю нужен
+   position:relative; overflow:hidden. Позиционируем инлайн. */
+.aurora{
+  position:absolute; width:280px; height:220px; pointer-events:none;
+  opacity:.42; filter:blur(8px);
+  background:radial-gradient(circle at 68% 32%,
+    color-mix(in srgb, var(--steel) 52%, transparent), transparent 66%);
+}
+
+/* --- Пойнтер черты: руна в стеклянной плитке со steel-рамкой --- */
+.trait-mark{
+  width:32px; height:32px; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--surf2); border:1px solid var(--steel-soft); border-radius:8px;
+  font-family:var(--rune); font-size:15px; color:var(--steel);
+}
+
+/* --- Хайрлайн-акцент под заголовком --- */
+.rule-bronze{ width:64px; height:2px; background:var(--bronze); }
+
+/* при печати гасим декоративное свечение (как .shell / .skog-deco) */
+@media print{ .aurora{ display:none !important; } }
+
+/* ============================================================
    ДЕКОР: скандинавские фоновые паттерны (общий слой)
    Розетка åttebladrose (водяной знак), зерно и полоса ельника.
    Все слои чисто оформительские: живут ЗА контентом, не ловят

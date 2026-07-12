@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru" data-default-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Рагнарёк-AU · Лист персонажа</title>
+<script>(function(){try{var t=localStorage.getItem('ragnarok-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<link rel="stylesheet" href="theme.css" />
+<style>
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); font-family:var(--sans); color:var(--ink); }
+
+  /* лист — центрированная колонка «страницы», как настоящий бланк */
+  .sheet{ max-width:560px; margin:0 auto; padding:26px 20px 60px; }
+
+  /* мелкий кикер — mono, разрядка, капс */
+  .kicker{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.3em;
+    text-transform:uppercase; color:var(--faint);
+  }
+
+  /* --- хедер --- */
+  .hero{
+    position:relative; overflow:hidden;      /* держит .aurora внутри */
+    padding:22px 22px 20px; margin-bottom:16px;
+  }
+  .hero .name{
+    font-family:var(--disp); font-weight:700; font-size:42px; line-height:.98;
+    color:var(--ink); margin:9px 0 12px;
+  }
+  .hero .cls{ display:flex; align-items:center; gap:9px; color:var(--muted); font-size:14px; }
+  .hero .cls .rune{ font-family:var(--rune); font-size:19px; color:var(--steel); }
+
+  /* --- секции --- */
+  .sec{ margin-top:20px; }
+  .sec > .kicker{ display:block; margin-bottom:10px; }
+
+  /* виталы */
+  .vitals{ padding:16px 18px; }
+  .vrow + .vrow{ margin-top:14px; }
+  .vhead{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:7px; }
+  .vhead .lbl{ font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+  .vhead .num{ font-family:var(--mono); font-size:12.5px; color:var(--ink); }
+
+  /* атрибуты — намеренно просторная сетка */
+  .attrs{ display:grid; grid-template-columns:repeat(3,1fr); gap:11px; }
+  .attr{ padding:16px 14px; text-align:center; }
+  .attr .a-lbl{ font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); }
+  .attr .a-val{ font-family:var(--mono); font-size:34px; line-height:1.05; color:var(--ink); margin:6px 0 8px; }
+  .attr.neg .a-val{ color:var(--muted); }
+  .attr .a-mod{
+    display:inline-block; font-family:var(--mono); font-size:12px; font-weight:500;
+    padding:2px 9px; border-radius:999px; color:var(--steel);
+    background:color-mix(in srgb, var(--steel) 15%, transparent);
+  }
+  .attr.neg .a-mod{ color:var(--faint); background:color-mix(in srgb, var(--faint) 15%, transparent); }
+
+  /* боевая строка — 4 ячейки через вертикальные разделители */
+  .combat{ display:flex; }
+  .combat .cell{ flex:1; text-align:center; padding:13px 8px; }
+  .combat .cell + .cell{ border-left:1px solid var(--line); }
+  .combat .c-lbl{ font-family:var(--mono); font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--faint); }
+  .combat .c-val{ font-family:var(--mono); font-size:20px; color:var(--ink); margin-top:5px; }
+
+  /* черты */
+  .trait{ display:flex; align-items:flex-start; gap:12px; padding:11px 0; }
+  .trait + .trait{ border-top:1px solid var(--line-soft); }
+  .trait .t-body{ flex:1; }
+  .trait .t-name{ font-family:var(--disp); font-size:16px; color:var(--ink); }
+  .trait .t-desc{ color:var(--muted); font-size:12.5px; line-height:1.5; margin-top:2px; }
+</style>
+</head>
+<body>
+<header data-shell data-here="sheet"></header>
+
+<main class="sheet">
+
+  <!-- 1 · ХЕДЕР -->
+  <section class="hero glass">
+    <span class="aurora" style="top:-70px; right:-40px;" aria-hidden="true"></span>
+    <span class="kicker">Лист персонажа · VII</span>
+    <h1 class="name">Хравн<br />сын Бури</h1>
+    <div class="cls"><span class="rune">ᚱ</span> Скальд&nbsp;·&nbsp;Рунознатец</div>
+    <div class="rule-bronze" style="margin-top:14px;"></div>
+  </section>
+
+  <!-- 2 · ВИТАЛЫ -->
+  <section class="vitals glass">
+    <div class="vrow">
+      <div class="vhead"><span class="lbl">Здоровье</span><span class="num">52&nbsp;/&nbsp;68</span></div>
+      <div class="meter"><i style="width:76%"></i></div>
+    </div>
+    <div class="vrow">
+      <div class="vhead"><span class="lbl">Ярость</span><span class="num">3&nbsp;/&nbsp;5</span></div>
+      <div class="meter ember"><i style="width:60%"></i></div>
+    </div>
+  </section>
+
+  <!-- 3 · АТРИБУТЫ -->
+  <section class="sec">
+    <span class="kicker">Атрибуты</span>
+    <div class="attrs">
+      <div class="attr glass"><div class="a-lbl">Сила</div><div class="a-val">16</div><span class="a-mod">+3</span></div>
+      <div class="attr glass"><div class="a-lbl">Ловкость</div><div class="a-val">14</div><span class="a-mod">+2</span></div>
+      <div class="attr glass"><div class="a-lbl">Стойкость</div><div class="a-val">15</div><span class="a-mod">+2</span></div>
+      <div class="attr glass"><div class="a-lbl">Смекалка</div><div class="a-val">12</div><span class="a-mod">+1</span></div>
+      <div class="attr glass"><div class="a-lbl">Дух</div><div class="a-val">18</div><span class="a-mod">+4</span></div>
+      <div class="attr glass neg"><div class="a-lbl">Воля</div><div class="a-val">9</div><span class="a-mod">−1</span></div>
+    </div>
+  </section>
+
+  <!-- 4 · БОЕВАЯ СТРОКА -->
+  <section class="sec">
+    <div class="combat glass">
+      <div class="cell"><div class="c-lbl">КЗ</div><div class="c-val">15</div></div>
+      <div class="cell"><div class="c-lbl">Иниц</div><div class="c-val">+2</div></div>
+      <div class="cell"><div class="c-lbl">Скор</div><div class="c-val">9</div></div>
+      <div class="cell"><div class="c-lbl">Стойк</div><div class="c-val">13</div></div>
+    </div>
+  </section>
+
+  <!-- 5 · ЧЕРТЫ -->
+  <section class="sec">
+    <span class="kicker">Черты</span>
+    <div class="traits">
+      <div class="trait">
+        <span class="trait-mark" aria-hidden="true">ᚦ</span>
+        <div class="t-body">
+          <div class="t-name">Кровь ётуна</div>
+          <div class="t-desc">Раз за сцену игнорируешь первый штраф от ран. В стуже и буре не мёрзнешь.</div>
+        </div>
+      </div>
+      <div class="trait">
+        <span class="trait-mark" aria-hidden="true">ᚱ</span>
+        <div class="t-body">
+          <div class="t-name">Рунная память</div>
+          <div class="t-desc">Держишь в уме на одну руну больше предела Духа; читаешь стёртые вязи с проверкой Смекалки.</div>
+        </div>
+      </div>
+      <div class="trait">
+        <span class="trait-mark" aria-hidden="true">ᛊ</span>
+        <div class="t-body">
+          <div class="t-name">Ярость бури</div>
+          <div class="t-desc">Потрать заряд Ярости — и следующий удар бьёт с преимуществом, но открывает тебя до конца хода.</div>
+        </div>
+      </div>
+      <div class="trait">
+        <span class="trait-mark" aria-hidden="true">ᛒ</span>
+        <div class="t-body">
+          <div class="t-name">Клятва рода</div>
+          <div class="t-desc">Защищая соклятвенника в пределах хвата, получаешь +1 к Стойкости и не можешь быть смещён силой.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="app-shell.js" defer></script>
+</body>
+</html>
