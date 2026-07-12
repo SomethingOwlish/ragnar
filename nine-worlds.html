@@ -43,10 +43,10 @@ const GOLD = "var(--bronze)";
 const INK = "var(--bg)";
 
 const initialLegend = [
-  { id: "branch", label: "Ветви Иггдрасиля", color: "#6b8e23" },
-  { id: "bifrost", label: "Бифрёст", color: "#38bdf8" },
-  { id: "roots", label: "Корни", color: "#8b5e34" },
-  { id: "rift", label: "Разлом", color: "#d946ef" },
+  { id: "branch", label: "Ветви Иггдрасиля", color: "var(--c-olive)" },
+  { id: "bifrost", label: "Бифрёст", color: "var(--steel)" },
+  { id: "roots", label: "Корни", color: "var(--c-brown)" },
+  { id: "rift", label: "Разлом", color: "var(--c-magenta)" },
 ];
 
 /* Раскладка «древо жизни»: центральный столп из 5 миров + по 2 слева/справа */
@@ -57,22 +57,22 @@ const initialWorlds = [
       { id: "as2", name: "Вальхалла", tags: ["павшие", "пир"], vis: true },
       { id: "as3", name: "Идавёлль", tags: ["после Рагнарёка"], vis: false },
     ] },
-  { id: "alfheim", name: "Альвхейм", sub: "дом светлых альвов", color: "#cfe8ff", x: 450, y: 280,
+  { id: "alfheim", name: "Альвхейм", sub: "дом светлых альвов", color: "var(--c-ice)", x: 450, y: 280,
     locations: [
       { id: "al1", name: "Светлая роща", tags: ["свет", "альвы"], vis: true },
       { id: "al2", name: "Грань зари", tags: ["граница", "переход"], vis: true },
     ] },
-  { id: "vanaheim", name: "Ванахейм", sub: "земля ванов, изобилие", color: "#6bbf59", x: 200, y: 370,
+  { id: "vanaheim", name: "Ванахейм", sub: "земля ванов, изобилие", color: "var(--c-green)", x: 200, y: 370,
     locations: [
       { id: "va1", name: "Дикий сад", tags: ["плодородие", "ваны"], vis: true },
       { id: "va2", name: "Старая ярмарка", tags: ["обмен", "перемирие"], vis: true },
     ] },
-  { id: "niflheim", name: "Нифльхейм", sub: "туман, лёд, исток", color: "#bcdcff", x: 700, y: 370,
+  { id: "niflheim", name: "Нифльхейм", sub: "туман, лёд, исток", color: "var(--steel-soft)", x: 700, y: 370,
     locations: [
       { id: "ni1", name: "Хвергельмир", tags: ["исток", "корень"], vis: true },
       { id: "ni2", name: "Ледяные пустоши", tags: ["туман", "стужа"], vis: true },
     ] },
-  { id: "midgard", name: "Мидгард", sub: "мир людей — здесь прорастает миф", color: "#7f9cb5", x: 450, y: 520,
+  { id: "midgard", name: "Мидгард", sub: "мир людей — здесь прорастает миф", color: "var(--c-slate)", x: 450, y: 520,
     locations: [
       { id: "mi1", name: "Осло", tags: ["город", "люди"], vis: true },
       { id: "mi2", name: "Старый фьорд", tags: ["порог", "миф"], vis: true },
@@ -83,17 +83,17 @@ const initialWorlds = [
       { id: "mu1", name: "Чертог Сурта", tags: ["огонь", "меч"], vis: true },
       { id: "mu2", name: "Кромка пламени", tags: ["Рагнарёк"], vis: false },
     ] },
-  { id: "jotunheim", name: "Йотунхейм", sub: "владения йотунов", color: "#8b6fc4", x: 700, y: 670,
+  { id: "jotunheim", name: "Йотунхейм", sub: "владения йотунов", color: "var(--c-purple)", x: 700, y: 670,
     locations: [
       { id: "jo1", name: "Железный лес", tags: ["Ангрбода", "чудовища"], vis: true },
       { id: "jo2", name: "Утгард", tags: ["великаны", "обман"], vis: true },
     ] },
-  { id: "svartalfheim", name: "Свартальвхейм", sub: "кузни и тьма двемеров", color: "#f0883e", x: 450, y: 760,
+  { id: "svartalfheim", name: "Свартальвхейм", sub: "кузни и тьма двемеров", color: "var(--ember)", x: 450, y: 760,
     locations: [
       { id: "sv1", name: "Кузни Нидавеллира", tags: ["двемеры", "артефакты"], vis: true },
       { id: "sv2", name: "Глубокие штольни", tags: ["тьма", "эхо"], vis: true },
     ] },
-  { id: "helheim", name: "Хельхейм", sub: "царство мёртвых", color: "#4fb3a3", x: 450, y: 970,
+  { id: "helheim", name: "Хельхейм", sub: "царство мёртвых", color: "var(--c-teal)", x: 450, y: 970,
     locations: [
       { id: "he1", name: "Врата Хель", tags: ["мёртвые", "порог"], vis: true },
       { id: "he2", name: "Настранд", tags: ["яд", "Нидхёгг"], vis: false },
@@ -281,7 +281,7 @@ function NineWorlds() {
 
   /* --- легенда --- */
   const patchLegend = (lid, patch) => setLegend((ls) => ls.map((l) => (l.id === lid ? { ...l, ...patch } : l)));
-  const addLegend = () => setLegend((ls) => [...ls, { id: uid("t"), label: "Новая связь", color: "#9aa0aa" }]);
+  const addLegend = () => setLegend((ls) => [...ls, { id: uid("t"), label: "Новая связь", color: "var(--faint)" }]);
   const delLegend = (lid) => {
     if (legend.length <= 1) return;
     const fallback = legend.find((l) => l.id !== lid).id;
@@ -396,13 +396,13 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
         {shownEdges.map((e) => {
           const a = worldMap[e.from], b = worldMap[e.to];
           if (!a || !b) return null;
-          const c = legendMap[e.type]?.color || "#888";
+          const c = legendMap[e.type]?.color || "var(--faint)";
           const hidden = !e.vis;
           const isSel = selEdge === e.id;
           const d = edgePath(e);
           return (
             <g key={e.id}>
-              {isSel && <path d={d} fill="none" stroke="#fff" strokeWidth="8" opacity="0.45" strokeLinecap="round" />}
+              {isSel && <path d={d} fill="none" stroke="var(--steel)" strokeWidth="8" opacity="0.45" strokeLinecap="round" />}
               <path d={d} fill="none" stroke={c} strokeWidth={isSel ? 4 : 2.6}
                 opacity={hidden ? 0.28 : 0.85} strokeDasharray={hidden ? "5 7" : undefined} strokeLinecap="round" />
               {gm && !linking && (
@@ -430,14 +430,14 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
 
       {/* Баннер связывания */}
       {linking && (
-        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: `1px solid ${GOLD}`, borderRadius: 12, padding: "8px 14px", color: GOLD, fontSize: 13 }}>
+        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "var(--surf2)", border: `1px solid ${GOLD}`, borderRadius: 12, padding: "8px 14px", color: GOLD, fontSize: 13 }}>
           {linkFrom ? `Из «${worldMap[linkFrom]?.name}» → выбери второй мир` : "Новая связь: выбери первый мир"}
         </div>
       )}
 
       {/* Инспектор связи */}
       {gm && !linking && sel && (
-        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", width: "min(340px, 92%)" }}>
+        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "var(--surf2)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", width: "min(340px, 92%)" }}>
           <div className="flex items-center justify-between mb-2">
             <div style={{ fontSize: 13, color: GOLD }}>{worldMap[sel.from]?.name} — {worldMap[sel.to]?.name}</div>
             <button onClick={() => setSelEdge(null)} style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer" }}><X size={16} /></button>
@@ -447,7 +447,7 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
               <button key={t.id} onClick={() => setEdgeType(sel.id, t.id)} className="flex items-center gap-1"
                 style={{ fontSize: 12, padding: "3px 8px", borderRadius: 16, cursor: "pointer",
                   border: sel.type === t.id ? `1px solid ${t.color}` : "1px solid var(--line)",
-                  background: sel.type === t.id ? `${t.color}26` : "transparent", color: "var(--ink)" }}>
+                  background: sel.type === t.id ? `color-mix(in srgb, ${t.color} 15%, transparent)` : "transparent", color: "var(--ink)" }}>
                 <span style={{ width: 12, height: 3, borderRadius: 2, background: t.color, display: "inline-block" }} /> {t.label}
               </button>
             ))}
@@ -464,7 +464,7 @@ function MapView({ worlds, edges, legend, legendMap, worldMap, gm, selEdge, setS
       )}
 
       {/* Легенда */}
-      <div className="absolute left-4 bottom-4" style={{ background: "rgba(10,14,26,.82)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", minWidth: 210 }}>
+      <div className="absolute left-4 bottom-4" style={{ background: "var(--surf2)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", minWidth: 210 }}>
         <div className="flex items-center gap-2 mb-2" style={{ color: GOLD, fontSize: 12, letterSpacing: ".5px", textTransform: "uppercase" }}>
           <Palette size={13} /> Связи
         </div>
@@ -553,7 +553,7 @@ function LocationCard({ loc, world, gm, patchLoc, delLoc, addTag, delTag, ptags,
         {gm && (
           <div className="flex items-center gap-1">
             <button title={loc.vis ? "Видна игрокам" : "Скрыта от игроков"} onClick={() => patchLoc(world.id, loc.id, { vis: !loc.vis })}
-              style={{ background: "none", border: "none", cursor: "pointer", color: loc.vis ? "#6bbf59" : "var(--muted)" }}>
+              style={{ background: "none", border: "none", cursor: "pointer", color: loc.vis ? "var(--steel)" : "var(--muted)" }}>
               {loc.vis ? <Eye size={16} /> : <EyeOff size={16} />}
             </button>
             <button title="Удалить" onClick={() => delLoc(world.id, loc.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}><Trash2 size={15} /></button>
@@ -564,7 +564,7 @@ function LocationCard({ loc, world, gm, patchLoc, delLoc, addTag, delTag, ptags,
       <div className="flex flex-wrap gap-1.5">
         {loc.tags.map((t, i) => (
           <span key={"g" + i} className="flex items-center gap-1"
-            style={{ fontSize: 11, background: `${world.color}26`, border: `1px solid ${world.color}55`, color: "var(--ink)", borderRadius: 20, padding: "2px 9px" }}>
+            style={{ fontSize: 11, background: `color-mix(in srgb, ${world.color} 15%, transparent)`, border: `1px solid color-mix(in srgb, ${world.color} 33%, transparent)`, color: "var(--ink)", borderRadius: 20, padding: "2px 9px" }}>
             {t}
             {gm && <button onClick={() => delTag(world.id, loc.id, i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink)", lineHeight: 1 }}><X size={11} /></button>}
           </span>

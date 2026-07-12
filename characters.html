@@ -46,20 +46,20 @@ const VBW = 1280, VBH = 860;
 
 /* 9 миров + чудовища */
 const KINDS = {
-  "асы": "var(--bronze)", "ваны": "#6bbf59", "альвы": "#9fd0ff", "люди": "#7f9cb5",
-  "йотуны": "#8b6fc4", "двемеры": "#f0883e", "мёртвые": "#4fb3a3",
-  "нифльхейм": "#88b4e8", "муспельхейм": "var(--red)", "чудовища": "#d0455a",
+  "асы": "var(--bronze)", "ваны": "var(--c-green)", "альвы": "var(--c-ice)", "люди": "var(--c-slate)",
+  "йотуны": "var(--c-purple)", "двемеры": "var(--ember)", "мёртвые": "var(--c-teal)",
+  "нифльхейм": "var(--steel-soft)", "муспельхейм": "var(--red)", "чудовища": "var(--red)",
 };
 const KIND_LIST = Object.keys(KINDS);
 
 const initialLegend = [
-  { id: "ally", label: "Союз", color: "#6bbf59", directed: false },
-  { id: "feud", label: "Вражда", color: "#d0455a", directed: false },
-  { id: "kin", label: "Родство", color: "#b5793f", directed: false },
-  { id: "love", label: "Любовь / узы", color: "#e58fb0", directed: false },
+  { id: "ally", label: "Союз", color: "var(--c-green)", directed: false },
+  { id: "feud", label: "Вражда", color: "var(--red)", directed: false },
+  { id: "kin", label: "Родство", color: "var(--c-brown)", directed: false },
+  { id: "love", label: "Любовь / узы", color: "var(--c-pink)", directed: false },
   { id: "oath", label: "Долг / клятва", color: "var(--bronze)", directed: false },
-  { id: "mentor", label: "Наставник →", color: "#9b6fe0", directed: true },
-  { id: "secret", label: "Тайна", color: "#d946ef", directed: false },
+  { id: "mentor", label: "Наставник →", color: "var(--c-purple)", directed: true },
+  { id: "secret", label: "Тайна", color: "var(--c-magenta)", directed: false },
 ];
 
 const initialNodes = [
@@ -346,7 +346,7 @@ function Characters() {
 
   /* легенда */
   const patchLegend = (lid, patch) => setLegend((ls) => ls.map((l) => (l.id === lid ? { ...l, ...patch } : l)));
-  const addLegend = () => setLegend((ls) => [...ls, { id: uid("t"), label: "Новый тип", color: "#9aa0aa", directed: false }]);
+  const addLegend = () => setLegend((ls) => [...ls, { id: uid("t"), label: "Новый тип", color: "var(--faint)", directed: false }]);
   const delLegend = (lid) => { if (legend.length <= 1) return; const fb = legend.find((l) => l.id !== lid).id; setLegend((ls) => ls.filter((l) => l.id !== lid)); setEdges((es) => es.map((e) => (e.type === lid ? { ...e, type: fb } : e))); };
 
   const q = query.trim().toLowerCase();
@@ -403,18 +403,18 @@ function Characters() {
       <div className="relative">
         {/* поиск */}
         <div className="absolute" style={{ top: 12, right: 16, zIndex: 6, width: "min(260px, 70%)" }}>
-          <div className="flex items-center gap-2" style={{ background: "rgba(10,14,26,.92)", border: "1px solid var(--surf2)", borderRadius: 10, padding: "5px 10px" }}>
+          <div className="flex items-center gap-2" style={{ background: "var(--surf2)", border: "1px solid var(--surf2)", borderRadius: 10, padding: "5px 10px" }}>
             <Search size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="поиск персонажа…"
               style={{ flex: 1, background: "none", border: "none", outline: "none", color: "var(--ink)", fontSize: 13 }} />
             {query && <button onClick={() => setQuery("")} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }}><X size={14} /></button>}
           </div>
           {results.length > 0 && (
-            <div style={{ marginTop: 4, background: "rgba(10,14,26,.96)", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ marginTop: 4, background: "var(--surf2)", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
               {results.map((n) => (
                 <button key={n.id} onClick={() => focusNode(n.id)} className="flex items-center gap-2"
                   style={{ width: "100%", textAlign: "left", padding: "6px 10px", background: "none", border: "none", borderBottom: "1px solid var(--line-soft)", color: "var(--ink)", cursor: "pointer", fontSize: 13 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: KINDS[n.kind] || "#888", flexShrink: 0 }} />
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: KINDS[n.kind] || "var(--faint)", flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>{n.name}</span>
                   <span style={{ fontSize: 11, color: "var(--muted)" }}>{n.kind}</span>
                 </button>
@@ -424,7 +424,7 @@ function Characters() {
         </div>
 
         {/* фильтр по виду */}
-        <div className="absolute" style={{ left: 16, bottom: 16, zIndex: 6, background: "rgba(10,14,26,.88)", border: "1px solid var(--line)", borderRadius: 12, padding: 10, maxWidth: "min(380px, 80%)" }}>
+        <div className="absolute" style={{ left: 16, bottom: 16, zIndex: 6, background: "var(--surf2)", border: "1px solid var(--line)", borderRadius: 12, padding: 10, maxWidth: "min(380px, 80%)" }}>
           <div className="flex items-center justify-between mb-1.5" style={{ fontSize: 10.5, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".5px" }}>
             <span>Фильтр по виду</span>
             {kindFilter.size > 0 && <button onClick={() => setKindFilter(new Set())} style={{ background: "none", border: "none", color: GOLD, cursor: "pointer", fontSize: 11 }}>сбросить</button>}
@@ -437,7 +437,7 @@ function Characters() {
                 <button key={k} onClick={() => toggleKind(k)} className="flex items-center gap-1"
                   style={{ fontSize: 11.5, padding: "2px 8px", borderRadius: 14, cursor: "pointer",
                     border: on ? `1px solid ${KINDS[k]}` : "1px solid var(--line)",
-                    background: on ? `${KINDS[k]}26` : "transparent", color: active ? "var(--ink)" : "var(--faint)", opacity: active ? 1 : 0.55 }}>
+                    background: on ? `color-mix(in srgb, ${KINDS[k]} 15%, transparent)` : "transparent", color: active ? "var(--ink)" : "var(--faint)", opacity: active ? 1 : 0.55 }}>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: KINDS[k], display: "inline-block" }} />{k}
                 </button>
               );
@@ -517,11 +517,11 @@ function MapView(props) {
         <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
           {shownEdges.map((e) => {
             const g = geom(e); if (!g) return null;
-            const lt = legendMap[e.type]; const color = lt?.color || "#888";
+            const lt = legendMap[e.type]; const color = lt?.color || "var(--faint)";
             const hidden = !e.vis; const isSel = selEdge === e.id;
             return (
               <g key={e.id}>
-                {isSel && <path d={g.d} fill="none" stroke="#fff" strokeWidth="7" opacity="0.45" strokeLinecap="round" />}
+                {isSel && <path d={g.d} fill="none" stroke="var(--steel)" strokeWidth="7" opacity="0.45" strokeLinecap="round" />}
                 <path d={g.d} fill="none" stroke={color} strokeWidth={isSel ? 3.5 : 2.2} opacity={hidden ? 0.26 : 0.8} strokeDasharray={hidden ? "5 7" : undefined} strokeLinecap="round" />
                 {lt?.directed && arrow(e, g, color)}
                 {gm && !linking && <path d={g.d} fill="none" stroke="transparent" strokeWidth="15" style={{ cursor: "pointer" }} onClick={() => setSelEdge(e.id)} />}
@@ -531,11 +531,11 @@ function MapView(props) {
           {shownNodes.map((n) => {
             const armed = linkFrom === n.id, here = selected === n.id;
             const hit = q && n.name.toLowerCase().includes(q);
-            const col = KINDS[n.kind] || "#9aa0aa";
+            const col = KINDS[n.kind] || "var(--faint)";
             const dim = gm && !n.vis;
             return (
               <g key={n.id} className="c-node" onPointerDown={(e) => onNodeDown(e, n.id)} style={{ opacity: dim ? 0.4 : (q && !hit ? 0.3 : 1) }}>
-                {hit && <circle cx={n.x} cy={n.y} r={R + 9} fill="none" stroke="#fff" strokeWidth="2" opacity="0.8" />}
+                {hit && <circle cx={n.x} cy={n.y} r={R + 9} fill="none" stroke="var(--steel)" strokeWidth="2" opacity="0.8" />}
                 {(armed || here) && <circle cx={n.x} cy={n.y} r={R + 6} fill="none" stroke={GOLD} strokeWidth="2" strokeDasharray={armed ? "4 4" : undefined} />}
                 <circle cx={n.x} cy={n.y} r={R} fill={col} stroke="var(--bg)" strokeWidth="2.5" />
                 <circle cx={n.x} cy={n.y} r={R} fill="none" stroke="var(--line)" strokeWidth="1" />
@@ -554,13 +554,13 @@ function MapView(props) {
       </div>
 
       {linking && (
-        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: `1px solid ${GOLD}`, borderRadius: 12, padding: "8px 14px", color: GOLD, fontSize: 13 }}>
+        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "var(--surf2)", border: `1px solid ${GOLD}`, borderRadius: 12, padding: "8px 14px", color: GOLD, fontSize: 13 }}>
           {linkFrom ? `Из «${nodeMap[linkFrom]?.name}» → выбери второго (он — цель стрелки)` : "Новая связь: выбери первого"}
         </div>
       )}
 
       {gm && !linking && sel && (
-        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "rgba(10,14,26,.92)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", width: "min(360px, 92%)" }}>
+        <div className="absolute" style={{ top: 12, left: "50%", transform: "translateX(-50%)", background: "var(--surf2)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 12, backdropFilter: "blur(6px)", width: "min(360px, 92%)" }}>
           <div className="flex items-center justify-between mb-2">
             <div style={{ fontSize: 13, color: GOLD }}>{nodeMap[sel.from]?.name} → {nodeMap[sel.to]?.name}</div>
             <button onClick={() => setSelEdge(null)} style={{ background: "none", border: "none", color: "var(--ink)", cursor: "pointer" }}><X size={16} /></button>
@@ -568,7 +568,7 @@ function MapView(props) {
           <div className="flex flex-wrap gap-1.5 mb-2">
             {legend.map((t) => (
               <button key={t.id} onClick={() => setEdgeType(sel.id, t.id)} className="flex items-center gap-1"
-                style={{ fontSize: 12, padding: "3px 8px", borderRadius: 16, cursor: "pointer", border: sel.type === t.id ? `1px solid ${t.color}` : "1px solid var(--line)", background: sel.type === t.id ? `${t.color}26` : "transparent", color: "var(--ink)" }}>
+                style={{ fontSize: 12, padding: "3px 8px", borderRadius: 16, cursor: "pointer", border: sel.type === t.id ? `1px solid ${t.color}` : "1px solid var(--line)", background: sel.type === t.id ? `color-mix(in srgb, ${t.color} 15%, transparent)` : "transparent", color: "var(--ink)" }}>
                 <span style={{ width: 12, height: 3, borderRadius: 2, background: t.color, display: "inline-block" }} /> {t.label}
               </button>
             ))}
@@ -580,7 +580,7 @@ function MapView(props) {
         </div>
       )}
 
-      <div className="absolute right-4 bottom-4" style={{ background: "rgba(10,14,26,.84)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 11, backdropFilter: "blur(6px)", maxWidth: 320 }}>
+      <div className="absolute right-4 bottom-4" style={{ background: "var(--surf2)", border: "1px solid var(--surf2)", borderRadius: 12, padding: 11, backdropFilter: "blur(6px)", maxWidth: 320 }}>
         <div className="flex items-center gap-2 mb-1" style={{ color: GOLD, fontSize: 10.5, letterSpacing: ".5px", textTransform: "uppercase" }}>
           <Palette size={11} /> Связи
         </div>
@@ -626,19 +626,19 @@ function GridView({ nodes, gm, selected, q, kindFilter, patchNode, onSelect }) {
         <line x1={cx - hw} y1={cy} x2={cx + hw} y2={cy} stroke="var(--line)" strokeWidth="1.5" />
         <line x1={cx} y1={cy - hh} x2={cx} y2={cy + hh} stroke="var(--line)" strokeWidth="1.5" />
         <rect x={cx - hw} y={cy - hh} width={hw * 2} height={hh * 2} fill="none" stroke="var(--line-soft)" />
-        <text x={cx} y={cy - hh - 12} textAnchor="middle" style={{ fontSize: 13, fill: "#d0455a", letterSpacing: ".5px" }}>ЗА РАГНАРЁК</text>
-        <text x={cx} y={cy + hh + 22} textAnchor="middle" style={{ fontSize: 13, fill: "#6bbf59", letterSpacing: ".5px" }}>ПРОТИВ</text>
-        <text x={cx - hw - 8} y={cy - 6} textAnchor="end" style={{ fontSize: 13, fill: "#ef8b3a", letterSpacing: ".5px" }}>ХАОС</text>
-        <text x={cx + hw + 8} y={cy - 6} textAnchor="start" style={{ fontSize: 13, fill: "#5aa9e6", letterSpacing: ".5px" }}>ПОРЯДОК</text>
+        <text x={cx} y={cy - hh - 12} textAnchor="middle" style={{ fontSize: 13, fill: "var(--red)", letterSpacing: ".5px" }}>ЗА РАГНАРЁК</text>
+        <text x={cx} y={cy + hh + 22} textAnchor="middle" style={{ fontSize: 13, fill: "var(--c-green)", letterSpacing: ".5px" }}>ПРОТИВ</text>
+        <text x={cx - hw - 8} y={cy - 6} textAnchor="end" style={{ fontSize: 13, fill: "var(--ember)", letterSpacing: ".5px" }}>ХАОС</text>
+        <text x={cx + hw + 8} y={cy - 6} textAnchor="start" style={{ fontSize: 13, fill: "var(--steel)", letterSpacing: ".5px" }}>ПОРЯДОК</text>
         {/* точки */}
         {shown.map((n) => {
           const here = selected === n.id;
           const hit = q && n.name.toLowerCase().includes(q);
-          const col = KINDS[n.kind] || "#9aa0aa";
+          const col = KINDS[n.kind] || "var(--faint)";
           const dim = gm && !n.vis;
           return (
             <g key={n.id} className="c-node" onPointerDown={(e) => onDown(e, n.id)} style={{ opacity: dim ? 0.4 : (q && !hit ? 0.3 : 1) }}>
-              {hit && <circle cx={px(n.ax)} cy={py(n.ay)} r="15" fill="none" stroke="#fff" strokeWidth="2" />}
+              {hit && <circle cx={px(n.ax)} cy={py(n.ay)} r="15" fill="none" stroke="var(--steel)" strokeWidth="2" />}
               {here && <circle cx={px(n.ax)} cy={py(n.ay)} r="13" fill="none" stroke={GOLD} strokeWidth="2" />}
               <circle cx={px(n.ax)} cy={py(n.ay)} r="7" fill={col} stroke="var(--bg)" strokeWidth="1.5" />
               <text x={px(n.ax)} y={py(n.ay) - 11} textAnchor="middle" style={{ fontSize: 11, fill: "var(--ink)" }}>{n.name}</text>
@@ -671,7 +671,7 @@ function ZonesView({ nodes, kindFilter, onSelect }) {
     <button onClick={() => onSelect(n.id)} className="flex items-center gap-2"
       style={{ width: "100%", textAlign: "left", padding: "6px 9px", borderRadius: 8, cursor: "pointer",
         background: "var(--surf)", border: "1px solid var(--line)", color: "var(--ink)", opacity: n.vis ? 1 : 0.5 }}>
-      <span style={{ width: 10, height: 10, borderRadius: "50%", background: KINDS[n.kind] || "#888", flexShrink: 0 }} />
+      <span style={{ width: 10, height: 10, borderRadius: "50%", background: KINDS[n.kind] || "var(--faint)", flexShrink: 0 }} />
       <span style={{ flex: 1, fontSize: 13 }}>{n.name}</span>
       {!n.vis && <EyeOff size={12} style={{ color: "var(--muted)", flexShrink: 0 }} />}
       <span style={{ fontSize: 10.5, color: "var(--muted)" }}>{n.kind}</span>
@@ -719,7 +719,7 @@ function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, d
   // подсказки лояльности — все уже использованные в графе значения (консистентные ярлыки для вида по зонам)
   const loySuggest = useMemo(() => Array.from(new Set(Object.values(nodeMap).flatMap((n) => n.loyalty || []))).sort((a, b) => a.localeCompare(b)), [nodeMap]);
   const addLoy = () => { const v = loyInput.trim(); if (v && !(node.loyalty || []).some((x) => x.toLowerCase() === v.toLowerCase())) patchNode(node.id, { loyalty: [...(node.loyalty || []), v] }); setLoyInput(""); };
-  const col = KINDS[node.kind] || "#9aa0aa";
+  const col = KINDS[node.kind] || "var(--faint)";
   const rels = edges.filter((e) => (e.from === node.id || e.to === node.id) && (gm || e.vis));
   return (
     <div className="c-slide" style={{ position: "fixed", top: "var(--shell-h, 64px)", right: 0, bottom: 0, width: "min(360px, 92vw)", zIndex: 30,
@@ -789,11 +789,11 @@ function NodeDrawer({ node, gm, edges, nodeMap, legendMap, onClose, patchNode, d
           const dirMark = lt.directed ? (outgoing ? "→" : "←") : "·";
           return (
             <div key={e.id} className="flex items-center gap-2" style={{ background: "var(--surf)", border: "1px solid var(--surf2)", borderRadius: 10, padding: "6px 10px", opacity: gm && !e.vis ? 0.55 : 1 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: lt.color || "#888", flexShrink: 0 }} />
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: lt.color || "var(--faint)", flexShrink: 0 }} />
               <div style={{ flex: 1, fontSize: 13 }}><span style={{ color: "var(--muted)" }}>{lt.label || e.type}</span> <span style={{ color: "var(--ink)" }}>{dirMark} {other?.name || "?"}</span></div>
               {gm && (
                 <>
-                  <button onClick={() => toggleEdgeVis(e.id)} title={e.vis ? "Видна" : "Скрыта"} style={{ background: "none", border: "none", cursor: "pointer", color: e.vis ? "#6bbf59" : "var(--muted)" }}>{e.vis ? <Eye size={15} /> : <EyeOff size={15} />}</button>
+                  <button onClick={() => toggleEdgeVis(e.id)} title={e.vis ? "Видна" : "Скрыта"} style={{ background: "none", border: "none", cursor: "pointer", color: e.vis ? "var(--c-green)" : "var(--muted)" }}>{e.vis ? <Eye size={15} /> : <EyeOff size={15} />}</button>
                   <button onClick={() => delEdge(e.id)} title="Убрать" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}><Trash2 size={14} /></button>
                 </>
               )}
