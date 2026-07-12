@@ -250,6 +250,18 @@ button{font-family:inherit; cursor:pointer;}
 .adv-modal h3{font-family:var(--disp); font-weight:600; font-size:20px; margin:0 0 4px; display:flex; align-items:center; gap:9px;}
 .adv-modal h3 .rune{color:var(--bronze);}
 .adv-modal .asub{font-size:13px; color:var(--muted); margin-bottom:16px; line-height:1.5;}
+.shard-modal{position:relative; max-width:480px;}
+.sm-x{position:absolute; top:14px; right:14px; width:30px; height:30px; border:1px solid var(--line); border-radius:8px; background:none; color:var(--muted); font-size:20px; line-height:1; cursor:pointer;}
+.sm-x:hover{border-color:var(--bronze); color:var(--ember);}
+.sm-head{display:flex; align-items:center; gap:14px; margin:2px 0 16px; padding-right:34px;}
+.sm-emblem{flex:0 0 auto; width:66px; height:82px; border:1px solid var(--line-warm); border-radius:11px; display:flex; align-items:center; justify-content:center; background:var(--warm-inset); background-size:cover; background-position:center; color:var(--niche-idle); position:relative; overflow:hidden;}
+.sm-emblem .rune{font-size:32px; position:relative; z-index:1;}
+.sm-emblem.lit{background:radial-gradient(circle at 50% 36%, #F6CE85, #E3A848); border-color:var(--bronze-deep); color:#4A3208; box-shadow:0 2px 12px -4px rgba(188,126,42,.6);}
+.sm-emblem[style*="url"]::before{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,.12), rgba(0,0,0,.62));}
+.sm-emblem[style*="url"] .rune{color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9);}
+.sm-eyebrow{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); font-weight:600; margin-bottom:4px;}
+.sm-body{font-size:14px; line-height:1.6; color:var(--ink); white-space:pre-wrap;}
+.sm-actions{margin-top:18px; display:flex; justify-content:flex-end;}
 .adv-seg-label{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); font-weight:600; margin:14px 0 7px;}
 .adv-pick{display:flex; gap:8px; flex-wrap:wrap;}
 .adv-chip{padding:8px 13px; border:1px solid var(--line); border-radius:8px; background:var(--surf2); font-size:13px; color:inherit;}
@@ -695,6 +707,7 @@ function App() {
   const [dirty, setDirty] = useState(false);              // есть правки, не отправленные в облако
   const [applying, setApplying] = useState(false);        // идёт отправка в облако
   const [advOpen, setAdvOpen] = useState(false);          // открыта модалка прокачки (DEV-1)
+  const [shardOpen, setShardOpen] = useState(null);       // индекс осколка, открытого модалкой (тексты не лезут в тултип)
   const [editing, setEditing] = useState(false);          // правка карточки — за кнопкой
   const [gmEditing, setGmEditing] = useState(false);      // ведущая правит карту игрока
   const canEdit = !gmview && editing;                     // игрок правит обычные поля
@@ -1026,7 +1039,7 @@ function App() {
         <div className="sec-title"><span className="rune">ᛟ</span> Божественное</div>
         <div className="shard-cap" style={{ marginTop: 6 }}>Осколок истинной природы за каждый из девяти миров. Лит — обретён.</div>
         <div className="shards">
-          {Array.from({ length: 9 }, (_, i) => i).map((i) => { const got = i < data.shards; const sd = (data.shardData || [])[i] || {}; const rune = got ? (sd.rune || "✦") : "?"; const img = got ? (sd.img || "") : ""; const tip = got ? ((sd.title ? sd.title + " — " : "") + (sd.text || "осколок обретён")) : ("Мир " + (i + 1) + " · ещё не обретён"); return (<button key={i} className={"niche" + (got ? " lit" : "") + (img ? " hasimg" : "")} onClick={() => { if (canEdit || gmCanEdit) set({ shards: data.shards === i + 1 ? i : i + 1 }); }} style={{ cursor: canEdit || gmCanEdit ? "pointer" : "default", backgroundImage: img ? "url(" + img + ")" : undefined }} data-tip={tip} title={tip}><span className="rune">{rune}</span><span className="n">{i + 1}</span></button>); })}
+          {Array.from({ length: 9 }, (_, i) => i).map((i) => { const got = i < data.shards; const sd = (data.shardData || [])[i] || {}; const rune = got ? (sd.rune || "✦") : "?"; const img = got ? (sd.img || "") : ""; const tip = got ? ((sd.title ? sd.title : "Осколок " + (i + 1)) + " · нажми, чтобы открыть") : ("Мир " + (i + 1) + " · ещё не обретён"); return (<button key={i} className={"niche" + (got ? " lit" : "") + (img ? " hasimg" : "")} onClick={() => setShardOpen(i)} style={{ cursor: "pointer", backgroundImage: img ? "url(" + img + ")" : undefined }} data-tip={tip} title={tip}><span className="rune">{rune}</span><span className="n">{i + 1}</span></button>); })}
         </div>
         <div className="shard-cap"><b>{data.shards}</b> из 9 обретено</div>
         <DivinePath completed={data.shards} />
@@ -1075,6 +1088,7 @@ function App() {
       <div className="footnote">v0.7 · экран игрока. {cloud ? "Облако подключено — карта пишется в Firebase." : "Облако не настроено — карта живёт локально в браузере."} Кубики и руны кидаются вживую. Кнопка «Печать» даёт отдельный компактный лист.</div>
     </div>
     {advOpen && !gmview && <AdvanceModal data={data} lists={lists} onApply={applyAdvance} onClose={() => setAdvOpen(false)} />}
+    {shardOpen != null && <ShardModal index={shardOpen} data={data} canEdit={canEdit || gmCanEdit} onToggle={() => set({ shards: data.shards === shardOpen + 1 ? shardOpen : shardOpen + 1 })} onClose={() => setShardOpen(null)} />}
     <PrintSheet data={data} />
     </React.Fragment>
   );
@@ -1388,6 +1402,35 @@ function SkillRow({ sk, value, core, onChange }) {
       <div className="track">
         {!core && (<button className={"pip untr" + (value == null ? " on" : "")} onClick={() => onChange(null)} title="не обучен (d4−2)">&mdash;</button>)}
         {DICE.map((d) => (<button key={d} className={"pip" + (value === d ? " on" : "")} onClick={() => onChange(d)}>d{d}</button>))}
+      </div>
+    </div>
+  );
+}
+
+function ShardModal({ index, data, canEdit, onToggle, onClose }) {
+  const got = index < data.shards;
+  const sd = (data.shardData || [])[index] || {};
+  const rune = got ? (sd.rune || "✦") : "?";
+  const img = got ? (sd.img || "") : "";
+  const title = got ? (sd.title || "Осколок " + (index + 1)) : ("Мир " + (index + 1));
+  const text = got ? (sd.text || "Осколок обретён.") : "Ещё не обретён.";
+  return (
+    <div className="adv-back" onClick={onClose}>
+      <div className="adv-modal shard-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="sm-x" onClick={onClose} title="закрыть">×</button>
+        <div className="sm-head">
+          <div className={"sm-emblem" + (got ? " lit" : "")} style={{ backgroundImage: img ? "url(" + img + ")" : undefined }}><span className="rune">{rune}</span></div>
+          <div>
+            <div className="sm-eyebrow">Мир {index + 1} · осколок истинной природы</div>
+            <h3>{title}</h3>
+          </div>
+        </div>
+        <div className="sm-body">{text}</div>
+        {canEdit && (
+          <div className="sm-actions">
+            <button className="iobtn" onClick={() => { onToggle(); onClose(); }}>{got ? "Снять осколок" : "Отметить обретённым"}</button>
+          </div>
+        )}
       </div>
     </div>
   );
