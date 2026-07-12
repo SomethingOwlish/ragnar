@@ -68,7 +68,7 @@
   // gm:true → пункт только для ведущей (игроку не показывается)
   var ITEMS = {
     portal: { label: "Портал",          rune: "ᛈ", href: "index.html" },
-    sheet:  { label: "Карта героя",      rune: "ᛗ", href: "ragnarok-character-sheet-cloud.html" },
+    sheet:  { label: "Карта героя",      rune: "ᛗ", href: "char-sheet-hybrid.html" },
     panel:  { label: "Панель ведущей",   rune: "ᛟ", href: "ragnarok-gm-panel.html", gm: true },
     init:   { label: "Инициатива",        rune: "ᛁ" },
     tree:   { label: "Древо судеб",       rune: "ᛏ", href: "divine-tree.html" },
