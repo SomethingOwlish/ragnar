@@ -79,6 +79,7 @@
     blog:   { label: "Блог",              rune: "ᚨ", href: "blog.html" },
     woy:    { label: "Колесо года",        rune: "ᛊ" },
     library:{ label: "Библиотека",        rune: "ᛦ" },
+    inv:    { label: "Инвентарь партии",   rune: "ᛘ" },
     npc:    { label: "Статблоки",          rune: "ᚦ", gm: true },
     names:  { label: "Имена",              rune: "ᛗ", gm: true },
     maps:   { label: "Карты и планы",      rune: "ᛚ", gm: true },
@@ -87,8 +88,8 @@
   };
 
   var NAV = {
-    player: ["portal", "sheet", "init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library"],
-    gm:     ["portal", "panel", "init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library", "names", "npc", "maps", "mcodex", "spot"],
+    player: ["portal", "sheet", "init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library", "inv"],
+    gm:     ["portal", "panel", "init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library", "inv", "names", "npc", "maps", "mcodex", "spot"],
     portal: [],
   };
 
@@ -100,7 +101,7 @@
   };
   // остальное прячем во вложенные выпадашки, чтобы шапка не раздувалась
   var GROUPS = [
-    { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library"] },
+    { id: "codex", label: "Кодекс",     rune: "ᛜ", keys: ["init", "tree", "worlds", "chars", "runes", "chrono", "blog", "woy", "library", "inv"] },
     { id: "forge", label: "Мастерская", rune: "ᚦ", gm: true, keys: ["names", "npc", "maps", "mcodex", "spot"] },
   ];
 
@@ -125,6 +126,7 @@
     if (key === "blog")   return "blog.html?role=" + role + cp;
     if (key === "woy")    return "wheel-of-year.html?role=" + role + cp;
     if (key === "library") return "library.html?role=" + role + cp;
+    if (key === "inv")    return "inventory.html?role=" + role + cp;
     if (key === "npc")    return "npc-gen.html?role=" + role + cp;
     if (key === "names")  return "name-gen.html?role=" + role + cp;
     if (key === "maps")   return "maps-plans.html?role=" + role + cp;
