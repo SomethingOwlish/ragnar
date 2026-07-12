@@ -31,14 +31,58 @@ button{font-family:inherit; cursor:pointer;}
 .bar{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px; color:var(--muted); font-size:13px;}
 .bar b{color:var(--ink);}
 .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:16px;}
+/* тумблер плотности: Портрет (сетка) / Реестр (лента строк) — единый
+   компонент, активный сегмент залит --bronze с текстом --on-ink (§0.6) */
+.dens-toggle{display:inline-flex; background:var(--surf2); border:1px solid var(--line); border-radius:9px; padding:2px;}
+.dens-opt{background:none; border:none; color:var(--muted); font-size:12px; letter-spacing:.03em; padding:5px 13px; border-radius:7px;
+  transition:color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);}
+.dens-opt.on{background:var(--bronze); color:var(--on-ink); font-weight:600;}
+.dens-opt:not(.on):hover{color:var(--bronze);}
+/* реестр — компактная лента строк */
+.registry{display:flex; flex-direction:column; gap:7px;}
+.rrow{display:grid; grid-template-columns:32px minmax(150px,1.5fr) 120px 92px minmax(140px,1fr) auto; align-items:center; gap:14px;
+  background:var(--surf); border:1px solid var(--line); border-top-color:color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius:10px; padding:9px 14px; cursor:pointer; box-shadow:var(--shadow-1);
+  transition:border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), box-shadow var(--dur-2) var(--ease), transform var(--dur-2) var(--ease);}
+.rrow:hover{border-color:var(--line-warm); background:var(--surf2); box-shadow:var(--shadow-2); transform:translateY(-2px);}
+.rrow:active{transform:translateY(0); box-shadow:var(--shadow-1);}
+.rsig{width:32px; height:32px; border-radius:8px; background:var(--inset); border:1px solid var(--line); overflow:hidden; display:flex; align-items:center; justify-content:center;}
+.rsig img{width:100%; height:100%; object-fit:cover;}
+.rsig .rune{font-size:16px; color:var(--steel-soft);}
+.rmain{min-width:0;}
+.rnm-line{display:flex; align-items:baseline; gap:8px;}
+.rnm{font-family:var(--disp); font-size:15.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.rrunes{display:inline-flex; gap:5px; flex:none;}
+.rrunes .rg{font-family:var(--rune); font-size:13px; cursor:help;}
+.rrunes .rg.good{color:var(--steel);}
+.rrunes .rg.bad{color:var(--ember);}
+.rcc{font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.rfork .fork-state.compact{margin:0; font-size:11px;}
+.del-btn.mini{margin:0; padding:5px 9px; font-size:12px; line-height:1;}
+@media (max-width:720px){
+  .rrow{grid-template-columns:32px 1fr auto; row-gap:8px;}
+  .rrow .rrank, .rrow .shwrap.mini{grid-column:2 / -1;}
+  .rrow .rfork{grid-column:2 / -1;}
+}
 .pc{background:var(--surf); border:1px solid var(--line); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .12s, background .12s; position:relative;}
 .pc:hover{border-color:var(--line-warm); background:var(--surf2);}
 .pc .h{display:flex; gap:12px; align-items:flex-start;}
-.pc .av{width:54px; height:64px; flex:none; border-radius:8px; background:var(--surf2); border:1px solid var(--line); overflow:hidden; display:flex; align-items:center; justify-content:center; color:var(--faint);}
+.pc .av{width:54px; height:64px; flex:none; border-radius:8px; background:var(--inset); border:1px solid var(--line); overflow:hidden; display:flex; align-items:center; justify-content:center; color:var(--faint);}
+.pc .av .rune{color:var(--steel-soft);}
 .pc .av img{width:100%; height:100%; object-fit:cover;}
 .pc .nm{font-family:var(--disp); font-size:18px; font-weight:600;}
 .pc .cc{font-size:12px; color:var(--muted);}
-.pc .rk{font-family:var(--disp); font-size:13px; color:var(--steel); margin-top:3px;}
+/* ранг — дискретная лесенка из 7 сегментов (Смертный→Бог), закрашены
+   до текущего ранга --steel-soft, дальше --inset; метка ранга --steel */
+.rank{margin-top:5px;}
+.rank-top{display:flex; align-items:baseline; gap:8px;}
+.rank-label{font-family:var(--disp); font-size:13px; color:var(--steel);}
+.rank-adv{font-family:var(--mono); font-size:10px; letter-spacing:.05em; color:var(--faint);}
+.ladder{display:flex; gap:3px; margin-top:5px;}
+.ladder .seg{flex:1; height:5px; border-radius:2px; background:var(--inset); transition:background var(--dur-1) var(--ease);}
+.ladder .seg.on{background:var(--steel-soft);}
+.ladder.mini{margin-top:4px;}
+.ladder.mini .seg{height:4px;}
 .pc .open-hint{position:absolute; top:13px; right:14px; color:var(--faint); font-size:13px; letter-spacing:.04em;}
 .pc:hover .open-hint{color:var(--bronze);}
 /* счастливая / несчастливая руна */
@@ -47,20 +91,24 @@ button{font-family:inherit; cursor:pointer;}
 .rchip:hover{border-color:var(--line-warm);}
 .rchip .rl{font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint);}
 .rchip .rb{display:flex; align-items:baseline; gap:6px;}
-.rchip .rg{font-family:var(--rune); font-size:15px; color:var(--bronze);}
+.rchip .rg{font-family:var(--rune); font-size:15px; color:var(--steel);}
 .rchip .rn{font-size:12.5px; color:var(--ink); font-weight:600;}
 .rchip.bad .rg{color:var(--ember);}
-.rchip.good{border-color:var(--line-warm);}
+.rchip.good{border-color:var(--steel-soft);}
+.rchip.bad{border-color:var(--line-warm);}
 .rpop{position:absolute; top:calc(100% + 6px); left:0; z-index:20; width:240px; background:var(--surf2); border:1px solid var(--line-warm); border-radius:10px; padding:10px 12px; box-shadow:var(--shadow-2); display:flex; flex-direction:column; gap:5px; cursor:default;}
 .rpop .pt{font-family:var(--disp); color:var(--bronze); font-size:13.5px; display:flex; align-items:center; gap:7px;}
 .rpop .pt .rune{font-size:16px;}
 .rpop .pd{font-size:11.5px; color:var(--muted); line-height:1.5;}
 .rmissing{color:var(--faint); font-size:11.5px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line-soft);}
-.shline{display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line-soft);}
+.shwrap{display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line-soft);}
+.shwrap.mini{margin-top:0; padding-top:0; border-top:none; flex-direction:column; align-items:flex-start; gap:4px;}
 .dots{display:flex; gap:3px;}
 .dot{width:11px; height:11px; border-radius:3px; background:var(--surf2); border:1px solid var(--line);}
 .dot.on{background:var(--ember); border-color:var(--bronze);}
+.shwrap.mini .dot{width:9px; height:9px;}
 .shtxt{font-size:12px; color:var(--muted);}
+.shwrap.mini .shtxt{font-size:10px; letter-spacing:.03em;}
 .shtxt b{color:var(--ember); font-family:var(--mono);}
 .node{font-size:12px; color:var(--muted); margin-top:10px;}
 .node b{color:var(--ink);}
@@ -326,6 +374,53 @@ const RANKS = [
   { name: "Витязь", min: 13 }, { name: "Полубог", min: 18 }, { name: "Ас", min: 23 }, { name: "Бог", min: 28 },
 ];
 const tierOf = (n) => { let r = RANKS[0]; for (const k of RANKS) if (n >= k.min) r = k; return r.name; };
+const rankIndexOf = (n) => { let idx = 0; RANKS.forEach((k, i) => { if ((n || 0) >= k.min) idx = i; }); return idx; };
+
+// действия над героем — общие для карточки и строки реестра
+async function deleteChar(campaign, c) {
+  if (!confirm("Удалить героя «" + (c.name || "без имени") + "» из кампании? Это необратимо.")) return;
+  try { await db.collection("campaigns").doc(campaign).collection("characters").doc(c.id).delete(); }
+  catch (e) { alert("Не удалось удалить: " + e.message); }
+}
+async function clearForkOf(campaign, c) {
+  try { await db.collection("campaigns").doc(campaign).collection("characters").doc(c.id).set({ nextFork: null }, { merge: true }); }
+  catch (e) { alert(e.message); }
+}
+
+/* ====== Общие представления героя: лесенка ранга · осколки · развилка ====== */
+function RankLadder({ advances, mini }) {
+  const idx = rankIndexOf(advances);
+  return (
+    <div className="rank">
+      <div className="rank-top"><span className="rank-label">{RANKS[idx].name}</span><span className="rank-adv">адв. {advances || 0}</span></div>
+      <div className={"ladder" + (mini ? " mini" : "")} title={RANKS[idx].name + " · продвижений " + (advances || 0)}>
+        {RANKS.map((r, i) => <span key={i} className={"seg" + (i <= idx ? " on" : "")} title={r.name} />)}
+      </div>
+    </div>
+  );
+}
+function Shards({ n, mini }) {
+  return (
+    <div className={"shwrap" + (mini ? " mini" : "")}>
+      <div className="dots">{Array.from({ length: 9 }).map((_, i) => <span key={i} className={"dot" + (i < (n || 0) ? " on" : "")} />)}</div>
+      <span className="shtxt">осколков <b>{n || 0}</b>/9</span>
+    </div>
+  );
+}
+function ForkState({ nf, onClear, compact }) {
+  const cls = "fork-state" + (compact ? " compact" : "");
+  if (nf && nf.options) {
+    const picked = typeof nf.chosen === "number";
+    const label = picked && nf.options[nf.chosen] ? (nf.options[nf.chosen].title || nf.options[nf.chosen].type) : "?";
+    return (
+      <div className={cls}>
+        развилка выдана{picked ? <span className="picked"> · выбрал «{label}»</span> : " · ждёт выбора"}
+        {onClear && <button className="fork-clear" onClick={onClear} title="убрать развилку">×</button>}
+      </div>
+    );
+  }
+  return <div className={cls + " none"}>развилка не выдана</div>;
+}
 
 // Пароль ведущей — не для секретности, а чтобы игрок не зашёл в панель по ошибке.
 // Хэшируем (SHA-256 с солью-кодом), храним хэш в Firestore config/gm.
@@ -350,6 +445,8 @@ function App() {
   const [openChar, setOpenChar] = useState(null);
   const [svgCards, setSvgCards] = useState([]);
   const [stage, setStage] = useState({ cardId: null, notes: {} });
+  const [density, setDensity] = useState(() => { try { return localStorage.getItem("ragnarok-gm-density") || "portrait"; } catch (e) { return "portrait"; } });
+  const setDens = (d) => { setDensity(d); try { localStorage.setItem("ragnarok-gm-density", d); } catch (e) {} };
 
   useEffect(() => {
     if (!joined || !db) return;
@@ -471,9 +568,22 @@ function App() {
           <span className="tag">кампания · {campaign}</span>
         </div>
       </div>
-      <div className="bar"><b>{chars.length}</b> {chars.length === 1 ? "герой" : "героев"} · обновляется вживую {danger && <span style={{ color: "var(--red)" }}>· режим удаления включён</span>}{err && <span style={{ color: "var(--red)" }}>· {err}</span>}</div>
+      <div className="bar">
+        <span><b>{chars.length}</b> {chars.length === 1 ? "герой" : "героев"} · обновляется вживую {danger && <span style={{ color: "var(--red)" }}>· режим удаления включён</span>}{err && <span style={{ color: "var(--red)" }}>· {err}</span>}</span>
+        {chars.length > 0 && (
+          <>
+            <span style={{ flex: 1 }} />
+            <div className="dens-toggle" role="group" aria-label="Плотность">
+              <button className={"dens-opt" + (density === "portrait" ? " on" : "")} onClick={() => setDens("portrait")}>Портрет</button>
+              <button className={"dens-opt" + (density === "registry" ? " on" : "")} onClick={() => setDens("registry")}>Реестр</button>
+            </div>
+          </>
+        )}
+      </div>
       {chars.length === 0 ? (
         <div className="empty">Пока никто не вошёл. Дай игрокам ссылку на карту и код «{campaign}».</div>
+      ) : density === "registry" ? (
+        <div className="registry">{chars.map((c) => <PRow key={c.id} c={c} campaign={campaign} danger={danger} runeMeans={runeMeans} onOpen={() => setOpenChar(c)} />)}</div>
       ) : (
         <div className="grid">{chars.map((c) => <PCard key={c.id} c={c} campaign={campaign} danger={danger} runeMeans={runeMeans} onOpen={() => setOpenChar(c)} />)}</div>
       )}
@@ -505,29 +615,19 @@ function RuneChip({ kind, rune, meaning }) {
 }
 
 function PCard({ c, campaign, danger, runeMeans, onOpen }) {
-  const tier = tierOf(c.advances || 0);
-  const shards = c.shards || 0;
   const rd = runeOfDate(c.born);
-  const delChar = async (e) => {
-    e.stopPropagation();
-    if (!confirm("Удалить героя «" + (c.name || "без имени") + "» из кампании? Это необратимо.")) return;
-    try { await db.collection("campaigns").doc(campaign).collection("characters").doc(c.id).delete(); }
-    catch (e) { alert("Не удалось удалить: " + e.message); }
-  };
-  const clearFork = async (e) => {
-    e.stopPropagation();
-    try { await db.collection("campaigns").doc(campaign).collection("characters").doc(c.id).set({ nextFork: null }, { merge: true }); } catch (e) { alert(e.message); }
-  };
+  const delChar = (e) => { e.stopPropagation(); deleteChar(campaign, c); };
+  const clearFork = (e) => { e.stopPropagation(); clearForkOf(campaign, c); };
   const nf = c.nextFork;
   return (
     <div className="pc" onClick={onOpen} title="открыть карту героя">
       <span className="open-hint">⤢ карта</span>
       <div className="h">
         <div className="av">{c.img ? <img src={c.img} alt="" /> : <span className="rune" style={{ fontSize: 22 }}>ᛗ</span>}</div>
-        <div>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div className="nm">{c.name || "без имени"}</div>
           {c.concept && <div className="cc">{c.concept}</div>}
-          <div className="rk">{tier} · адв. {c.advances || 0}</div>
+          <RankLadder advances={c.advances} />
         </div>
       </div>
 
@@ -540,10 +640,7 @@ function PCard({ c, campaign, danger, runeMeans, onOpen }) {
         <div className="rmissing">руны: укажи дату рождения в карте героя</div>
       )}
 
-      <div className="shline">
-        <div className="dots">{Array.from({ length: 9 }).map((_, i) => <span key={i} className={"dot" + (i < shards ? " on" : "")} />)}</div>
-        <span className="shtxt">осколков <b>{shards}</b>/9</span>
-      </div>
+      <Shards n={c.shards} />
       {c.node && <div className="node">узел: <b>{c.node}</b></div>}
       {c.notes && c.notes.length > 0 && (
         <div style={{ marginTop: 8, fontSize: 11.5, color: "var(--muted)", lineHeight: 1.4 }}>
@@ -553,16 +650,40 @@ function PCard({ c, campaign, danger, runeMeans, onOpen }) {
       )}
 
       <div className="fork-gm">
-        {nf && nf.options ? (
-          <div className="fork-state">
-            развилка выдана{typeof nf.chosen === "number" ? <span className="picked"> · выбрал «{nf.options[nf.chosen] ? (nf.options[nf.chosen].title || nf.options[nf.chosen].type) : "?"}»</span> : " · ждёт выбора"}
-            <button className="fork-clear" onClick={clearFork} title="убрать развилку">×</button>
-          </div>
-        ) : <div className="fork-state none">развилка не выдана</div>}
+        <ForkState nf={nf} onClear={clearFork} />
         <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 6 }}>Развилки выдаёт «Древо судеб».</div>
       </div>
 
       {danger && <button className="del-btn" onClick={delChar}>Удалить героя</button>}
+    </div>
+  );
+}
+
+/* компактная строка реестра — та же информация, что в карточке, одной лентой */
+function PRow({ c, campaign, danger, runeMeans, onOpen }) {
+  const rd = runeOfDate(c.born);
+  const nf = c.nextFork;
+  const delChar = (e) => { e.stopPropagation(); deleteChar(campaign, c); };
+  const clearFork = (e) => { e.stopPropagation(); clearForkOf(campaign, c); };
+  return (
+    <div className="rrow" onClick={onOpen} title="открыть карту героя">
+      <div className="rsig">{c.img ? <img src={c.img} alt="" /> : <span className="rune">ᛗ</span>}</div>
+      <div className="rmain">
+        <div className="rnm-line">
+          <span className="rnm">{c.name || "без имени"}</span>
+          {rd && (
+            <span className="rrunes">
+              <span className="rg good" title={"удачная — " + rd.good[1]}>{rd.good[0]}</span>
+              <span className="rg bad" title={"неудачная — " + rd.bad[1]}>{rd.bad[0]}</span>
+            </span>
+          )}
+        </div>
+        {c.concept && <div className="rcc">{c.concept}</div>}
+      </div>
+      <div className="rrank"><RankLadder advances={c.advances} mini /></div>
+      <Shards n={c.shards} mini />
+      <div className="rfork"><ForkState nf={nf} onClear={clearFork} compact /></div>
+      {danger && <button className="del-btn mini" onClick={delChar} title="удалить героя">✕</button>}
     </div>
   );
 }
