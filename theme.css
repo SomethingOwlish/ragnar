@@ -42,6 +42,12 @@ html[data-theme="dark"]{
   --ink:#ECEFF4; --muted:#AEB6C4; --faint:#727C8D;
   --steel:#88C0D0; --steel-soft:#81A1C1; --steel-deep:#5E81AC;
   --bronze:#E6C583; --bronze-deep:#A17E3E; --ember:#D6926B; --red:#BF616A;
+  /* категориальная палитра данных (графы кланов/связей, карта миров).
+     Nord Aurora+Frost — различимые тона; ядро-акценты steel/steel-soft/
+     steel-deep/bronze/ember/red страницы берут напрямую, здесь только
+     недостающие оттенки. Перекрашиваются по темам, держим WCAG-AA. */
+  --c-green:#A3BE8C; --c-teal:#8FBCBB; --c-purple:#B48EAD; --c-slate:#8399B4;
+  --c-ice:#A8C6E2; --c-magenta:#CA8FD1; --c-pink:#D38BA1; --c-olive:#9DAE66; --c-brown:#C0906A;
   --choice-on:#3B4252;
   --on-ink:#22272E;          /* текст на залитых steel/bronze кнопках */
   --on-steel:#22272E;        /* текст на ярком «фрост»-steel в тёмной теме */
@@ -67,6 +73,9 @@ html[data-theme="light"]{
   --ink:#2E3440; --muted:#4C566A; --faint:#7C8698;
   --steel:#48709F; --steel-soft:#6688B0; --steel-deep:#3A6090;
   --bronze:#9C7628; --bronze-deep:#7A5A1C; --ember:#BE7B45; --red:#A8483F;
+  /* категориальная палитра — затемнённые варианты для читаемости на светлом */
+  --c-green:#5C7345; --c-teal:#3F7C74; --c-purple:#835F80; --c-slate:#4E6B87;
+  --c-ice:#4C7098; --c-magenta:#93459C; --c-pink:#9E4761; --c-olive:#5C6B31; --c-brown:#855833;
   --choice-on:#E9F0F7;
   --on-ink:#FFFFFF;
   --on-steel:#FFFFFF;
@@ -90,6 +99,9 @@ html[data-theme="skog"]{
   --ink:#EAF1E8; --muted:#A6B4A4; --faint:#6B7A69;
   --steel:#8FC9A6; --steel-soft:#79AE92; --steel-deep:#4F8C6C;
   --bronze:#E3C07A; --bronze-deep:#9C7C3E; --ember:#D6895B; --red:#C56A63;
+  /* категориальная палитра — с зелёным сдвигом под лесную тему */
+  --c-green:#A9CF8A; --c-teal:#7FC4B3; --c-purple:#BA9CC2; --c-slate:#8AA3B2;
+  --c-ice:#ABC8D7; --c-magenta:#CD95D0; --c-pink:#D69BA7; --c-olive:#A9BA79; --c-brown:#C69C6C;
   --choice-on:#2E3D34;
   --on-ink:#1C2621; --on-steel:#152019;
   --tip-bg:#141B16; --tip-ink:#EAF1E8; --niche-idle:#5E6B4A;
