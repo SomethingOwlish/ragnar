@@ -1,0 +1,23 @@
+# Secrets / environment — никогда не коммитим
+.env
+.env.*
+*.env
+# Firebase service-account / admin credentials
+serviceAccount*.json
+service-account*.json
+*-firebase-adminsdk-*.json
+firebase-adminsdk-*.json
+*.pem
+*.key
+*.p12
+*.p8
+credentials.json
+secrets.json
+
+# Cloudflare
+.dev.vars
+.wrangler/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
